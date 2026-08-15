@@ -3,16 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Developer Login & Dashboard | OTP88</title>
-  <meta name="description" content="Sign in to your OTP88 Developer Console. Manage API keys, monitor real-time delivery logs, configure WhatsApp and SMS channels, and top up credits.">
+  <title>OTP88 Platform — React Developer & Admin Console</title>
+  <meta name="description" content="OTP88 React Console. Manage API keys, monitor real-time delivery logs, simulate multi-channel OTPs, and control platform routes.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/css/style.css">
+  
+  <!-- React 18 & Babel for Component Execution -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
   <style>
     .auth-page-wrapper {
-      min-height: calc(100vh - var(--header-h));
+      min-height: calc(100vh - 160px);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -20,14 +26,15 @@
     }
     .auth-card {
       width: 100%;
-      max-width: 460px;
-      background: rgba(15, 23, 42, 0.85);
+      max-width: 480px;
+      background: rgba(15, 23, 42, 0.90);
       border: 1px solid var(--border-glow);
       border-radius: var(--radius-lg);
       padding: 36px;
-      backdrop-filter: blur(20px);
+      backdrop-filter: blur(8px);
       box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), var(--glow-emerald);
       position: relative;
+      transform: translateZ(0);
     }
     .auth-tab-group {
       display: grid;
@@ -104,442 +111,14 @@
       background: rgba(16, 185, 129, 0.1);
       transform: scale(1.05);
     }
-    .dashboard-panel {
-      display: none;
-      animation: fadeIn 0.3s ease;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
   </style>
 </head>
 <body>
 
-  <!-- Site Navigation Header -->
-  <header class="site-header" id="main-header">
-    <div class="container nav-container">
-      <a href="/" class="logo-brand" id="header-logo">
-        <svg class="logo-icon-svg" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="brandGrad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stop-color="#10B981" />
-              <stop offset="50%" stop-color="#06B6D4" />
-              <stop offset="100%" stop-color="#8B5CF6" />
-            </linearGradient>
-            <linearGradient id="shieldBg" x1="20" y1="2" x2="20" y2="38" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stop-color="#0F172A" />
-              <stop offset="100%" stop-color="#050811" />
-            </linearGradient>
-            <linearGradient id="boltGrad" x1="14" y1="8" x2="26" y2="30" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stop-color="#34D399" />
-              <stop offset="60%" stop-color="#38BDF8" />
-              <stop offset="100%" stop-color="#818CF8" />
-            </linearGradient>
-          </defs>
-          <path d="M20 3L35 8.5V19.5C35 28.2 28.6 34.5 20 37C11.4 34.5 5 28.2 5 19.5V8.5L20 3Z" fill="url(#shieldBg)" stroke="url(#brandGrad)" stroke-width="2" stroke-linejoin="round"/>
-          <path d="M20 5V35" stroke="url(#brandGrad)" stroke-width="1" stroke-opacity="0.15" stroke-dasharray="2 2"/>
-          <path d="M7 19.5H33" stroke="url(#brandGrad)" stroke-width="1" stroke-opacity="0.15"/>
-          <path d="M21.5 8.5L13 20H19.5L17.5 30.5L27 18H20.5L21.5 8.5Z" fill="url(#boltGrad)" stroke="#060913" stroke-width="0.8" stroke-linejoin="round"/>
-          <circle cx="21.5" cy="8.5" r="1.5" fill="#34D399"/>
-          <circle cx="27" cy="18" r="1.5" fill="#38BDF8"/>
-          <circle cx="17.5" cy="30.5" r="1.5" fill="#818CF8"/>
-        </svg>
-        <span>OTP<span class="text-gradient">88</span></span>
-      </a>
+  <!-- Pure React Root: Entire Application (Header, Console, Footer) Renders Here -->
+  <div id="root"></div>
 
-      <ul class="nav-links" id="nav-menu">
-        <li class="nav-item"><a href="/">Home</a></li>
-        <li class="nav-item"><a href="/products.html">Products & Solutions</a></li>
-        <li class="nav-item"><a href="/pricing.html">Transparent Pricing</a></li>
-        <li class="nav-item"><a href="/docs.html">API Docs</a></li>
-        <li class="nav-item"><a href="/about.html">About & Trust</a></li>
-      </ul>
-
-      <div class="header-actions">
-        <a href="/" class="btn btn-secondary btn-sm">← Back to Site</a>
-        <button class="mobile-menu-btn" id="mobile-toggle" aria-label="Toggle menu">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <main style="padding-top: var(--header-h);">
-    <div class="auth-page-wrapper">
-      
-      <!-- Login Container -->
-      <div class="auth-card" id="auth-container">
-        
-        <!-- Auth Form Section (Shown when logged out) -->
-        <div id="login-form-view">
-          <div style="text-align:center;margin-bottom:24px;">
-            <span class="badge-pill" style="margin-bottom:10px;">Developer Portal</span>
-            <h1 style="font-size:24px;margin-bottom:6px;">Sign In to OTP88</h1>
-            <p style="font-size:13px;color:var(--text-secondary);">Manage multi-channel credentials & live API gateways</p>
-          </div>
-
-          <!-- Auth Mode Switcher -->
-          <div class="auth-tab-group">
-            <button class="auth-tab active" id="tab-otp" onclick="switchAuthTab('otp')">WhatsApp / SMS OTP</button>
-            <button class="auth-tab" id="tab-email" onclick="switchAuthTab('email')">Email & Password</button>
-          </div>
-
-          <!-- OTP Form Tab -->
-          <div id="form-otp-view">
-            <!-- Step 1: Request OTP -->
-            <div id="otp-step-1">
-              <div class="auth-input-group">
-                <label class="auth-label" for="login-phone">Mobile Phone Number</label>
-                <input type="text" id="login-phone" class="auth-input" placeholder="+60123456789" value="+60123456789">
-              </div>
-
-              <div class="auth-input-group">
-                <label class="auth-label">Delivery Channel</label>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                  <button type="button" class="btn btn-primary btn-sm" id="btn-chan-wa" onclick="setLoginChannel('whatsapp')" style="padding:8px 6px;font-size:12px;">WhatsApp (Instant)</button>
-                  <button type="button" class="btn btn-secondary btn-sm" id="btn-chan-sms" onclick="setLoginChannel('sms')" style="padding:8px 6px;font-size:12px;">Direct SMS</button>
-                </div>
-              </div>
-
-              <button class="btn btn-primary" id="btn-send-login-otp" onclick="handleSendLoginOtp()" style="width:100%;margin-top:12px;">
-                <span>Send Verification Code</span>
-              </button>
-            </div>
-
-            <!-- Step 2: Enter 6-digit Code -->
-            <div id="otp-step-2" style="display:none;">
-              <div style="text-align:center;margin-bottom:12px;">
-                <span id="otp-target-display" style="font-size:13px;color:var(--text-emerald);font-weight:600;">Code sent to +60123456789</span>
-                <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">Enter the 6-digit authentication token below</p>
-              </div>
-
-              <div class="otp-digit-inputs">
-                <input type="text" maxlength="1" class="otp-digit-input" id="digit-0" autofocus>
-                <input type="text" maxlength="1" class="otp-digit-input" id="digit-1">
-                <input type="text" maxlength="1" class="otp-digit-input" id="digit-2">
-                <input type="text" maxlength="1" class="otp-digit-input" id="digit-3">
-                <input type="text" maxlength="1" class="otp-digit-input" id="digit-4">
-                <input type="text" maxlength="1" class="otp-digit-input" id="digit-5">
-              </div>
-
-              <button class="btn btn-primary" id="btn-verify-otp" onclick="handleVerifyLoginOtp()" style="width:100%;">
-                <span>Verify & Access Console</span>
-              </button>
-
-              <div style="display:flex;justify-content:space-between;margin-top:16px;font-size:12px;">
-                <button type="button" onclick="resetOtpSteps()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;">← Change Number</button>
-                <button type="button" onclick="handleSendLoginOtp()" style="background:none;border:none;color:var(--text-cyan);cursor:pointer;font-weight:600;">Resend Code</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Email / Password Tab -->
-          <div id="form-email-view" style="display:none;">
-            <form id="email-login-form" onsubmit="handleEmailLogin(event)">
-              <div class="auth-input-group">
-                <label class="auth-label" for="login-email">Developer Email</label>
-                <input type="email" id="login-email" class="auth-input" placeholder="developer@company.com" value="demo@otp88.com" required>
-              </div>
-
-              <div class="auth-input-group">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                  <label class="auth-label" for="login-password" style="margin-bottom:0;">Password</label>
-                  <a href="#" onclick="showToast('Password reset link sent to demo account.')" style="font-size:11px;color:var(--text-emerald);">Forgot?</a>
-                </div>
-                <input type="password" id="login-password" class="auth-input" placeholder="••••••••" value="demo1234" required>
-              </div>
-
-              <button type="submit" class="btn btn-primary" id="btn-email-login" style="width:100%;margin-top:8px;">
-                <span>Sign In with Email</span>
-              </button>
-
-              <button type="button" class="btn btn-secondary btn-sm" onclick="autofillDemoCreds()" style="width:100%;margin-top:10px;font-size:12px;">
-                <span>⚡ Auto-fill Demo Credentials</span>
-              </button>
-            </form>
-          </div>
-
-          <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border-subtle);text-align:center;font-size:12px;color:var(--text-muted);">
-            Don't have an enterprise account? 
-            <a href="#" data-open-modal="contact" style="color:var(--text-emerald);font-weight:600;">Get Free Credits</a>
-          </div>
-        </div>
-
-        <!-- Authenticated Dashboard View (Shown when logged in) -->
-        <div id="dashboard-view" class="dashboard-panel">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border-subtle);">
-            <div>
-              <div style="display:flex;align-items:center;gap:6px;">
-                <span class="live-dot"></span>
-                <span style="font-size:12px;color:var(--text-emerald);font-weight:700;">LIVE CONSOLE</span>
-              </div>
-              <h2 id="dash-user-name" style="font-size:18px;margin-top:2px;">Welcome, Developer</h2>
-            </div>
-            <button class="btn btn-secondary btn-sm" onclick="handleLogout()" style="padding:6px 12px;font-size:12px;">Sign Out</button>
-          </div>
-
-          <!-- Account Summary -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
-            <div style="background:rgba(255,255,255,0.03);padding:14px;border-radius:10px;border:1px solid var(--border-subtle);">
-              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;">Balance Credits</div>
-              <div id="dash-balance" style="font-size:22px;font-weight:800;color:var(--text-emerald);margin-top:4px;">$50.00</div>
-              <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">Pay-As-You-Go</div>
-            </div>
-            <div style="background:rgba(255,255,255,0.03);padding:14px;border-radius:10px;border:1px solid var(--border-subtle);">
-              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;">Active Tier</div>
-              <div id="dash-tier" style="font-size:16px;font-weight:700;color:var(--text-cyan);margin-top:8px;">Enterprise Direct</div>
-              <div style="font-size:11px;color:var(--text-emerald);margin-top:2px;">99.98% SLA Guaranteed</div>
-            </div>
-          </div>
-
-          <!-- API Key Section -->
-          <div style="margin-bottom:20px;">
-            <label class="auth-label">Production API Secret Key</label>
-            <div style="display:flex;gap:8px;">
-              <input type="text" id="dash-api-key" class="auth-input" style="font-family:var(--font-code);font-size:12px;" readonly value="otp_live_88a90184bcedf41">
-              <button class="btn btn-secondary btn-sm" onclick="copyApiKey()" style="padding:8px 14px;">Copy</button>
-            </div>
-          </div>
-
-          <!-- Quick Navigation Actions -->
-          <div style="display:flex;flex-direction:column;gap:10px;">
-            <a href="/docs.html#sandbox" class="btn btn-primary" style="width:100%;font-size:13px;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-              <span>Open Live API Sandbox</span>
-            </a>
-            <a href="/pricing.html" class="btn btn-secondary btn-sm" style="width:100%;font-size:13px;text-align:center;">
-              <span>View Global Carrier Rates & Simulator</span>
-            </a>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </main>
-
-  <!-- Global Toast Element -->
-  <div id="global-toast" class="toast"></div>
-
-  <!-- Scripts -->
-  <script src="/js/main.js"></script>
-  <script>
-    let currentAuthTab = 'otp';
-    let selectedOtpChannel = 'whatsapp';
-
-    document.addEventListener('DOMContentLoaded', () => {
-      checkExistingSession();
-      setupOtpInputHandlers();
-    });
-
-    function checkExistingSession() {
-      const stored = localStorage.getItem('otp88_session');
-      if (stored) {
-        try {
-          const user = JSON.parse(stored);
-          renderDashboard(user);
-        } catch (e) {
-          localStorage.removeItem('otp88_session');
-        }
-      }
-    }
-
-    function switchAuthTab(tab) {
-      currentAuthTab = tab;
-      document.getElementById('tab-otp').classList.toggle('active', tab === 'otp');
-      document.getElementById('tab-email').classList.toggle('active', tab === 'email');
-      document.getElementById('form-otp-view').style.display = tab === 'otp' ? 'block' : 'none';
-      document.getElementById('form-email-view').style.display = tab === 'email' ? 'block' : 'none';
-    }
-
-    function setLoginChannel(channel) {
-      selectedOtpChannel = channel;
-      const btnWa = document.getElementById('btn-chan-wa');
-      const btnSms = document.getElementById('btn-chan-sms');
-      if (channel === 'whatsapp') {
-        btnWa.className = 'btn btn-primary btn-sm';
-        btnSms.className = 'btn btn-secondary btn-sm';
-      } else {
-        btnWa.className = 'btn btn-secondary btn-sm';
-        btnSms.className = 'btn btn-primary btn-sm';
-      }
-    }
-
-    async function handleSendLoginOtp() {
-      const phoneInput = document.getElementById('login-phone');
-      const phoneVal = phoneInput ? phoneInput.value.trim() : '';
-      if (!phoneVal) {
-        showToast('Please enter a valid phone number', 'error');
-        return;
-      }
-
-      const btn = document.getElementById('btn-send-login-otp');
-      if (btn) btn.innerText = 'Routing Code...';
-
-      try {
-        const res = await fetch('/api/auth/send-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phoneNumber: phoneVal, channel: selectedOtpChannel })
-        });
-        const data = await res.json();
-        if (data.success) {
-          showToast(`Test Code: ${data.otpPreview} (${data.channel.toUpperCase()})`, 'success');
-          document.getElementById('otp-step-1').style.display = 'none';
-          document.getElementById('otp-step-2').style.display = 'block';
-          document.getElementById('otp-target-display').innerText = `Code sent to ${phoneVal} via ${selectedOtpChannel.toUpperCase()}`;
-          
-          // Auto fill demo code for frictionless testing
-          setTimeout(() => {
-            const digits = data.otpPreview.split('');
-            digits.forEach((d, idx) => {
-              const el = document.getElementById(`digit-${idx}`);
-              if (el) el.value = d;
-            });
-          }, 400);
-        }
-      } catch (err) {
-        showToast('Failed to connect to OTP gateway', 'error');
-      } finally {
-        if (btn) btn.innerText = 'Send Verification Code';
-      }
-    }
-
-    function setupOtpInputHandlers() {
-      for (let i = 0; i < 6; i++) {
-        const input = document.getElementById(`digit-${i}`);
-        if (!input) continue;
-
-        input.addEventListener('input', (e) => {
-          if (e.target.value && i < 5) {
-            const next = document.getElementById(`digit-${i + 1}`);
-            if (next) next.focus();
-          }
-        });
-
-        input.addEventListener('keydown', (e) => {
-          if (e.key === 'Backspace' && !e.target.value && i > 0) {
-            const prev = document.getElementById(`digit-${i - 1}`);
-            if (prev) prev.focus();
-          }
-        });
-
-        input.addEventListener('paste', (e) => {
-          e.preventDefault();
-          const pasteData = (e.clipboardData || window.clipboardData).getData('text').trim();
-          if (pasteData && pasteData.length === 6) {
-            pasteData.split('').forEach((char, idx) => {
-              const digitEl = document.getElementById(`digit-${idx}`);
-              if (digitEl) digitEl.value = char;
-            });
-            handleVerifyLoginOtp();
-          }
-        });
-      }
-    }
-
-    async function handleVerifyLoginOtp() {
-      const phoneVal = document.getElementById('login-phone')?.value || '+60123456789';
-      let code = '';
-      for (let i = 0; i < 6; i++) {
-        code += document.getElementById(`digit-${i}`)?.value || '';
-      }
-
-      if (code.length < 6) {
-        showToast('Please enter full 6-digit code', 'error');
-        return;
-      }
-
-      const btn = document.getElementById('btn-verify-otp');
-      if (btn) btn.innerText = 'Authenticating...';
-
-      try {
-        const res = await fetch('/api/auth/verify-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phoneNumber: phoneVal, otpCode: code })
-        });
-        const data = await res.json();
-        if (data.success) {
-          showToast(data.message, 'success');
-          localStorage.setItem('otp88_session', JSON.stringify(data.user));
-          renderDashboard(data.user);
-        } else {
-          showToast(data.error || 'Authentication failed', 'error');
-        }
-      } catch (err) {
-        showToast('Network error during verification', 'error');
-      } finally {
-        if (btn) btn.innerText = 'Verify & Access Console';
-      }
-    }
-
-    function resetOtpSteps() {
-      document.getElementById('otp-step-2').style.display = 'none';
-      document.getElementById('otp-step-1').style.display = 'block';
-    }
-
-    async function handleEmailLogin(e) {
-      e.preventDefault();
-      const email = document.getElementById('login-email').value;
-      const password = document.getElementById('login-password').value;
-
-      const btn = document.getElementById('btn-email-login');
-      if (btn) btn.innerText = 'Verifying Credentials...';
-
-      try {
-        const res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        });
-        const data = await res.json();
-        if (data.success) {
-          showToast(data.message, 'success');
-          localStorage.setItem('otp88_session', JSON.stringify(data.user));
-          renderDashboard(data.user);
-        } else {
-          showToast(data.error || 'Invalid credentials', 'error');
-        }
-      } catch (err) {
-        showToast('Login failed. Please try again.', 'error');
-      } finally {
-        if (btn) btn.innerText = 'Sign In with Email';
-      }
-    }
-
-    function autofillDemoCreds() {
-      document.getElementById('login-email').value = 'demo@otp88.com';
-      document.getElementById('login-password').value = 'demo1234';
-      showToast('Demo developer credentials populated!');
-    }
-
-    function renderDashboard(user) {
-      document.getElementById('login-form-view').style.display = 'none';
-      const dash = document.getElementById('dashboard-view');
-      dash.style.display = 'block';
-
-      document.getElementById('dash-user-name').innerText = `Welcome, ${user.name || user.email || 'Developer'}`;
-      document.getElementById('dash-balance').innerText = `$${(user.balanceUsd || 50).toFixed(2)}`;
-      document.getElementById('dash-api-key').value = user.apiKeyLive || 'otp_live_88019a84bce12';
-    }
-
-    function handleLogout() {
-      localStorage.removeItem('otp88_session');
-      document.getElementById('dashboard-view').style.display = 'none';
-      document.getElementById('login-form-view').style.display = 'block';
-      resetOtpSteps();
-      showToast('You have signed out.');
-    }
-
-    function copyApiKey() {
-      const input = document.getElementById('dash-api-key');
-      if (input) {
-        navigator.clipboard.writeText(input.value).then(() => {
-          showToast('API Key copied to clipboard!', 'success');
-        });
-      }
-    }
-  </script>
+  <!-- React 18 Application Bundle -->
+  <script type="text/babel" src="/js/react-app/App.jsx"></script>
 </body>
 </html>
