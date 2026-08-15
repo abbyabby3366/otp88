@@ -84,7 +84,7 @@
     <!-- Docs Layout -->
     <section class="section" style="padding-top:0;">
       <div class="container">
-        <div style="display:grid;grid-template-columns:260px 1fr;gap:40px;">
+        <div style="display:grid;grid-template-columns:260px 1fr;gap:40px;align-items:start;">
           
           <!-- Sidebar Nav -->
           <div style="position:sticky;top:100px;height:fit-content;">
@@ -299,17 +299,103 @@
   </main>
 
   <!-- Site Footer -->
-  <footer class="site-footer">
+  <footer class="site-footer" id="main-footer">
     <div class="container">
+      <div class="footer-grid">
+        <div>
+          <div class="logo-brand" style="margin-bottom:16px;">
+            <span>OTP<span class="text-gradient">88</span></span>
+          </div>
+          <p style="font-size:14px;color:var(--text-secondary);line-height:1.6;margin-bottom:20px;">
+            The developer-first Multi-Channel OTP platform. Clean REST endpoints, unified payloads, smart waterfall fallback, and high deliverability.
+          </p>
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-emerald);">
+            <span class="live-dot"></span>
+            <span>All Global Routes Operational</span>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="footer-col-title">Products</h4>
+          <ul class="footer-links">
+            <li><a href="/products.html#whatsapp">WhatsApp OTP</a></li>
+            <li><a href="/products.html#telegram">Telegram Gateway</a></li>
+            <li><a href="/products.html#sms">Direct SMS Verify</a></li>
+            <li><a href="/products.html#voice">Voice OTP Calls</a></li>
+            <li><a href="/products.html#waterfall">Smart Waterfall Engine</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="footer-col-title">Resources & Docs</h4>
+          <ul class="footer-links">
+            <li><a href="/docs.html">API Reference</a></li>
+            <li><a href="/docs.html#sdks">SDKs & Libraries</a></li>
+            <li><a href="/pricing.html">Global Rate Table</a></li>
+            <li><a href="/pricing.html#calculator">ROI Cost Calculator</a></li>
+            <li><a href="/about.html#security">Security & Compliance</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="footer-col-title">Company</h4>
+          <ul class="footer-links">
+            <li><a href="/about.html">About OTP88</a></li>
+            <li><a href="/about.html#carriers">Carrier Network Map</a></li>
+            <li><a href="/about.html#sla">99.98% SLA Policy</a></li>
+            <li><a href="#" data-open-modal="contact">Contact Sales</a></li>
+            <li><a href="#" data-open-modal="contact">Developer Support (24/7)</a></li>
+          </ul>
+        </div>
+      </div>
+
       <div class="footer-bottom">
         <div>© 2026 OTP88 Platform. All rights reserved. Developer-First CPaaS.</div>
         <div style="display:flex;gap:20px;">
           <a href="/about.html#privacy">Privacy Policy</a>
           <a href="/about.html#terms">Terms of Service</a>
+          <a href="/about.html#security">ISO 27001 Certified</a>
         </div>
       </div>
     </div>
   </footer>
+
+  <!-- Contact Modal -->
+  <div class="modal-overlay" id="contact-modal">
+    <div class="modal-content">
+      <button class="modal-close-btn" aria-label="Close modal">&times;</button>
+      <div style="margin-bottom:20px;">
+        <span class="badge-pill">Free Tier Available</span>
+        <h3 style="font-size:24px;margin-top:12px;">Get 1,000 Free Credits</h3>
+        <p style="color:var(--text-secondary);font-size:14px;margin-top:6px;">Connect with an infrastructure engineer or get instant sandbox access.</p>
+      </div>
+
+      <form id="lead-contact-form">
+        <div style="margin-bottom:14px;">
+          <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Work Email</label>
+          <input type="email" id="lead-email" required placeholder="name@company.com" class="calc-select" style="padding:10px 14px;">
+        </div>
+
+        <div style="margin-bottom:14px;">
+          <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Full Name / Company</label>
+          <input type="text" id="lead-name" required placeholder="Alex Lee (Fintech Corp)" class="calc-select" style="padding:10px 14px;">
+        </div>
+
+        <div style="margin-bottom:20px;">
+          <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Estimated Monthly OTP Volume</label>
+          <select id="lead-volume" class="calc-select" style="padding:10px 14px;">
+            <option value="10,000">1,000 - 25,000 / month (Startup)</option>
+            <option value="100,000" selected>25,000 - 250,000 / month (Growth)</option>
+            <option value="1,000,000">250,000+ / month (Enterprise Tier)</option>
+          </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">
+          <span>Submit Request & Generate API Key</span>
+        </button>
+      </form>
+    </div>
+  </div>
 
   <script src="/js/main.js"></script>
   <script src="/js/docs.js"></script>

@@ -10,11 +10,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/css/style.css">
-  
-  <!-- React 18 & Babel for Component Execution -->
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="stylesheet" href="/css/console-theme.css">
+
 
   <style>
     .auth-page-wrapper {
@@ -113,12 +110,13 @@
     }
   </style>
 </head>
-<body>
+<body class="theme-dark">
 
   <!-- Pure React Root: Entire Application (Header, Console, Footer) Renders Here -->
   <div id="root"></div>
 
-  <!-- React 18 Application Bundle -->
-  <script type="text/babel" src="/js/react-app/App.jsx"></script>
+  <!-- Vite Production Bundle -->
+  <script src="/dist/app.bundle.js"></script>
 </body>
 </html>
+

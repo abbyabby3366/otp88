@@ -9,29 +9,29 @@ document.addEventListener('DOMContentLoaded', () => {
   initScrollAnimations();
 });
 
-// 1. Navigation & Scroll Effects
+// 1. Navigation & Header Sentinel Effects (Zero CPU Scroll Overhead)
 function initNavbar() {
   const header = document.querySelector('.site-header');
   const mobileBtn = document.querySelector('.mobile-menu-btn');
   const navLinks = document.querySelector('.nav-links');
 
-  // Optimized scroll effect with rAF & state tracking
-  let isScrolled = false;
-  let scrollTicking = false;
+  // Zero-CPU IntersectionObserver for sticky header styling
+  if ('IntersectionObserver' in window) {
+    const sentinel = document.createElement('div');
+    sentinel.id = 'header-scroll-sentinel';
+    sentinel.style.cssText = 'position:absolute;top:0;left:0;width:1px;height:24px;pointer-events:none;opacity:0;';
+    document.body.prepend(sentinel);
 
-  window.addEventListener('scroll', () => {
-    if (!scrollTicking) {
-      window.requestAnimationFrame(() => {
-        const shouldBeScrolled = window.scrollY > 20;
-        if (shouldBeScrolled !== isScrolled) {
-          isScrolled = shouldBeScrolled;
-          header?.classList.toggle('scrolled', isScrolled);
-        }
-        scrollTicking = false;
-      });
-      scrollTicking = true;
-    }
-  }, { passive: true });
+    const observer = new IntersectionObserver(([entry]) => {
+      header?.classList.toggle('scrolled', !entry.isIntersecting);
+    }, { threshold: 0 });
+
+    observer.observe(sentinel);
+  } else {
+    window.addEventListener('scroll', () => {
+      header?.classList.toggle('scrolled', window.scrollY > 20);
+    }, { passive: true });
+  }
 
   // Mobile menu toggle
   if (mobileBtn && navLinks) {
