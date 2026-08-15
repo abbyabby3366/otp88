@@ -9,6 +9,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 let allRatesData = [];
 
+let calcDebounceTimer = null;
+function triggerRecalculate() {
+  if (calcDebounceTimer) clearTimeout(calcDebounceTimer);
+  calcDebounceTimer = setTimeout(() => {
+    recalculateCost();
+  }, 40);
+}
+
 async function initPricingCalculator() {
   const countrySelect = document.getElementById('calc-country-select');
   const volumeSlider = document.getElementById('calc-volume-slider');
@@ -20,17 +28,17 @@ async function initPricingCalculator() {
   volumeSlider.addEventListener('input', (e) => {
     const val = parseInt(e.target.value, 10);
     if (volumeDisplay) volumeDisplay.innerText = val.toLocaleString() + ' OTPs / mo';
-    recalculateCost();
-  });
+    triggerRecalculate();
+  }, { passive: true });
 
   countrySelect.addEventListener('change', () => {
-    recalculateCost();
+    triggerRecalculate();
   });
 
   // Channel Mix inputs
   ['w-pct', 't-pct', 's-pct', 'v-pct'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener('input', recalculateCost);
+    if (el) el.addEventListener('input', triggerRecalculate, { passive: true });
   });
 
   // Initial Calculation

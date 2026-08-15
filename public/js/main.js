@@ -15,14 +15,23 @@ function initNavbar() {
   const mobileBtn = document.querySelector('.mobile-menu-btn');
   const navLinks = document.querySelector('.nav-links');
 
-  // Scroll effect
+  // Optimized scroll effect with rAF & state tracking
+  let isScrolled = false;
+  let scrollTicking = false;
+
   window.addEventListener('scroll', () => {
-    if (window.scrollY > 20) {
-      header?.classList.add('scrolled');
-    } else {
-      header?.classList.remove('scrolled');
+    if (!scrollTicking) {
+      window.requestAnimationFrame(() => {
+        const shouldBeScrolled = window.scrollY > 20;
+        if (shouldBeScrolled !== isScrolled) {
+          isScrolled = shouldBeScrolled;
+          header?.classList.toggle('scrolled', isScrolled);
+        }
+        scrollTicking = false;
+      });
+      scrollTicking = true;
     }
-  });
+  }, { passive: true });
 
   // Mobile menu toggle
   if (mobileBtn && navLinks) {
@@ -187,13 +196,15 @@ function copyCode(buttonElement, codeElementId) {
 
 // 6. Smooth Scroll reveal
 function initScrollAnimations() {
-  const observer = new IntersectionObserver((entries) => {
+  if (!('IntersectionObserver' in window)) return;
+  const observer = new IntersectionObserver((entries, obs) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
         entry.target.classList.add('visible');
+        obs.unobserve(entry.target);
       }
     });
-  }, { threshold: 0.1 });
+  }, { threshold: 0.05, rootMargin: '50px' });
 
   document.querySelectorAll('.glass-card, .waterfall-box, .calc-container').forEach(el => {
     observer.observe(el);
