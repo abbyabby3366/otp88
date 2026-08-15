@@ -21,6 +21,42 @@ app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 // Global Rates Fallback
 let GLOBAL_RATES = require('./data/rates.json');
 
+// --- Browser Live-Reload SSE Stream for Development ---
+let liveReloadClients = [];
+app.get('/api/live-reload', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  if (res.flushHeaders) res.flushHeaders();
+
+  liveReloadClients.push(res);
+  req.on('close', () => {
+    liveReloadClients = liveReloadClients.filter(c => c !== res);
+  });
+});
+
+function broadcastLiveReload() {
+  liveReloadClients.forEach(client => {
+    try {
+      client.write('data: reload\n\n');
+    } catch (e) {}
+  });
+}
+
+// Watch dist/ bundle for changes and broadcast reload to browser
+const distBundlePath = path.join(__dirname, 'public', 'dist');
+if (fs.existsSync(distBundlePath)) {
+  let reloadTimer = null;
+  fs.watch(distBundlePath, (eventType, filename) => {
+    if (filename && filename.endsWith('.js')) {
+      if (reloadTimer) clearTimeout(reloadTimer);
+      reloadTimer = setTimeout(() => {
+        broadcastLiveReload();
+      }, 120);
+    }
+  });
+}
+
 // --- MongoDB Atlas Connection & Schemas ---
 let isDbConnected = false;
 

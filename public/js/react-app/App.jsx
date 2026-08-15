@@ -23,6 +23,21 @@ export default function App() {
   const translations = (OTP88_I18N && OTP88_I18N[lang]) ? OTP88_I18N[lang] : (window.OTP88_I18N && window.OTP88_I18N[lang] ? window.OTP88_I18N[lang] : (OTP88_I18N ? OTP88_I18N.en : {}));
   const t = translations;
 
+  // Browser auto-refresh during local development
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+      try {
+        const es = new EventSource('/api/live-reload');
+        es.onmessage = (e) => {
+          if (e.data === 'reload') {
+            window.location.reload();
+          }
+        };
+        return () => es.close();
+      } catch (err) {}
+    }
+  }, []);
+
 
   // Route Mapping Helpers
   const getTabFromPath = (path) => {

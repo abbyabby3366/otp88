@@ -7,7 +7,22 @@ document.addEventListener('DOMContentLoaded', () => {
   initModals();
   initSystemStatus();
   initScrollAnimations();
+  initLiveReload();
 });
+
+// Auto-reload on local development
+function initLiveReload() {
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    try {
+      const es = new EventSource('/api/live-reload');
+      es.onmessage = (e) => {
+        if (e.data === 'reload') {
+          window.location.reload();
+        }
+      };
+    } catch (e) {}
+  }
+}
 
 // 1. Navigation & Header Sentinel Effects (Zero CPU Scroll Overhead)
 function initNavbar() {
