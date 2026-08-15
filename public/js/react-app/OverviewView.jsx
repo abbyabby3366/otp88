@@ -7,7 +7,7 @@ function OverviewView({ t, session, adminMetrics }) {
       <div className="sheets-kpi-grid">
         <div className="sheets-kpi-cell">
           <div className="sheets-kpi-label">{t.availBalance}</div>
-          <div className="sheets-kpi-value" style={{ color: '#059669' }}>${(session.balanceUsd || 50).toFixed(2)}</div>
+          <div className="sheets-kpi-value" style={{ color: '#059669' }}>${(session.balanceUsd !== undefined ? session.balanceUsd : 50).toFixed(4)}</div>
           <div className="sheets-kpi-sub">{t.autoReload}</div>
         </div>
         <div className="sheets-kpi-cell">

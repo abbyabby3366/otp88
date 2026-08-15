@@ -14,6 +14,7 @@ import AdminBillingView from './AdminBillingView.jsx';
 import Sms360View from './Sms360View.jsx';
 import WhatsAppOtpView from './WhatsAppOtpView.jsx';
 import SidebarView from './SidebarView.jsx';
+import PageLoader from './PageLoader.jsx';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -134,7 +135,11 @@ export default function App() {
   const [newPassword, setNewPassword] = useState('');
 
   // Status & Notification
+  const [initialBooting, setInitialBooting] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [loadingRates, setLoadingRates] = useState(false);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [revealedApiKey, setRevealedApiKey] = useState(false);
@@ -163,6 +168,7 @@ export default function App() {
 
   // Data fetching functions
   const fetchRates = () => {
+    setLoadingRates(true);
     fetch('/api/rates')
       .then(res => res.json())
       .then(data => {
@@ -176,11 +182,13 @@ export default function App() {
           }
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoadingRates(false));
   };
 
   const fetchLogs = () => {
     if (!jwtToken) return;
+    setLoadingLogs(true);
     fetch('/api/logs', {
       headers: { 'Authorization': `Bearer ${jwtToken}` }
     })
@@ -188,15 +196,18 @@ export default function App() {
       .then(data => {
         if (data.success && data.logs) setLogs(data.logs);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoadingLogs(false));
   };
 
   const fetchAdminUsers = () => {
     if (session && session.role === 'ADMIN' && jwtToken) {
+      setLoadingUsers(true);
       fetch('/api/admin/users', { headers: { 'Authorization': `Bearer ${jwtToken}` } })
         .then(res => res.json())
         .then(data => { if (data.success && data.users) setUsersList(data.users); })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => setLoadingUsers(false));
     }
   };
 
@@ -321,6 +332,7 @@ export default function App() {
         localStorage.removeItem('otp88_jwt');
       }
     }
+    setInitialBooting(false);
   }, []);
 
   // Fetch live logs and admin telemetry whenever session/jwtToken changes
@@ -604,6 +616,7 @@ export default function App() {
     if (!jwtToken) return;
     try {
       setLoading(true);
+      const isGlobal = !editCountryCode || editCountryCode === 'ALL';
       const res = await fetch('/api/admin/rates', {
         method: 'POST',
         headers: {
@@ -611,15 +624,16 @@ export default function App() {
           'Authorization': `Bearer ${jwtToken}`
         },
         body: JSON.stringify({
-          countryCode: editCountryCode,
+          countryCode: editCountryCode || 'ALL',
+          isGlobal,
           whatsapp: editRateWhatsapp,
           telegram: editRateTelegram,
-          sms: editCountryCode === 'MY' ? editRateSms : undefined
+          sms: editRateSms
         })
       });
       const data = await res.json();
       if (data.success) {
-        showToast(lang === 'zh' ? `费率已更新 (${editCountryCode})` : `Rates updated for ${editCountryCode}`);
+        showToast(lang === 'zh' ? '费率已更新' : 'Carrier rates updated successfully');
         fetchRates();
       } else {
         showToast(data.error || 'Failed to update rates', 'error');
@@ -671,6 +685,10 @@ export default function App() {
           )}
           <span style={{ color: '#F8FAFC', fontWeight: 600 }}>{toast.message}</span>
         </div>
+      )}
+
+      {initialBooting && (
+        <PageLoader message={lang === 'zh' ? '正在启动 OTP88 平台控制台...' : 'Loading OTP88 Platform Console...'} />
       )}
 
       {!session ? (
@@ -864,12 +882,15 @@ export default function App() {
                   adminMetrics={adminMetrics}
                   ratesList={ratesList}
                   setActiveTab={setActiveTab}
+                  logs={logs}
+                  usersList={usersList}
+                  loading={loadingLogs}
                 />
               )}
 
               {/* TAB 2: OTP LOGS (USER MODE) */}
               {activeTab === 'logs' && session.role !== 'ADMIN' && (LogsView || window.LogsView) && (
-                <LogsView t={t} logs={logs} />
+                <LogsView t={t} logs={logs} loading={loadingLogs} />
               )}
 
               {/* TAB 3: SERVICES */}
@@ -901,7 +922,7 @@ export default function App() {
                   editRateSms={editRateSms}
                   setEditRateSms={setEditRateSms}
                   handleSaveRate={handleSaveRate}
-                  loading={loading}
+                  loading={loadingRates || loading}
                 />
               )}
 
@@ -919,7 +940,7 @@ export default function App() {
 
               {/* TAB 6: BILLING (USER MODE) */}
               {activeTab === 'billing' && session.role !== 'ADMIN' && (BillingView || window.BillingView) && (
-                <BillingView t={t} session={session} setSession={setSession} jwtToken={jwtToken} showToast={showToast} />
+                <BillingView t={t} session={session} setSession={setSession} jwtToken={jwtToken} showToast={showToast} ratesList={ratesList} />
               )}
 
               {/* ADMIN ONLY: USERS TAB */}
@@ -927,6 +948,7 @@ export default function App() {
                 <UsersView
                   t={t}
                   usersList={usersList}
+                  loading={loadingUsers}
                   handleCreateUser={handleCreateUser}
                   handleUpdateUser={handleUpdateUser}
                   handleDeleteUser={handleDeleteUser}
@@ -951,6 +973,7 @@ export default function App() {
                   t={t}
                   usersList={usersList}
                   session={session}
+                  loading={loadingUsers}
                   copyToClipboard={copyToClipboard}
                   showToast={showToast}
                 />

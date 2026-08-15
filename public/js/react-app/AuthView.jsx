@@ -166,9 +166,10 @@ export default function AuthView({
             type="submit"
             className="btn btn-primary"
             disabled={loading}
-            style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: '700', marginTop: '8px' }}
+            style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: '700', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
           >
-            {loading ? 'Processing...' : resetStep === 1 ? (lang === 'zh' ? '发送验证码' : 'Send Code') : (lang === 'zh' ? '重置密码并登录' : 'Reset Password & Sign In')}
+            {loading && <div className="sheets-spinner sheets-spinner-sm" style={{ borderColor: 'rgba(0,0,0,0.2)', borderTopColor: '#000000' }} />}
+            <span>{loading ? 'Processing...' : resetStep === 1 ? (lang === 'zh' ? '发送验证码' : 'Send Code') : (lang === 'zh' ? '重置密码并登录' : 'Reset Password & Sign In')}</span>
           </button>
 
           <div style={{ textAlign: 'center', fontSize: '13px', marginTop: '16px' }}>
@@ -277,9 +278,10 @@ export default function AuthView({
             type="submit"
             className="btn btn-primary"
             disabled={loading}
-            style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: '700' }}
+            style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
           >
-            {loading ? 'Processing...' : (authMode === 'login' ? (t.signInBtn || 'Sign In') : (t.registerBtn || 'Create Account'))}
+            {loading && <div className="sheets-spinner sheets-spinner-sm" style={{ borderColor: 'rgba(0,0,0,0.2)', borderTopColor: '#000000' }} />}
+            <span>{loading ? 'Processing...' : (authMode === 'login' ? (t.signInBtn || 'Sign In') : (t.registerBtn || 'Create Account'))}</span>
           </button>
 
           <div style={{ textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)', marginTop: '18px' }}>

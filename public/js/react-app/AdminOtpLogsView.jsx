@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './SearchableSelect.jsx';
+import { TableLoader } from './TableLoader.jsx';
 
 // Admin All-Users OTP Logs & Audit View
 function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
@@ -151,7 +152,9 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
             </tr>
           </thead>
           <tbody>
-            {paginatedLogs.length === 0 ? (
+            {loading ? (
+              <TableLoader colSpan={10} message="Loading all users' OTP audit logs from MongoDB Atlas..." />
+            ) : paginatedLogs.length === 0 ? (
               <tr>
                 <td colSpan="10" style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>
                   No OTP logs match the selected filter criteria.

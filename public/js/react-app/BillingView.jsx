@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { TableLoader } from './TableLoader.jsx';
 
 // User Billing & Transaction Ledger View
-function BillingView({ t, session, setSession, jwtToken, showToast }) {
+function BillingView({ t, session, setSession, jwtToken, showToast, ratesList = [] }) {
   const [topupAmount, setTopupAmount] = useState(100);
   const [invoices, setInvoices] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -9,6 +10,11 @@ function BillingView({ t, session, setSession, jwtToken, showToast }) {
   const [txFilter, setTxFilter] = useState('ALL'); // 'ALL' | 'USAGE_OTP' | 'TOPUP'
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const waRate = (ratesList && ratesList.length > 0 && ratesList[0]?.whatsapp !== undefined && ratesList[0]?.whatsapp !== null)
+    ? Number(ratesList[0].whatsapp)
+    : 0.0075;
+  const userBalance = session?.balanceUsd !== undefined ? session.balanceUsd : 50;
 
   const fetchBillingData = () => {
     if (!jwtToken) return;
@@ -89,16 +95,16 @@ function BillingView({ t, session, setSession, jwtToken, showToast }) {
         <div className="sheets-kpi-cell">
           <div className="sheets-kpi-label">{t.currentBalance || 'AVAILABLE BALANCE'}</div>
           <div className="sheets-kpi-value" style={{ color: '#059669', fontSize: '22px' }}>
-            ${(session.balanceUsd || 50).toFixed(2)}
+            ${(session.balanceUsd !== undefined ? session.balanceUsd : 50).toFixed(4)}
           </div>
           <div className="sheets-kpi-sub">{t.autoReload || '● Active'}</div>
         </div>
         <div className="sheets-kpi-cell">
           <div className="sheets-kpi-label">Estimated Remaining OTPs</div>
           <div className="sheets-kpi-value" style={{ color: '#0284C7' }}>
-            ~{Math.floor(((session.balanceUsd || 50) / 0.0075)).toLocaleString()} OTPs
+            ~{Math.floor(userBalance / (waRate || 0.0075)).toLocaleString()} OTPs
           </div>
-          <div className="sheets-kpi-sub">WhatsApp @ $0.0075 / OTP</div>
+          <div className="sheets-kpi-sub">WhatsApp @ ${waRate.toFixed(4)} / OTP</div>
         </div>
         <div className="sheets-kpi-cell">
           <div className="sheets-kpi-label">Plan / Tier</div>
@@ -152,14 +158,14 @@ function BillingView({ t, session, setSession, jwtToken, showToast }) {
           onClick={() => setActiveSubTab('transactions')}
           style={{ fontSize: '11px', fontWeight: '700' }}
         >
-          📊 Transaction & Usage Ledger ({transactions.length})
+          Transaction & Usage Ledger ({transactions.length})
         </button>
         <button
           className={`sheets-btn ${activeSubTab === 'invoices' ? 'sheets-btn-primary' : ''}`}
           onClick={() => setActiveSubTab('invoices')}
           style={{ fontSize: '11px', fontWeight: '700' }}
         >
-          🧾 Invoices & Receipts ({invoices.length})
+          Invoices & Receipts ({invoices.length})
         </button>
       </div>
 
@@ -220,7 +226,9 @@ function BillingView({ t, session, setSession, jwtToken, showToast }) {
               </tr>
             </thead>
             <tbody>
-              {filteredTransactions.length === 0 ? (
+              {loading ? (
+                <TableLoader colSpan={8} message="Loading transaction ledger..." />
+              ) : filteredTransactions.length === 0 ? (
                 <tr>
                   <td colSpan="8" style={{ textAlign: 'center', padding: '18px', color: 'var(--text-muted)' }}>
                     No transactions found. Send an OTP to see live balance deductions.
@@ -297,7 +305,9 @@ function BillingView({ t, session, setSession, jwtToken, showToast }) {
               </tr>
             </thead>
             <tbody>
-              {invoices.length === 0 ? (
+              {loading ? (
+                <TableLoader colSpan={6} message="Loading invoices & receipts..." />
+              ) : invoices.length === 0 ? (
                 <tr>
                   <td colSpan="6" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
                     No invoice history found.

@@ -2194,20 +2194,27 @@ app.get(['/api/metrics', '/api/admin/metrics'], verifyJwtMiddleware, async (req,
 });
 
 app.post('/api/admin/rates', verifyJwtMiddleware, requireAdmin, async (req, res) => {
-  const { countryCode, whatsapp, telegram, sms } = req.body;
-  if (!countryCode) {
-    return res.status(400).json({ success: false, error: 'Country code is required.' });
-  }
+  const { countryCode, whatsapp, telegram, sms, isGlobal } = req.body;
   
   if (isDbConnected) {
     try {
       const updateData = {};
       if (whatsapp !== undefined && whatsapp !== '') updateData.whatsapp = parseFloat(whatsapp);
       if (telegram !== undefined && telegram !== '') updateData.telegram = parseFloat(telegram);
+      
+      if (isGlobal || !countryCode || countryCode === 'ALL') {
+        // Update all countries' flat rates in one go
+        await RateModel.updateMany({}, { $set: updateData });
+        if (sms !== undefined && sms !== '') {
+          await RateModel.updateOne({ code: 'MY' }, { $set: { sms: parseFloat(sms) } });
+        }
+        return res.json({ success: true, message: 'All carrier rates updated successfully.' });
+      }
+
       if (countryCode.toUpperCase() === 'MY' && sms !== undefined && sms !== '') {
         updateData.sms = parseFloat(sms);
       } else if (countryCode.toUpperCase() !== 'MY') {
-        updateData.sms = null; // Only Malaysia supports SMS for now
+        updateData.sms = null;
       }
 
       const updated = await RateModel.findOneAndUpdate(

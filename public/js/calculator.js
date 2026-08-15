@@ -96,6 +96,18 @@ async function initRateTable() {
   const searchInput = document.getElementById('rate-search-input');
   if (!tableBody) return;
 
+  // Show animated loader while fetching rates
+  tableBody.innerHTML = `
+    <tr>
+      <td colspan="6" style="text-align:center;padding:36px 16px;">
+        <div class="marketing-table-loader">
+          <div class="marketing-spinner"></div>
+          <span>Fetching real-time wholesale carrier rates...</span>
+        </div>
+      </td>
+    </tr>
+  `;
+
   try {
     const res = await fetch('/api/rates');
     const data = await res.json();
@@ -105,6 +117,7 @@ async function initRateTable() {
     }
   } catch (err) {
     console.error('Failed to load rates', err);
+    tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted);">Failed to load carrier rates. Please refresh.</td></tr>`;
   }
 
   if (searchInput) {

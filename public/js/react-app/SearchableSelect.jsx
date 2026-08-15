@@ -16,7 +16,7 @@ function SearchableSelect({
   getOptionValue = (opt) => opt.value !== undefined ? opt.value : opt._id,
   getOptionLabel = (opt) => opt.label !== undefined ? opt.label : (opt.name || opt.email || opt.username),
   getOptionSubtext = (opt) => opt.subtext !== undefined ? opt.subtext : (opt.email && opt.name ? opt.email : ''),
-  getOptionBadge = (opt) => opt.badge !== undefined ? opt.badge : (opt.role || (opt.balanceUsd !== undefined ? `$${(opt.balanceUsd || 0).toFixed(2)}` : '')),
+  getOptionBadge = (opt) => opt.badge !== undefined ? opt.badge : (opt.role || (opt.balanceUsd !== undefined ? `$${(opt.balanceUsd || 0).toFixed(4)}` : '')),
   style = {},
   buttonStyle = {},
   dropdownWidth = '260px',

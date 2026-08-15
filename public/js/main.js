@@ -3,12 +3,39 @@
    ========================================================================== */
 
 document.addEventListener('DOMContentLoaded', () => {
+  initPageProgressBar();
   initNavbar();
   initModals();
   initSystemStatus();
   initScrollAnimations();
   initLiveReload();
 });
+
+// Subtle top progress bar on page loading
+function initPageProgressBar() {
+  let bar = document.getElementById('page-progress-bar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'page-progress-bar';
+    document.body.prepend(bar);
+  }
+  bar.style.width = '30%';
+  bar.style.opacity = '1';
+  
+  setTimeout(() => {
+    bar.style.width = '75%';
+  }, 100);
+
+  window.addEventListener('load', () => {
+    bar.style.width = '100%';
+    setTimeout(() => {
+      bar.style.opacity = '0';
+      setTimeout(() => {
+        bar.style.width = '0%';
+      }, 400);
+    }, 200);
+  });
+}
 
 // Auto-reload on local development
 function initLiveReload() {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import WhatsAppWebhookTab from './WhatsAppWebhookTab.jsx';
+import { TableLoader } from './TableLoader.jsx';
 
 // Admin VerifyWay WhatsApp OTP API Complete Management & Interactive Explorer
 function WhatsAppOtpView({ t, jwtToken, showToast }) {
@@ -19,6 +20,7 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
     status: 'ACTIVE'
   });
   const [savingConfig, setSavingConfig] = useState(false);
+  const [loadingData, setLoadingData] = useState(false);
 
   // Edit Key Modal State
   const [showEditModal, setShowEditModal] = useState(false);
@@ -52,6 +54,7 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
   // Fetch live stats and database config
   const loadData = () => {
     if (jwtToken) {
+      setLoadingData(true);
       fetch('/api/admin/whatsapp/config', { headers: { 'Authorization': `Bearer ${jwtToken}` } })
         .then(res => res.json())
         .then(data => {
@@ -60,7 +63,8 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
             if (data.logs) setLogs(data.logs);
           }
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => setLoadingData(false));
     }
   };
 
@@ -508,7 +512,9 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
             </tr>
           </thead>
           <tbody>
-            {logs.length === 0 ? (
+            {loadingData ? (
+              <TableLoader colSpan={10} message="Loading VerifyWay WhatsApp dispatch logs..." />
+            ) : logs.length === 0 ? (
               <tr><td colSpan="10" style={{ textAlign: 'center', padding: '14px', color: 'var(--text-muted)' }}>No logs recorded yet.</td></tr>
             ) : (
               logs.map((l, i) => (

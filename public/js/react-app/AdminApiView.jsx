@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import { TableLoader } from './TableLoader.jsx';
 
 // Admin Multi-Tenant API Keys & Credentials Directory View
-function AdminApiView({ t, usersList = [], session, copyToClipboard, showToast }) {
+function AdminApiView({ t, usersList = [], session, copyToClipboard, showToast, loading = false }) {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredUsers = usersList.filter(u => {
@@ -46,7 +47,9 @@ function AdminApiView({ t, usersList = [], session, copyToClipboard, showToast }
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.length === 0 ? (
+            {loading ? (
+              <TableLoader colSpan={8} message="Loading API keys directory..." />
+            ) : filteredUsers.length === 0 ? (
               <tr>
                 <td colSpan="8" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
                   No users found.
@@ -72,7 +75,7 @@ function AdminApiView({ t, usersList = [], session, copyToClipboard, showToast }
                       </code>
                     </td>
                     <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700', color: '#059669' }}>
-                      ${(usr.balanceUsd || 0).toFixed(2)}
+                      ${(usr.balanceUsd !== undefined ? usr.balanceUsd : 0).toFixed(4)}
                     </td>
                     <td>
                       <span className={`sheets-badge ${usr.status === 'PAUSED' ? 'sheets-badge-amber' : usr.status === 'SUSPENDED' ? 'sheets-badge-danger' : 'sheets-badge-emerald'}`}>

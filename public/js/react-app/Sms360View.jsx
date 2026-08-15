@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { TableLoader } from './TableLoader.jsx';
 
 // Admin Bulk360 SMS API V3.0 Complete Management & Interactive Explorer
 function Sms360View({ t, jwtToken, showToast }) {
@@ -22,6 +23,7 @@ function Sms360View({ t, jwtToken, showToast }) {
     ratePerSms: '0.0210', currency: 'MYR', status: 'ACTIVE', autoFallback: true
   });
   const [savingConfig, setSavingConfig] = useState(false);
+  const [loadingData, setLoadingData] = useState(false);
 
   // Edit Key Modal State
   const [showEditModal, setShowEditModal] = useState(false);
@@ -59,6 +61,7 @@ function Sms360View({ t, jwtToken, showToast }) {
   // Fetch live stats, database config, and detected public IP
   const loadData = () => {
     if (jwtToken) {
+      setLoadingData(true);
       fetch('/api/admin/sms360/stats', { headers: { 'Authorization': `Bearer ${jwtToken}` } })
         .then(res => res.json())
         .then(data => {
@@ -69,7 +72,8 @@ function Sms360View({ t, jwtToken, showToast }) {
             if (data.clientIp) setClientIp(data.clientIp);
           }
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => setLoadingData(false));
     }
   };
 
@@ -687,7 +691,9 @@ function Sms360View({ t, jwtToken, showToast }) {
             </tr>
           </thead>
           <tbody>
-            {logs.length === 0 ? (
+            {loadingData ? (
+              <TableLoader colSpan={11} message="Loading Bulk360 dispatch logs..." />
+            ) : logs.length === 0 ? (
               <tr><td colSpan="11" style={{ textAlign: 'center', padding: '14px', color: 'var(--text-muted)' }}>No logs recorded yet.</td></tr>
             ) : (
               logs.map((l, i) => (

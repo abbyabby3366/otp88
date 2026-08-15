@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import SearchableSelect from './SearchableSelect.jsx';
+import { TableLoader } from './TableLoader.jsx';
 
 // Admin Billing, Multi-Tenant Balance Management & Platform Transaction Ledger
 function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers }) {
@@ -12,10 +13,12 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
   const [topupMethod, setTopupMethod] = useState('Manual Admin Credit');
   const [processing, setProcessing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(false);
 
   // Fetch all invoices across all users
   const fetchInvoices = () => {
     if (!jwtToken) return;
+    setLoading(true);
     fetch('/api/admin/invoices', {
       headers: { 'Authorization': `Bearer ${jwtToken}` }
     })
@@ -23,12 +26,14 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
       .then(data => {
         if (data.success && data.invoices) setInvoices(data.invoices);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoading(false));
   };
 
   // Fetch all platform transactions across all users
   const fetchTransactions = () => {
     if (!jwtToken) return;
+    setLoading(true);
     fetch('/api/admin/billing/transactions', {
       headers: { 'Authorization': `Bearer ${jwtToken}` }
     })
@@ -36,7 +41,8 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
       .then(data => {
         if (data.success && data.transactions) setTransactions(data.transactions);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => {
@@ -118,12 +124,12 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       
-      {/* Top Platform Financial KPI Cards */}
+        {/* Top Platform Financial KPI Cards */}
       <div className="sheets-kpi-grid">
         <div className="sheets-kpi-cell">
           <div className="sheets-kpi-label">TOTAL PLATFORM BALANCES</div>
           <div className="sheets-kpi-value" style={{ color: '#059669', fontSize: '20px' }}>
-            ${totalPlatformBalance.toFixed(2)} USD
+            ${totalPlatformBalance.toFixed(4)} USD
           </div>
           <div className="sheets-kpi-sub">Across {usersList.length} user accounts</div>
         </div>
@@ -137,7 +143,7 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
         <div className="sheets-kpi-cell">
           <div className="sheets-kpi-label">AVERAGE USER BALANCE</div>
           <div className="sheets-kpi-value" style={{ color: '#7C3AED' }}>
-            ${usersList.length > 0 ? (totalPlatformBalance / usersList.length).toFixed(2) : '0.00'}
+            ${usersList.length > 0 ? (totalPlatformBalance / usersList.length).toFixed(4) : '0.0000'}
           </div>
           <div className="sheets-kpi-sub">Per Active Tenant</div>
         </div>
@@ -216,7 +222,7 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
 
         {selectedUser && (
           <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)', background: '#F8FAFC', padding: '6px 10px', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
-            Selected: <strong>{selectedUser.name || selectedUser.email}</strong> | Role: <span className="sheets-badge sheets-badge-blue">{selectedUser.role}</span> | Current Balance: <strong style={{ color: '#059669' }}>${(selectedUser.balanceUsd || 0).toFixed(2)}</strong>
+            Selected: <strong>{selectedUser.name || selectedUser.email}</strong> | Role: <span className="sheets-badge sheets-badge-blue">{selectedUser.role}</span> | Current Balance: <strong style={{ color: '#059669' }}>${(selectedUser.balanceUsd || 0).toFixed(4)}</strong>
           </div>
         )}
       </div>
@@ -228,14 +234,14 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
           onClick={() => setActiveSubTab('transactions')}
           style={{ fontSize: '11px', fontWeight: '700' }}
         >
-          📊 All Platform Transactions & Usage ({transactions.length})
+          All Platform Transactions & Usage ({transactions.length})
         </button>
         <button
           className={`sheets-btn ${activeSubTab === 'invoices' ? 'sheets-btn-primary' : ''}`}
           onClick={() => setActiveSubTab('invoices')}
           style={{ fontSize: '11px', fontWeight: '700' }}
         >
-          🧾 Invoices & Top-up Receipts ({invoices.length})
+          Invoices & Top-up Receipts ({invoices.length})
         </button>
       </div>
 
@@ -297,7 +303,9 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
               </tr>
             </thead>
             <tbody>
-              {filteredTransactions.length === 0 ? (
+              {loading ? (
+                <TableLoader colSpan={9} message="Loading all platform billing ledgers..." />
+              ) : filteredTransactions.length === 0 ? (
                 <tr>
                   <td colSpan="9" style={{ textAlign: 'center', padding: '18px', color: 'var(--text-muted)' }}>
                     No transactions found.
@@ -393,7 +401,9 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
               </tr>
             </thead>
             <tbody>
-              {filteredInvoices.length === 0 ? (
+              {loading ? (
+                <TableLoader colSpan={9} message="Loading all user invoices..." />
+              ) : filteredInvoices.length === 0 ? (
                 <tr>
                   <td colSpan="9" style={{ textAlign: 'center', padding: '18px', color: 'var(--text-muted)' }}>
                     No billing transactions found.

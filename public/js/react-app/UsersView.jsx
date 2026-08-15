@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { TableLoader } from './TableLoader.jsx';
 
 // Admin Users Management Spreadsheet View
 function UsersView({
   t,
   usersList = [],
+  loading = false,
   handleCreateUser,
   handleUpdateUser,
   handleDeleteUser,
@@ -149,7 +151,9 @@ function UsersView({
             </tr>
           </thead>
           <tbody>
-            {(!usersList || usersList.length === 0) ? (
+            {loading ? (
+              <TableLoader colSpan={8} message="Loading user accounts directory..." />
+            ) : (!usersList || usersList.length === 0) ? (
               <tr>
                 <td colSpan="8" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
                   No users found. Add a user above or register a new account.
@@ -167,7 +171,7 @@ function UsersView({
                     </span>
                   </td>
                   <td style={{ fontFamily: 'var(--font-code)', fontWeight: '800', color: '#059669' }}>
-                    ${(usr.balanceUsd || 0).toFixed(2)}
+                    ${(usr.balanceUsd !== undefined ? usr.balanceUsd : 0).toFixed(4)}
                   </td>
                   <td style={{ fontFamily: 'var(--font-code)', fontSize: '11px', color: 'var(--text-muted)' }}>
                     {(() => {

@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
+import { TableLoader } from './TableLoader.jsx';
 
 // User OTP Logs Component (with Filters & Pagination)
-function LogsView({ t, logs }) {
+function LogsView({ t, logs = [], loading = false }) {
   const [platformFilter, setPlatformFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
@@ -108,7 +109,9 @@ function LogsView({ t, logs }) {
             </tr>
           </thead>
           <tbody>
-            {paginatedLogs.length === 0 ? (
+            {loading ? (
+              <TableLoader colSpan={9} message="Loading OTP transmission logs..." />
+            ) : paginatedLogs.length === 0 ? (
               <tr>
                 <td colSpan="9" style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>
                   No OTP logs match the selected filter criteria.

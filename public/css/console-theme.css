@@ -515,3 +515,140 @@ body.theme-light::before {
   }
 }
 
+/* ===================================================================
+   Console Loaders: Spinner, Table Loader & Page Loader
+   =================================================================== */
+
+@keyframes sheetsSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes sheetsPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.sheets-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid rgba(16, 185, 129, 0.2);
+  border-top-color: #059669;
+  border-right-color: #10B981;
+  border-radius: 50%;
+  animation: sheetsSpin 0.75s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.sheets-spinner-sm {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+}
+
+.sheets-spinner-lg {
+  width: 32px;
+  height: 32px;
+  border-width: 3.5px;
+}
+
+.sheets-table-loading-row {
+  background: transparent !important;
+}
+
+.sheets-table-loader-inner {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 24px;
+}
+
+.sheets-loader-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  animation: sheetsPulse 2s ease-in-out infinite;
+}
+
+.sheets-block-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 30px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+
+/* Full Page / Session Boot Loader */
+.sheets-page-loader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #0B1120;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #F8FAFC;
+}
+
+.sheets-page-loader-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 36px 44px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 14px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 30px rgba(16, 185, 129, 0.2);
+  text-align: center;
+  backdrop-filter: blur(12px);
+  animation: fadeInMenu 0.3s ease-out forwards;
+}
+
+.sheets-page-loader-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.sheets-page-loader-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #F8FAFC;
+  letter-spacing: -0.01em;
+}
+
+.sheets-page-loader-sub {
+  font-size: 12px;
+  color: #94A3B8;
+  max-width: 260px;
+  line-height: 1.4;
+}
+
+

@@ -125,8 +125,9 @@ function ServicesView({ t, ratesList, simPhone, setSimPhone, simChannel, setSimC
             </select>
           </div>
         </div>
-        <button className="sheets-btn sheets-btn-primary" onClick={handleSimulateQuickOtp} disabled={loading} style={{ width: '100%', padding: '7px' }}>
-          {loading ? 'Sending...' : (t.execDispatch || 'Send Test OTP')}
+        <button className="sheets-btn sheets-btn-primary" onClick={handleSimulateQuickOtp} disabled={loading} style={{ width: '100%', padding: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+          {loading && <div className="sheets-spinner sheets-spinner-sm" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#FFFFFF' }} />}
+          <span>{loading ? 'Sending Test OTP...' : (t.execDispatch || 'Send Test OTP')}</span>
         </button>
       </div>
 

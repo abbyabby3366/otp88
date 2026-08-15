@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { TableLoader } from './TableLoader.jsx';
 
 const DEFAULT_GLOBAL_RATES = [
   { country: 'Malaysia', code: 'MY', dialCode: '+60', flag: '🇲🇾', whatsapp: 0.0075, telegram: 0.0035, sms: 0.0210 },
@@ -14,38 +15,40 @@ function RatesView({
   t,
   ratesList = [],
   session,
-  editCountryCode,
-  setEditCountryCode,
   editRateWhatsapp,
   setEditRateWhatsapp,
   editRateTelegram,
   setEditRateTelegram,
   editRateSms,
   setEditRateSms,
+  setEditCountryCode,
   handleSaveRate,
   loading
 }) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [editingRate, setEditingRate] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
   const backdropMouseDownRef = useRef(false);
 
   const activeRatesList = (ratesList && ratesList.length > 0) ? ratesList : DEFAULT_GLOBAL_RATES;
 
-  // Sync modal inputs when open
-  const openEditModal = (rate) => {
-    setEditingRate(rate);
-    setEditCountryCode(rate.code);
-    setEditRateWhatsapp(rate.whatsapp !== undefined && rate.whatsapp !== null ? rate.whatsapp.toString() : '0.0075');
-    setEditRateTelegram(rate.telegram !== undefined && rate.telegram !== null ? rate.telegram.toString() : '0.0035');
-    setEditRateSms(rate.sms !== undefined && rate.sms !== null ? rate.sms.toString() : (rate.code === 'MY' ? '0.0210' : ''));
+  const commonWhatsappRate = activeRatesList[0]?.whatsapp ?? 0.0075;
+  const commonTelegramRate = activeRatesList[0]?.telegram ?? 0.0035;
+  const mySmsRate = activeRatesList.find(r => r.code === 'MY')?.sms ?? 0.0210;
+
+  // Open edit modal for entire table
+  const openEditModal = () => {
+    if (setEditCountryCode) setEditCountryCode('ALL');
+    setEditRateWhatsapp(commonWhatsappRate.toString());
+    setEditRateTelegram(commonTelegramRate.toString());
+    setEditRateSms(mySmsRate.toString());
+    setShowEditModal(true);
   };
 
   const closeEditModal = () => {
-    setEditingRate(null);
+    setShowEditModal(false);
   };
 
   useEffect(() => {
-    if (!editingRate) return;
+    if (!showEditModal) return;
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' || e.key === 'Esc') {
         closeEditModal();
@@ -53,7 +56,7 @@ function RatesView({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [editingRate]);
+  }, [showEditModal]);
 
   const handleBackdropMouseDown = (e) => {
     backdropMouseDownRef.current = (e.target === e.currentTarget);
@@ -74,18 +77,7 @@ function RatesView({
     }
   };
 
-  const filteredRates = activeRatesList.filter(r => {
-    if (!searchTerm.trim()) return true;
-    const q = searchTerm.toLowerCase().trim();
-    return (
-      (r.country && r.country.toLowerCase().includes(q)) ||
-      (r.code && r.code.toLowerCase().includes(q)) ||
-      (r.dialCode && r.dialCode.toLowerCase().includes(q))
-    );
-  });
-
-  const commonWhatsappRate = activeRatesList[0]?.whatsapp ?? 0.0075;
-  const commonTelegramRate = activeRatesList[0]?.telegram ?? 0.0035;
+  const filteredRates = activeRatesList;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -99,15 +91,31 @@ function RatesView({
               ({filteredRates.length} destinations)
             </span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <input
-              type="text"
-              className="sheets-input"
-              placeholder="Search destination, ISO, dial code..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ width: '220px', padding: '3px 8px', fontSize: '11px' }}
-            />
+
+          <div>
+            {session?.role === 'ADMIN' && (
+              <button
+                type="button"
+                className="sheets-btn sheets-btn-primary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 12px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  background: '#059669',
+                  whiteSpace: 'nowrap'
+                }}
+                onClick={openEditModal}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+                Edit Rates
+              </button>
+            )}
           </div>
         </div>
 
@@ -121,13 +129,14 @@ function RatesView({
               <th style={{ textAlign: 'center', minWidth: '130px' }}>Telegram ($)</th>
               <th>SMS ($)</th>
               <th>Status</th>
-              {session?.role === 'ADMIN' && <th style={{ width: '90px' }}>Action</th>}
             </tr>
           </thead>
           <tbody>
-            {filteredRates.length === 0 ? (
+            {loading && ratesList.length === 0 ? (
+              <TableLoader colSpan={7} message="Loading carrier rate cards..." />
+            ) : filteredRates.length === 0 ? (
               <tr>
-                <td colSpan={session?.role === 'ADMIN' ? 8 : 7} style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
+                <td colSpan="7" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
                   No rates match search criteria.
                 </td>
               </tr>
@@ -199,18 +208,6 @@ function RatesView({
                     <td>
                       <span className="sheets-badge sheets-badge-emerald">Active</span>
                     </td>
-                    {session?.role === 'ADMIN' && (
-                      <td>
-                        <button
-                          type="button"
-                          className="sheets-btn sheets-btn-primary"
-                          style={{ fontSize: '11px', padding: '3px 10px', fontWeight: '600' }}
-                          onClick={() => openEditModal(rate)}
-                        >
-                          Edit
-                        </button>
-                      </td>
-                    )}
                   </tr>
                 );
               })
@@ -219,8 +216,8 @@ function RatesView({
         </table>
       </div>
 
-      {/* EDIT RATE MODAL DIALOG */}
-      {editingRate && (
+      {/* SINGLE MODAL DIALOG TO EDIT ENTIRE TABLE RATES */}
+      {showEditModal && (
         <div
           className="sheets-modal-backdrop"
           onMouseDown={handleBackdropMouseDown}
@@ -229,8 +226,8 @@ function RatesView({
           <div className="sheets-modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px', width: '100%' }}>
             <div className="sheets-modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '16px' }}>{editingRate.flag}</span>
-                <span style={{ fontWeight: '800' }}>Edit Rates — {editingRate.country} ({editingRate.dialCode})</span>
+                <span style={{ fontSize: '16px' }}>⚙️</span>
+                <span style={{ fontWeight: '800' }}>Edit Carrier Rates (All Destinations)</span>
               </div>
               <button
                 type="button"
@@ -246,7 +243,7 @@ function RatesView({
                 <div>
                   <label style={{ fontSize: '11px', fontWeight: '700', color: '#059669', display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                     <span>WhatsApp Rate ($ USD / OTP)</span>
-                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>All Countries</span>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>All 6 Destinations</span>
                   </label>
                   <input
                     type="number"
@@ -263,7 +260,7 @@ function RatesView({
                 <div>
                   <label style={{ fontSize: '11px', fontWeight: '700', color: '#0284C7', display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                     <span>Telegram Rate ($ USD / OTP)</span>
-                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>All Countries</span>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>All 6 Destinations</span>
                   </label>
                   <input
                     type="number"
@@ -279,8 +276,8 @@ function RatesView({
 
                 <div>
                   <label style={{ fontSize: '11px', fontWeight: '700', color: '#D97706', display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span>SMS Rate ($ USD / OTP)</span>
-                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{editingRate.country}</span>
+                    <span>Malaysia SMS Rate ($ USD / OTP)</span>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>🇲🇾 Malaysia Only</span>
                   </label>
                   <input
                     type="number"
@@ -289,7 +286,8 @@ function RatesView({
                     className="sheets-input sheets-input-code"
                     value={editRateSms}
                     onChange={(e) => setEditRateSms(e.target.value)}
-                    placeholder={editingRate.code === 'MY' ? '0.0210' : 'Leave empty if unsupported'}
+                    placeholder="0.0210"
+                    required
                     style={{ width: '100%', fontWeight: '700', color: '#D97706' }}
                   />
                 </div>
@@ -310,7 +308,7 @@ function RatesView({
                   disabled={loading}
                   style={{ background: '#059669', fontWeight: '700' }}
                 >
-                  {loading ? 'Saving...' : 'Save Rate'}
+                  {loading ? 'Saving...' : 'Save Rates'}
                 </button>
               </div>
             </form>
