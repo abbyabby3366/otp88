@@ -139,10 +139,10 @@ function UsersView({
           <thead>
             <tr>
               <th style={{ width: '35px' }}>#</th>
-              <th>{t.tenantName || 'User Name'}</th>
-              <th>{t.tenantEmail || 'Email Address'}</th>
-              <th>{t.tenantRole || 'Role'}</th>
-              <th>{t.tenantBalance || 'Balance (USD)'}</th>
+              <th>{t.userName || 'User Name'}</th>
+              <th>{t.userEmail || 'Email Address'}</th>
+              <th>{t.userRole || 'Role'}</th>
+              <th>{t.userBalance || 'Balance (USD)'}</th>
               <th>API Key</th>
               <th>{t.statusLabel || 'Status'}</th>
               <th>Actions</th>
@@ -170,7 +170,11 @@ function UsersView({
                     ${(usr.balanceUsd || 0).toFixed(2)}
                   </td>
                   <td style={{ fontFamily: 'var(--font-code)', fontSize: '11px', color: 'var(--text-muted)' }}>
-                    {usr.apiKeyLive ? (usr.apiKeyLive.slice(0, 12) + '•••') : 'otp_live_88•••'}
+                    {(() => {
+                      let key = usr.apiKeyLive || 'otp88_api_88a90184bcedf41';
+                      if (key.startsWith('otp_live_')) key = 'otp88_api_' + key.slice(9);
+                      return key.slice(0, 14) + '•••';
+                    })()}
                   </td>
                   <td>
                     <span className={`sheets-badge ${usr.status === 'PAUSED' ? 'sheets-badge-amber' : usr.status === 'SUSPENDED' ? 'sheets-badge-danger' : 'sheets-badge-emerald'}`}>
@@ -190,7 +194,11 @@ function UsersView({
                       <button
                         className="sheets-btn"
                         style={{ padding: '2px 6px', fontSize: '10px', whiteSpace: 'nowrap' }}
-                        onClick={() => copyToClipboard(usr.apiKeyLive || 'otp_live_88a90184bcedf', 'API Key')}
+                        onClick={() => {
+                          let key = usr.apiKeyLive || 'otp88_api_88a90184bcedf';
+                          if (key.startsWith('otp_live_')) key = 'otp88_api_' + key.slice(9);
+                          copyToClipboard(key, 'API Key');
+                        }}
                         title="Copy API Key"
                       >
                         {t.copyApiKey || 'Copy API Key'}
@@ -226,7 +234,7 @@ function UsersView({
               <div className="sheets-modal-body">
                 <div>
                   <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-                    {t.tenantName || 'User Name'}
+                    {t.userName || 'User Name'}
                   </label>
                   <input
                     type="text"
@@ -241,7 +249,7 @@ function UsersView({
 
                 <div>
                   <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-                    {t.tenantEmail || 'Email Address'}
+                    {t.userEmail || 'Email Address'}
                   </label>
                   <input
                     type="email"
@@ -257,7 +265,7 @@ function UsersView({
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   <div>
                     <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-                      {t.tenantRole || 'Role'}
+                      {t.userRole || 'Role'}
                     </label>
                     <select
                       className="sheets-select"
@@ -287,7 +295,7 @@ function UsersView({
 
                 <div>
                   <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-                    {t.tenantBalance || 'Balance (USD)'}
+                    {t.userBalance || 'Balance (USD)'}
                   </label>
                   <input
                     type="number"
@@ -408,7 +416,7 @@ function UsersView({
               <div className="sheets-modal-body">
                 <div>
                   <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-                    {t.tenantName || 'User Name'}
+                    {t.userName || 'User Name'}
                   </label>
                   <input
                     type="text"
@@ -423,7 +431,7 @@ function UsersView({
 
                 <div>
                   <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-                    {t.tenantEmail || 'Email Address'}
+                    {t.userEmail || 'Email Address'}
                   </label>
                   <input
                     type="email"
@@ -437,7 +445,7 @@ function UsersView({
 
                 <div>
                   <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-                    {t.tenantBalance || 'Balance (USD)'}
+                    {t.userBalance || 'Balance (USD)'}
                   </label>
                   <input
                     type="number"

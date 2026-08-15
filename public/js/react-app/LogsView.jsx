@@ -92,7 +92,7 @@ function LogsView({ t, logs }) {
             <tr>
               <th style={{ width: '35px' }}>#</th>
               <th>{t.txId || 'Transaction ID'}</th>
-              <th>{t.recipient || 'Phone Number'}</th>
+              <th>{t.recipient || 'Recipient Phone'}</th>
               <th>{t.carrierRoute || 'Channel'}</th>
               <th>Latency</th>
               <th>{t.unitCost || 'Cost'}</th>

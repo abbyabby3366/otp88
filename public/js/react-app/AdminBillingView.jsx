@@ -97,14 +97,14 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
           <div className="sheets-kpi-value" style={{ color: '#0284C7' }}>
             {invoices.length} Invoices
           </div>
-          <div className="sheets-kpi-sub">● All Tenants Processed</div>
+          <div className="sheets-kpi-sub">● Processed Invoices</div>
         </div>
         <div className="sheets-kpi-cell">
           <div className="sheets-kpi-label">AVERAGE USER BALANCE</div>
           <div className="sheets-kpi-value" style={{ color: '#7C3AED' }}>
             ${usersList.length > 0 ? (totalPlatformBalance / usersList.length).toFixed(2) : '0.00'}
           </div>
-          <div className="sheets-kpi-sub">Per Active Tenant</div>
+          <div className="sheets-kpi-sub">Per Active User</div>
         </div>
       </div>
 
@@ -121,7 +121,7 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
         <form onSubmit={handleAdminTopup} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', alignItems: 'end' }}>
           <div>
             <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-              Target User / Tenant
+              Target User
             </label>
             <select
               className="sheets-select"
@@ -208,7 +208,7 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
           <thead>
             <tr>
               <th style={{ width: '35px' }}>#</th>
-              <th>User / Tenant</th>
+              <th>User</th>
               <th>Email</th>
               <th>Invoice ID</th>
               <th>Date</th>

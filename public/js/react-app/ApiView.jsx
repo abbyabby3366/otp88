@@ -16,37 +16,37 @@ function getCodeSnippet({ origin, apiKey, channel, lang, action, phone = '+60123
       payloadObj = {
         phoneNumber: phone,
         channel: 'sms',
-        senderName: 'OTP88_SMS',
-        codeLength: 6,
-        expirySeconds: 300
+        senderName: 'Alibaba',
+        otp: '882910'
       };
     } else if (channel === 'telegram') {
       payloadObj = {
         phoneNumber: phone,
         channel: 'telegram',
-        otpCode: '882910',
-        senderName: 'OTP88_BOT'
+        senderName: 'Alibaba',
+        otp: '882910'
       };
     } else if (channel === 'whatsapp') {
       payloadObj = {
         phoneNumber: phone,
         channel: 'whatsapp',
-        otpCode: '882910'
+        senderName: 'Alibaba',
+        otp: '882910'
       };
     } else if (channel === 'voice') {
       payloadObj = {
         phoneNumber: phone,
         channel: 'voice',
-        otpCode: '882910'
+        senderName: 'Alibaba',
+        otp: '882910'
       };
     } else {
       payloadObj = {
         phoneNumber: phone,
         channel: 'waterfall',
         channels: ['whatsapp', 'telegram', 'sms'],
-        senderName: 'OTP88_AUTH',
-        codeLength: 6,
-        expirySeconds: 300
+        senderName: 'Alibaba',
+        otp: '882910'
       };
     }
   }
@@ -169,7 +169,25 @@ function ApiView({ t, session, revealedApiKey, setRevealedApiKey, copyToClipboar
   const [selectedLang, setSelectedLang] = useState('curl');
   const [selectedAction, setSelectedAction] = useState('send');
 
-  const apiKey = session?.apiKeyLive || 'otp_live_88a90184bcedf41';
+  const rawKey = session?.apiKeyLive || 'otp88_api_88a90184bcedf41';
+  const apiKey = useMemo(() => {
+    if (rawKey.startsWith('otp_live_')) {
+      return 'otp88_api_' + rawKey.slice(9);
+    }
+    if (!rawKey.startsWith('otp88_api_') && !rawKey.startsWith('api_')) {
+      return 'otp88_api_' + rawKey;
+    }
+    return rawKey;
+  }, [rawKey]);
+
+  // Display value: show 'otp88_api_' prefix followed by masked dots before reveal
+  const displayKeyValue = useMemo(() => {
+    if (revealedApiKey) {
+      return apiKey;
+    }
+    const suffixLength = Math.max(16, apiKey.length - 10);
+    return 'otp88_api_' + '•'.repeat(suffixLength);
+  }, [apiKey, revealedApiKey]);
 
   const activeSnippet = useMemo(() => {
     return getCodeSnippet({
@@ -189,8 +207,26 @@ function ApiView({ t, session, revealedApiKey, setRevealedApiKey, copyToClipboar
           {t.prodApiKey || 'API Key'}
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
-          <input type="text" className="sheets-input sheets-input-code" readOnly value={apiKey} style={{ fontWeight: '700' }} />
-          <button className="sheets-btn sheets-btn-primary" onClick={() => copyToClipboard(apiKey, 'API Key')}>
+          <input
+            type="text"
+            className="sheets-input sheets-input-code"
+            readOnly
+            value={displayKeyValue}
+            style={{ fontWeight: '700', letterSpacing: revealedApiKey ? 'normal' : '1px' }}
+          />
+          <button
+            type="button"
+            className="sheets-btn"
+            onClick={() => setRevealedApiKey(!revealedApiKey)}
+            style={{ minWidth: '85px' }}
+          >
+            {revealedApiKey ? 'Hide Key' : 'Reveal Key'}
+          </button>
+          <button
+            type="button"
+            className="sheets-btn sheets-btn-primary"
+            onClick={() => copyToClipboard(apiKey, 'API Key')}
+          >
             {t.copyKey || 'Copy Key'}
           </button>
         </div>

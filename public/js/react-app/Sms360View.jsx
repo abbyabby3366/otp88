@@ -307,23 +307,15 @@ function Sms360View({ t, jwtToken, showToast }) {
               <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>POST/GET /gw/bulk360/v3_0/send.php</span>
             </div>
             <form onSubmit={handleSendSms} style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1.1fr 0.8fr', gap: '8px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>Username (`user` / APP_KEY)</label>
-                  <input type="text" className="sheets-input" value={config.appKey} readOnly style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-code)', background: '#F8FAFC', cursor: 'not-allowed', color: 'var(--text-secondary)' }} title="Configured by default in API Credentials" />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>Password (`pass` / APP_SECRET)</label>
-                  <input type="text" className="sheets-input" value={config.appSecret} readOnly style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-code)', background: '#F8FAFC', cursor: 'not-allowed', color: 'var(--text-secondary)' }} title="Configured by default in API Credentials" />
-                </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '8px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>Sender ID (`from`)</label>
                   <input type="text" className="sheets-input" value={mtFrom} onChange={(e) => setMtFrom(e.target.value)} placeholder="66688" style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-code)' }} />
                 </div>
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>Recipient (`to` - Comma-separated for Bulk)</label>
-                <input type="text" className="sheets-input" value={mtTo} onChange={(e) => setMtTo(e.target.value)} placeholder="60122273341" style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-code)' }} />
+                <div>
+                  <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>Recipient (`to` - Comma-separated for Bulk)</label>
+                  <input type="text" className="sheets-input" value={mtTo} onChange={(e) => setMtTo(e.target.value)} placeholder="60122273341" style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-code)' }} />
+                </div>
               </div>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
@@ -660,9 +652,8 @@ function Sms360View({ t, jwtToken, showToast }) {
   -d '{
     "phoneNumber": "+60123456789",
     "channel": "sms",
-    "senderId": "OTP88_SMS",
-    "codeLength": 6,
-    "expirySeconds": 300
+    "senderName": "Alibaba",
+    "otp": "882910"
   }'`}</pre>
               </div>
             </div>
@@ -692,7 +683,7 @@ function Sms360View({ t, jwtToken, showToast }) {
         <table className="sheets-table">
           <thead>
             <tr>
-              <th style={{ width: '35px' }}>#</th><th>Reference ID</th><th>Recipient</th><th>Message Content</th><th>Sender ID</th><th>Gateway</th><th>Segments</th><th>Cost</th><th>Status</th><th>Latency</th><th>Time</th>
+              <th style={{ width: '35px' }}>#</th><th>Reference ID</th><th>Recipient Phone</th><th>Message Content</th><th>Sender ID</th><th>Gateway</th><th>Segments</th><th>Cost</th><th>Status</th><th>Latency</th><th>Time</th>
             </tr>
           </thead>
           <tbody>

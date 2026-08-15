@@ -15,37 +15,37 @@ function getAdminCodeSnippet({ origin, apiKey, channel, lang, action, phone = '+
       payloadObj = {
         phoneNumber: phone,
         channel: 'sms',
-        senderName: 'OTP88_SMS',
-        codeLength: 6,
-        expirySeconds: 300
+        senderName: 'Alibaba',
+        otp: '882910'
       };
     } else if (channel === 'telegram') {
       payloadObj = {
         phoneNumber: phone,
         channel: 'telegram',
-        otpCode: '882910',
-        senderName: 'OTP88_BOT'
+        senderName: 'Alibaba',
+        otp: '882910'
       };
     } else if (channel === 'whatsapp') {
       payloadObj = {
         phoneNumber: phone,
         channel: 'whatsapp',
-        otpCode: '882910'
+        senderName: 'Alibaba',
+        otp: '882910'
       };
     } else if (channel === 'voice') {
       payloadObj = {
         phoneNumber: phone,
         channel: 'voice',
-        otpCode: '882910'
+        senderName: 'Alibaba',
+        otp: '882910'
       };
     } else {
       payloadObj = {
         phoneNumber: phone,
         channel: 'waterfall',
         channels: ['whatsapp', 'telegram', 'sms'],
-        senderName: 'OTP88_AUTH',
-        codeLength: 6,
-        expirySeconds: 300
+        senderName: 'Alibaba',
+        otp: '882910'
       };
     }
   }
@@ -153,7 +153,8 @@ function AdminApiView({ t, usersList = [], session, copyToClipboard, showToast }
     : 'http://localhost:8884';
 
   const [selectedApiKey, setSelectedApiKey] = useState(() => {
-    return usersList[0]?.apiKeyLive || session?.apiKeyLive || 'otp_live_88a90184bcedf41';
+    const raw = usersList[0]?.apiKeyLive || session?.apiKeyLive || 'otp88_api_88a90184bcedf41';
+    return raw.startsWith('otp_live_') ? 'otp88_api_' + raw.slice(9) : raw;
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedChannel, setSelectedChannel] = useState('sms');
@@ -183,15 +184,15 @@ function AdminApiView({ t, usersList = [], session, copyToClipboard, showToast }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       
-      {/* Multi-Tenant API Keys Directory */}
+      {/* User API Keys Directory */}
       <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
         <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-          <span>USER API KEYS DIRECTORY ({filteredUsers.length} Tenants)</span>
+          <span>USER API KEYS DIRECTORY ({filteredUsers.length} Users)</span>
           
           <input
             type="text"
             className="sheets-input sheets-input-code"
-            placeholder="Search tenant or key..."
+            placeholder="Search user or key..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ width: '200px', padding: '4px 8px', fontSize: '11px' }}
@@ -202,7 +203,7 @@ function AdminApiView({ t, usersList = [], session, copyToClipboard, showToast }
           <thead>
             <tr>
               <th style={{ width: '35px' }}>#</th>
-              <th>User / Tenant</th>
+              <th>User</th>
               <th>Email</th>
               <th>Role</th>
               <th>Live API Key</th>
@@ -220,7 +221,8 @@ function AdminApiView({ t, usersList = [], session, copyToClipboard, showToast }
               </tr>
             ) : (
               filteredUsers.map((usr, idx) => {
-                const keyVal = usr.apiKeyLive || 'otp_live_88a90184bcedf41';
+                let keyVal = usr.apiKeyLive || 'otp88_api_88a90184bcedf41';
+                if (keyVal.startsWith('otp_live_')) keyVal = 'otp88_api_' + keyVal.slice(9);
                 const isSelected = selectedApiKey === keyVal;
                 return (
                   <tr key={usr._id || idx} style={{ background: isSelected ? 'rgba(16, 185, 129, 0.04)' : undefined }}>

@@ -308,7 +308,7 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
             </div>
             <form onSubmit={handleVerifyOtp} style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>Recipient Phone Number</label>
+                <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>Recipient Phone</label>
                 <input type="tel" className="sheets-input" value={verifyPhone} onChange={(e) => setVerifyPhone(e.target.value)} placeholder="+60123456789" style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-code)' }} />
               </div>
               <div>
@@ -497,7 +497,7 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
             <tr>
               <th style={{ width: '35px' }}>#</th>
               <th>Message ID</th>
-              <th>Recipient</th>
+              <th>Recipient Phone</th>
               <th>Channel</th>
               <th>OTP Code</th>
               <th>Fallback</th>

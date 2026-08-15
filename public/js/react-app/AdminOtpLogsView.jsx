@@ -56,14 +56,14 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
         
         {/* User and Channel Selectors */}
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)' }}>Tenant:</span>
+          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)' }}>User:</span>
           <select
             className="sheets-input"
             value={userFilter}
             onChange={(e) => { setUserFilter(e.target.value); setCurrentPage(1); }}
             style={{ padding: '3px 6px', fontSize: '11px', maxWidth: '160px' }}
           >
-            <option value="ALL">All Tenants</option>
+            <option value="ALL">All Users</option>
             {usersList.map(u => (
               <option key={u._id} value={u._id}>{u.name || u.email}</option>
             ))}
@@ -132,8 +132,8 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
             <tr>
               <th style={{ width: '35px' }}>#</th>
               <th>{t.txId || 'Transaction ID'}</th>
-              <th>User / Tenant</th>
-              <th>{t.recipient || 'Phone Number'}</th>
+              <th>User</th>
+              <th>{t.recipient || 'Recipient Phone'}</th>
               <th>{t.carrierRoute || 'Channel'}</th>
               <th>Latency</th>
               <th>{t.unitCost || 'Cost'}</th>

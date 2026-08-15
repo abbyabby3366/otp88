@@ -407,15 +407,14 @@
             </div>
             <div class="code-body">
               <pre id="api-sample-code">curl -X POST https://api.otp88.com/v1/otp/send \
-  -H "Authorization: Bearer otp_live_99882200aabbcc" \
+  -H "Authorization: Bearer otp88_api_99882200aabbcc" \
   -H "Content-Type: application/json" \
   -d '{
     "to": "+60123456789",
     "channel_strategy": "waterfall",
     "channels": ["whatsapp", "telegram", "sms"],
-    "sender_name": "OTP88_AUTH",
-    "code_length": 6,
-    "expiry_seconds": 300
+    "sender_name": "Alibaba",
+    "otp": "882910"
   }'</pre>
             </div>
           </div>

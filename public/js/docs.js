@@ -4,15 +4,14 @@
 
 const CODE_EXAMPLES = {
   curl: `curl -X POST https://api.otp88.com/v1/otp/send \\
-  -H "Authorization: Bearer otp_live_99882200aabbcc" \\
+  -H "Authorization: Bearer otp88_api_99882200aabbcc" \\
   -H "Content-Type: application/json" \\
   -d '{
     "to": "+60123456789",
     "channel_strategy": "waterfall",
     "channels": ["whatsapp", "telegram", "sms"],
-    "sender_name": "OTP88_AUTH",
-    "code_length": 6,
-    "expiry_seconds": 300
+    "sender_name": "Alibaba",
+    "otp": "882910"
   }'`,
 
   node: `const axios = require('axios');
@@ -22,12 +21,11 @@ async function sendOTP() {
     to: '+60123456789',
     channel_strategy: 'waterfall',
     channels: ['whatsapp', 'telegram', 'sms'],
-    sender_id: 'OTP88_AUTH',
-    code_length: 6,
-    expiry_seconds: 300
+    sender_name: 'OTP88_AUTH',
+    otp: '882910'
   }, {
     headers: {
-      'Authorization': 'Bearer otp_live_99882200aabbcc',
+      'Authorization': 'Bearer otp88_api_99882200aabbcc',
       'Content-Type': 'application/json'
     }
   });
@@ -41,16 +39,15 @@ sendOTP();`,
 
 url = "https://api.otp88.com/v1/otp/send"
 headers = {
-    "Authorization": "Bearer otp_live_99882200aabbcc",
+    "Authorization": "Bearer otp88_api_99882200aabbcc",
     "Content-Type": "application/json"
 }
 payload = {
     "to": "+60123456789",
     "channel_strategy": "waterfall",
     "channels": ["whatsapp", "telegram", "sms"],
-    "sender_name": "OTP88_AUTH",
-    "code_length": 6,
-    "expiry_seconds": 300
+    "sender_name": "Alibaba",
+    "otp": "882910"
 }
 
 response = requests.post(url, json=payload, headers=headers)
@@ -70,14 +67,13 @@ func main() {
 		"to":               "+60123456789",
 		"channel_strategy": "waterfall",
 		"channels":         []string{"whatsapp", "telegram", "sms"},
-		"sender_id":        "OTP88_AUTH",
-		"code_length":      6,
-		"expiry_seconds":   300,
+		"sender_name":      "Alibaba",
+		"otp":              "882910",
 	}
 	body, _ := json.Marshal(payload)
 
 	req, _ := http.NewRequest("POST", "https://api.otp88.com/v1/otp/send", bytes.NewBuffer(body))
-	req.Header.Set("Authorization", "Bearer otp_live_99882200aabbcc")
+	req.Header.Set("Authorization", "Bearer otp88_api_99882200aabbcc")
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
@@ -94,14 +90,13 @@ $payload = json_encode([
     'to' => '+60123456789',
     'channel_strategy' => 'waterfall',
     'channels' => ['whatsapp', 'telegram', 'sms'],
-    'sender_id' => 'OTP88_AUTH',
-    'code_length' => 6,
-    'expiry_seconds' => 300
+    'sender_name' => 'Alibaba',
+    'otp' => '882910'
 ]);
 
 curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'Authorization: Bearer otp_live_99882200aabbcc',
+    'Authorization: Bearer otp88_api_99882200aabbcc',
     'Content-Type: application/json'
 ]);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);

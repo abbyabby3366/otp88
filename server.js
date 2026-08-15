@@ -246,7 +246,7 @@ async function seedInitialAdmin() {
         password: ADMIN_PASSWORD,
         role: 'ADMIN',
         balanceUsd: 100.00,
-        apiKeyLive: 'otp_live_' + Math.random().toString(36).substring(2, 16) + '88',
+        apiKeyLive: 'otp88_api_' + Math.random().toString(36).substring(2, 16) + '88',
         monthlyVolumeRemaining: 'Unlimited'
       });
       console.log(' Seeded default admin account into MongoDB Atlas.');
@@ -267,8 +267,8 @@ const verifyJwtMiddleware = async (req, res, next) => {
 
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
 
-  // 1. Direct API Key authentication (e.g. otp_live_...)
-  if (token.startsWith('otp_live_')) {
+  // 1. Direct API Key authentication (e.g. otp88_api_... or otp_live_...)
+  if (token.startsWith('otp88_api_') || token.startsWith('otp_live_') || token.startsWith('api_')) {
     if (isDbConnected) {
       try {
         const user = await UserModel.findOne({ apiKeyLive: token }).lean();
@@ -419,8 +419,11 @@ app.all(['/api/webhooks/otp88', '/v1/webhooks'], (req, res) => {
 // 3. API: Live Interactive OTP Simulator & v1 Gateway (Writes to MongoDB)
 app.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
   const {
-    phoneNumber = '+60123456789',
+    phoneNumber: reqPhoneNumber,
+    phone: reqPhone,
+    to: reqTo,
     channel = 'whatsapp',
+    otp: customOtpDirect,
     otpCode: customOtpCode,
     code: customCode,
     senderName: reqSenderName,
@@ -431,10 +434,11 @@ app.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
     codeLength = 6
   } = req.body;
 
-  const senderName = reqSenderName || reqSender_name || reqSenderId || reqSender_id || reqFrom || 'OTP88_AUTH';
+  const phoneNumber = reqPhoneNumber || reqPhone || reqTo || '+60123456789';
+  const senderName = reqSenderName || reqSender_name || reqSenderId || reqSender_id || reqFrom || 'Alibaba';
 
   // Use provided OTP code or auto-generate
-  let otpCode = customOtpCode || customCode;
+  let otpCode = customOtpDirect || customOtpCode || customCode;
   if (!otpCode) {
     const min = Math.pow(10, codeLength - 1);
     const max = Math.pow(10, codeLength) - 1;
@@ -465,7 +469,7 @@ app.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
   const authHeader = req.headers['authorization'] || req.headers['x-api-key'];
   if (authHeader) {
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-    if (token.startsWith('otp_live_')) {
+    if (token.startsWith('otp88_api_') || token.startsWith('otp_live_') || token.startsWith('api_')) {
       if (isDbConnected) {
         try {
           const user = await UserModel.findOne({ apiKeyLive: token }).lean();
@@ -603,8 +607,8 @@ app.post('/api/auth/login', async (req, res) => {
             adminDbUser.role = 'ADMIN';
             needsSave = true;
           }
-          if (!adminDbUser.apiKeyLive) {
-            adminDbUser.apiKeyLive = 'otp_live_' + Math.random().toString(36).substring(2, 16) + '88';
+          if (!adminDbUser.apiKeyLive || adminDbUser.apiKeyLive.startsWith('otp_live_')) {
+            adminDbUser.apiKeyLive = 'otp88_api_' + Math.random().toString(36).substring(2, 16) + '88';
             needsSave = true;
           }
           if (needsSave) {
@@ -614,7 +618,7 @@ app.post('/api/auth/login', async (req, res) => {
       } catch (e) {}
     }
 
-    const adminApiKey = adminDbUser?.apiKeyLive || 'otp_live_88a90184bcedf88';
+    const adminApiKey = adminDbUser?.apiKeyLive || 'otp88_api_88a90184bcedf88';
 
     // Admin JWT Generation
     const token = generateJwtToken({
@@ -670,7 +674,7 @@ app.post('/api/auth/login', async (req, res) => {
           password: password,
           role: 'USER',
           balanceUsd: 50.00,
-          apiKeyLive: 'otp_live_' + Math.random().toString(36).substring(2, 16) + '88',
+          apiKeyLive: 'otp88_api_' + Math.random().toString(36).substring(2, 16) + '88',
           monthlyVolumeRemaining: '100,000'
         });
       }
@@ -700,7 +704,7 @@ app.post('/api/auth/login', async (req, res) => {
       name: userDisplayName,
       role: userRole,
       balanceUsd: dbUser ? dbUser.balanceUsd : 50.00,
-      apiKeyLive: dbUser ? dbUser.apiKeyLive : ('otp_live_' + Math.random().toString(36).substring(2, 16) + '88'),
+      apiKeyLive: dbUser ? dbUser.apiKeyLive : ('otp88_api_' + Math.random().toString(36).substring(2, 16) + '88'),
       monthlyVolumeRemaining: dbUser ? dbUser.monthlyVolumeRemaining : '100,000'
     }
   });
@@ -723,7 +727,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 
   let dbUser = null;
-  const generatedApiKey = 'otp_live_' + Math.random().toString(36).substring(2, 16) + '88';
+  const generatedApiKey = 'otp88_api_' + Math.random().toString(36).substring(2, 16) + '88';
 
   if (isDbConnected) {
     try {
@@ -816,7 +820,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
           name: 'User (' + phoneNumber.slice(-4) + ')',
           role: 'USER',
           balanceUsd: 25.00,
-          apiKeyLive: 'otp_live_' + Math.random().toString(36).substring(2, 16) + '88',
+          apiKeyLive: 'otp88_api_' + Math.random().toString(36).substring(2, 16) + '88',
           monthlyVolumeRemaining: '50,000'
         });
       }
@@ -1753,7 +1757,7 @@ app.post('/api/admin/users', verifyJwtMiddleware, requireAdmin, async (req, res)
       email: email.trim().toLowerCase(),
       role,
       balanceUsd: parseFloat(balanceUsd) || 50.00,
-      apiKeyLive: 'otp_live_' + Math.random().toString(36).substring(2, 16) + '88',
+      apiKeyLive: 'otp88_api_' + Math.random().toString(36).substring(2, 16) + '88',
       monthlyVolumeRemaining: '100,000'
     });
     res.json({ success: true, user: newUser });
@@ -1842,7 +1846,7 @@ app.get('/api/user/profile', verifyJwtMiddleware, async (req, res) => {
           phone: user.phone,
           role: user.role || 'USER',
           balanceUsd: user.balanceUsd !== undefined ? user.balanceUsd : 50.00,
-          apiKeyLive: user.apiKeyLive || ('otp_live_' + Math.random().toString(36).substring(2, 16) + '88'),
+          apiKeyLive: user.apiKeyLive || ('otp88_api_' + Math.random().toString(36).substring(2, 16) + '88'),
           monthlyVolumeRemaining: user.monthlyVolumeRemaining || '100,000'
         }
       });
@@ -1856,7 +1860,7 @@ app.get('/api/user/profile', verifyJwtMiddleware, async (req, res) => {
         name: req.user.name || req.user.username || req.user.email || 'admin',
         role: req.user.role || 'USER',
         balanceUsd: 50.00,
-        apiKeyLive: req.user.role === 'ADMIN' ? 'otp_live_88a90184bcedf88' : 'otp_live_88a90184bcedf41'
+        apiKeyLive: req.user.role === 'ADMIN' ? 'otp88_api_88a90184bcedf88' : 'otp88_api_88a90184bcedf41'
       }
     });
   } catch (err) {
