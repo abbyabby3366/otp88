@@ -15,6 +15,8 @@ const OTP88_I18N = {
     // Admin only Navigation Tabs
     navUsers: 'Manage Users',
     navAdminOtpLogs: 'Admin OTP Logs',
+    navSms360: 'SMS360',
+    navWhatsAppOtp: 'WhatsApp OTP',
     
     signOut: 'Logout',
     adminLive: 'Admin Online',
@@ -132,6 +134,8 @@ const OTP88_I18N = {
     // Admin only Navigation Tabs
     navUsers: '用户管理',
     navAdminOtpLogs: '管理员日志',
+    navSms360: 'SMS360 通道',
+    navWhatsAppOtp: 'WhatsApp OTP',
     
     signOut: '退出登录',
     adminLive: '管理员在线',

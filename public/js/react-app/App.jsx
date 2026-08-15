@@ -10,6 +10,8 @@ import AuthView from './AuthView.jsx';
 import LogsView from './LogsView.jsx';
 import OverviewView from './OverviewView.jsx';
 import AdminOtpLogsView from './AdminOtpLogsView.jsx';
+import Sms360View from './Sms360View.jsx';
+import WhatsAppOtpView from './WhatsAppOtpView.jsx';
 import SidebarView from './SidebarView.jsx';
 
 export default function App() {
@@ -49,6 +51,7 @@ export default function App() {
     if (clean === '/billing' || clean === '/topup' || clean === '/invoices') return 'billing';
     if (clean === '/users' || clean === '/admin/users' || clean === '/tenants') return 'users';
     if (clean === '/admin/logs' || clean === '/admin-logs' || clean === '/audit-logs') return 'admin-logs';
+    if (clean === '/sms360' || clean === '/admin/sms360' || clean === '/admin-sms360') return 'sms360';
     return 'dashboard';
   };
 
@@ -61,6 +64,7 @@ export default function App() {
       case 'billing': return '/billing';
       case 'users': return '/users';
       case 'admin-logs': return '/admin/logs';
+      case 'sms360': return '/admin/sms360';
       case 'dashboard':
       default:
         return '/dashboard';
@@ -759,6 +763,8 @@ export default function App() {
                   {activeTab === 'billing' && t.navBilling}
                   {activeTab === 'users' && t.navUsers}
                   {activeTab === 'admin-logs' && t.navAdminOtpLogs}
+                  {activeTab === 'sms360' && (t.navSms360 || 'SMS360')}
+                  {activeTab === 'whatsapp-otp' && (t.navWhatsAppOtp || 'WhatsApp OTP')}
                 </span>
                 <span style={{ color: 'var(--border-subtle)' }}>|</span>
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{session.role === 'ADMIN' ? 'Admin Panel' : 'Management Portal'}</span>
@@ -849,6 +855,16 @@ export default function App() {
               {/* ADMIN ONLY: ADMIN OTP AUDIT LOGS TAB */}
               {activeTab === 'admin-logs' && session.role === 'ADMIN' && (AdminOtpLogsView || window.AdminOtpLogsView) && (
                 <AdminOtpLogsView t={t} jwtToken={jwtToken} showToast={showToast} />
+              )}
+
+              {/* ADMIN ONLY: SMS360 GATEWAY TAB */}
+              {activeTab === 'sms360' && session.role === 'ADMIN' && (Sms360View || window.Sms360View) && (
+                <Sms360View t={t} jwtToken={jwtToken} showToast={showToast} />
+              )}
+
+              {/* ADMIN ONLY: WHATSAPP OTP GATEWAY TAB */}
+              {activeTab === 'whatsapp-otp' && session.role === 'ADMIN' && (WhatsAppOtpView || window.WhatsAppOtpView) && (
+                <WhatsAppOtpView t={t} jwtToken={jwtToken} showToast={showToast} />
               )}
 
             </div>

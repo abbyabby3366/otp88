@@ -87,6 +87,14 @@ function SidebarView({
               <button className={`sheets-nav-item ${activeTab === 'admin-logs' ? 'active' : ''}`} onClick={() => setActiveTab('admin-logs')}>
                 <span>{t.navAdminOtpLogs}</span>
               </button>
+
+              <button className={`sheets-nav-item ${activeTab === 'sms360' ? 'active' : ''}`} onClick={() => setActiveTab('sms360')}>
+                <span>{t.navSms360 || 'SMS360'}</span>
+              </button>
+
+              <button className={`sheets-nav-item ${activeTab === 'whatsapp-otp' ? 'active' : ''}`} onClick={() => setActiveTab('whatsapp-otp')}>
+                <span>{t.navWhatsAppOtp || 'WhatsApp OTP'}</span>
+              </button>
             </>
           )}
         </div>
