@@ -1,0 +1,28 @@
+{
+  "name": "otp88-platform",
+  "version": "1.0.0",
+  "description": "OTP88 - Next-Gen Multi-Channel OTP & Authentication CPaaS Platform",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "otp",
+    "sms",
+    "whatsapp",
+    "telegram",
+    "cpaas",
+    "authentication",
+    "api"
+  ],
+  "author": "OTP88",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
