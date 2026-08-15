@@ -1,3 +1,5 @@
+import React from 'react';
+
 // Dashboard Tab View (Overview KPIs + Live Delivery Stream)
 function DashboardView({ t, session, adminMetrics, logs }) {
   return (

@@ -1,3 +1,5 @@
+import React from 'react';
+
 // Services & Channel Routing Spreadsheet View
 function ServicesView({ t, ratesList, simPhone, setSimPhone, simChannel, setSimChannel, handleSimulateQuickOtp, loading }) {
   return (

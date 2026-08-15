@@ -1,3 +1,5 @@
+import React from 'react';
+
 // Carrier Rates Spreadsheet View
 function RatesView({ t, ratesList, session, editCountryCode, setEditCountryCode, editRateWhatsapp, setEditRateWhatsapp, editRateSms, setEditRateSms, showToast }) {
   return (

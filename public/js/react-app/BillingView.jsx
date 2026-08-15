@@ -1,9 +1,11 @@
+import React, { useState, useEffect } from 'react';
+
 // User Billing & Top-up Spreadsheet View
 function BillingView({ t, session, setSession, jwtToken, showToast }) {
-  const [topupAmount, setTopupAmount] = React.useState(100);
-  const [invoices, setInvoices] = React.useState([]);
+  const [topupAmount, setTopupAmount] = useState(100);
+  const [invoices, setInvoices] = useState([]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (jwtToken) {
       fetch('/api/billing/invoices', {
         headers: { 'Authorization': `Bearer ${jwtToken}` }

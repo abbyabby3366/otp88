@@ -1,8 +1,10 @@
+import React, { useState, useEffect } from 'react';
+
 // Admin OTP Usage & Audit Logs Component
 function AdminOtpLogsView({ t, jwtToken, showToast }) {
-  const [auditLogs, setAuditLogs] = React.useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (jwtToken) {
       fetch('/api/admin/otp-audit-logs', { headers: { 'Authorization': `Bearer ${jwtToken}` } })
         .then(res => res.json())

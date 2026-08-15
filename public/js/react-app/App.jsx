@@ -24,11 +24,73 @@ export default function App() {
   const t = translations;
 
 
-  // Active Tab: Defaults to 'dashboard'
-  const [activeTab, setActiveTab] = useState('dashboard');
+  // Route Mapping Helpers
+  const getTabFromPath = (path) => {
+    const clean = (path || (typeof window !== 'undefined' ? window.location.pathname : '') || '/').toLowerCase().replace(/\/$/, '');
+    if (clean === '/logs' || clean === '/otp-logs') return 'logs';
+    if (clean === '/services' || clean === '/channels' || clean === '/routing') return 'services';
+    if (clean === '/rates' || clean === '/pricing' || clean === '/carrier-rates') return 'rates';
+    if (clean === '/api' || clean === '/keys' || clean === '/developer' || clean === '/api-keys') return 'api';
+    if (clean === '/billing' || clean === '/topup' || clean === '/invoices') return 'billing';
+    if (clean === '/users' || clean === '/admin/users' || clean === '/tenants') return 'users';
+    if (clean === '/admin/logs' || clean === '/admin-logs' || clean === '/audit-logs') return 'admin-logs';
+    return 'dashboard';
+  };
+
+  const getPathFromTab = (tab) => {
+    switch (tab) {
+      case 'logs': return '/logs';
+      case 'services': return '/services';
+      case 'rates': return '/rates';
+      case 'api': return '/api';
+      case 'billing': return '/billing';
+      case 'users': return '/users';
+      case 'admin-logs': return '/admin/logs';
+      case 'dashboard':
+      default:
+        return '/dashboard';
+    }
+  };
+
+  const getAuthModeFromPath = (path) => {
+    const clean = (path || (typeof window !== 'undefined' ? window.location.pathname : '') || '').toLowerCase();
+    if (clean.includes('register')) return 'register';
+    if (clean.includes('forgot') || clean.includes('reset')) return 'forgot';
+    return 'login';
+  };
+
+  // Dynamic Route & Active Tab State
+  const [activeTab, _setActiveTab] = useState(() => getTabFromPath(typeof window !== 'undefined' ? window.location.pathname : '/dashboard'));
+
+  const navigateToTab = (tab, replace = false) => {
+    _setActiveTab(tab);
+    if (typeof window !== 'undefined') {
+      const targetPath = getPathFromTab(tab);
+      if (window.location.pathname !== targetPath) {
+        if (replace) {
+          window.history.replaceState({ tab }, '', targetPath);
+        } else {
+          window.history.pushState({ tab }, '', targetPath);
+        }
+      }
+    }
+  };
+
+  const setActiveTab = navigateToTab;
 
   // Auth Form State (Login, Registration, Password Reset)
-  const [authMode, setAuthMode] = useState('login'); // 'login' | 'register' | 'forgot'
+  const [authMode, _setAuthMode] = useState(() => getAuthModeFromPath(typeof window !== 'undefined' ? window.location.pathname : '/login'));
+
+  const setAuthMode = (mode) => {
+    _setAuthMode(mode);
+    if (typeof window !== 'undefined') {
+      const targetPath = mode === 'register' ? '/register' : mode === 'forgot' ? '/forgot' : '/login';
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState({ authMode: mode }, '', targetPath);
+      }
+    }
+  };
+
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -124,7 +186,22 @@ export default function App() {
     fetchRates();
   }, []);
 
-  // Session Mount
+  // Dynamic Browser History (Back / Forward) Listener
+  useEffect(() => {
+    const handlePopState = () => {
+      if (typeof window !== 'undefined') {
+        const currentPath = window.location.pathname;
+        const tab = getTabFromPath(currentPath);
+        _setActiveTab(tab);
+        _setAuthMode(getAuthModeFromPath(currentPath));
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Session Mount & Route Synchronization
   useEffect(() => {
     const savedUser = localStorage.getItem('otp88_session');
     const savedToken = localStorage.getItem('otp88_jwt');
@@ -133,8 +210,10 @@ export default function App() {
         setSession(JSON.parse(savedUser));
         setJwtToken(savedToken);
         setTheme(localStorage.getItem('otp88_console_theme') || 'light');
-        if (window.location.pathname.includes('login')) {
-          window.history.replaceState(null, '', '/dashboard');
+        const initialTab = getTabFromPath(window.location.pathname);
+        _setActiveTab(initialTab);
+        if (window.location.pathname === '/' || window.location.pathname.includes('login')) {
+          window.history.replaceState({ tab: 'dashboard' }, '', '/dashboard');
         }
       } catch (e) {
         localStorage.removeItem('otp88_session');
@@ -195,7 +274,10 @@ export default function App() {
         localStorage.setItem('otp88_jwt', data.token);
         setTheme('light');
         localStorage.setItem('otp88_console_theme', 'light');
-        window.history.pushState(null, '', '/dashboard');
+        const targetTab = getTabFromPath(window.location.pathname);
+        _setActiveTab(targetTab);
+        const destinationPath = targetTab !== 'dashboard' ? getPathFromTab(targetTab) : '/dashboard';
+        window.history.pushState({ tab: targetTab }, '', destinationPath);
         showToast(`${lang === 'zh' ? '欢迎回来' : 'Welcome'}, ${data.user.name || data.user.email}!`);
       } else {
         setErrorMessage(data.error || (lang === 'zh' ? '账号或密码无效。' : 'Invalid credentials.'));
@@ -235,7 +317,10 @@ export default function App() {
         localStorage.setItem('otp88_jwt', data.token);
         setTheme('light');
         localStorage.setItem('otp88_console_theme', 'light');
-        window.history.pushState(null, '', '/dashboard');
+        const targetTab = getTabFromPath(window.location.pathname);
+        _setActiveTab(targetTab);
+        const destinationPath = targetTab !== 'dashboard' ? getPathFromTab(targetTab) : '/dashboard';
+        window.history.pushState({ tab: targetTab }, '', destinationPath);
         showToast(lang === 'zh' ? `注册成功！欢迎加入 OTP88, ${data.user.name}` : `Welcome to OTP88, ${data.user.name}!`);
       } else {
         setErrorMessage(data.error || (lang === 'zh' ? '注册失败，请重试。' : 'Registration failed.'));
@@ -326,21 +411,29 @@ export default function App() {
     navigator.clipboard.writeText(text).then(() => showToast(`${label} ${t.copied || 'copied'}`));
   };
 
-  const handleTopupUser = async (userId) => {
-    if (!jwtToken) return;
+  const handleUpdateUser = async (userId, updateData) => {
+    if (!jwtToken) return false;
     try {
-      const res = await fetch('/api/admin/users/topup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
-        body: JSON.stringify({ userId, amount: 100 })
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwtToken}`
+        },
+        body: JSON.stringify(updateData)
       });
       const data = await res.json();
       if (data.success) {
-        showToast(lang === 'zh' ? '已为该租户充值 $100' : 'Added $100 credits to user');
+        showToast(lang === 'zh' ? '用户资料已更新' : 'User updated successfully');
         fetchAdminUsers();
+        return true;
+      } else {
+        showToast(data.error || 'Failed to update user', 'error');
+        return false;
       }
     } catch (e) {
-      showToast('Top-up error', 'error');
+      showToast('Error updating user', 'error');
+      return false;
     }
   };
 
@@ -362,7 +455,7 @@ export default function App() {
       if (data.success) {
         setNewUserName('');
         setNewUserEmail('');
-        showToast(lang === 'zh' ? `已创建租户: ${data.user.name}` : `Tenant created: ${data.user.name}`);
+        showToast(lang === 'zh' ? `已创建用户: ${data.user.name}` : `User created: ${data.user.name}`);
         fetchAdminUsers();
       }
     } catch (e) {
@@ -396,8 +489,19 @@ export default function App() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {toast.show && (
-        <div className="toast show" style={{ zIndex: 9999, padding: '8px 14px', fontSize: '12px' }}>
-          <span>{toast.message}</span>
+        <div className={`toast show ${toast.type === 'error' ? 'toast-error' : ''}`}>
+          {toast.type === 'error' ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F43F5E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+          <span style={{ color: '#F8FAFC', fontWeight: 600 }}>{toast.message}</span>
         </div>
       )}
 
@@ -531,13 +635,14 @@ export default function App() {
                   {activeTab === 'dashboard' && t.navDashboard}
                   {activeTab === 'logs' && t.navLogs}
                   {activeTab === 'services' && t.navServices}
+                  {activeTab === 'rates' && (t.navRates || 'Carrier Rates')}
                   {activeTab === 'api' && t.navApi}
                   {activeTab === 'billing' && t.navBilling}
                   {activeTab === 'users' && t.navUsers}
                   {activeTab === 'admin-logs' && t.navAdminOtpLogs}
                 </span>
                 <span style={{ color: 'var(--border-subtle)' }}>|</span>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Enterprise Control Plane</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Admin Panel</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px' }}>
                 <span className="sheets-badge sheets-badge-emerald">256-bit SSL</span>
@@ -585,7 +690,23 @@ export default function App() {
                 />
               )}
 
-              {/* TAB 4: API */}
+              {/* TAB 4: CARRIER RATES */}
+              {activeTab === 'rates' && (RatesView || window.RatesView) && (
+                <RatesView
+                  t={t}
+                  ratesList={ratesList}
+                  session={session}
+                  editCountryCode={editCountryCode}
+                  setEditCountryCode={setEditCountryCode}
+                  editRateWhatsapp={editRateWhatsapp}
+                  setEditRateWhatsapp={setEditRateWhatsapp}
+                  editRateSms={editRateSms}
+                  setEditRateSms={setEditRateSms}
+                  showToast={showToast}
+                />
+              )}
+
+              {/* TAB 5: API */}
               {activeTab === 'api' && (ApiView || window.ApiView) && (
                 <ApiView
                   t={t}
@@ -609,7 +730,7 @@ export default function App() {
                   t={t}
                   usersList={usersList}
                   handleCreateUser={handleCreateUser}
-                  handleTopupUser={handleTopupUser}
+                  handleUpdateUser={handleUpdateUser}
                   copyToClipboard={copyToClipboard}
                   newUserName={newUserName}
                   setNewUserName={setNewUserName}

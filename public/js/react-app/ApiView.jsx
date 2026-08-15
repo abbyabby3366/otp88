@@ -1,6 +1,8 @@
+import React, { useState } from 'react';
+
 // API & Keys Integration Spreadsheet View
 function ApiView({ t, session, jwtToken, revealedApiKey, setRevealedApiKey, copyToClipboard, showToast }) {
-  const [webhookUrl, setWebhookUrl] = React.useState('https://api.yourdomain.com/webhooks/otp88');
+  const [webhookUrl, setWebhookUrl] = useState('https://api.yourdomain.com/webhooks/otp88');
 
   const apiKey = session?.apiKeyLive || 'otp_live_88a90184bcedf41';
   const maskedKey = revealedApiKey ? apiKey : '••••••••••••••••••••••••••••••••';

@@ -1,13 +1,15 @@
+import React, { useState, useMemo } from 'react';
+
 // User Full OTP Delivery Logs Component (with Platform Filters & Pagination)
 function LogsView({ t, logs }) {
-  const [platformFilter, setPlatformFilter] = React.useState('ALL');
-  const [statusFilter, setStatusFilter] = React.useState('ALL');
-  const [searchTerm, setSearchTerm] = React.useState('');
-  const [currentPage, setCurrentPage] = React.useState(1);
-  const [pageSize, setPageSize] = React.useState(10);
+  const [platformFilter, setPlatformFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Filter logs
-  const filteredLogs = React.useMemo(() => {
+  const filteredLogs = useMemo(() => {
     return logs.filter(log => {
       const matchPlatform = platformFilter === 'ALL' || (log.channel && log.channel.toUpperCase().includes(platformFilter));
       const matchStatus = statusFilter === 'ALL' || (log.status && log.status.toUpperCase() === statusFilter);
@@ -20,7 +22,7 @@ function LogsView({ t, logs }) {
 
   // Pagination calculation
   const totalPages = Math.max(1, Math.ceil(filteredLogs.length / pageSize));
-  const paginatedLogs = React.useMemo(() => {
+  const paginatedLogs = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredLogs.slice(start, start + pageSize);
   }, [filteredLogs, currentPage, pageSize]);

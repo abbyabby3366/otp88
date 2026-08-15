@@ -61,6 +61,7 @@ const UserSchema = new mongoose.Schema({
   password: { type: String },
   name: { type: String },
   role: { type: String, enum: ['ADMIN', 'USER'], default: 'USER' },
+  status: { type: String, enum: ['ACTIVE', 'PAUSED', 'SUSPENDED'], default: 'ACTIVE' },
   balanceUsd: { type: Number, default: 50.00 },
   apiKeyLive: { type: String },
   monthlyVolumeRemaining: { type: String, default: '100,000' }
@@ -817,15 +818,30 @@ app.post('/api/admin/users', verifyJwtMiddleware, requireAdmin, async (req, res)
   }
 });
 
-app.post('/api/admin/users/topup', verifyJwtMiddleware, requireAdmin, async (req, res) => {
-  const { userId, amount = 100 } = req.body;
+app.put('/api/admin/users/:id', verifyJwtMiddleware, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { name, email, role, balanceUsd, status, password, phone } = req.body;
   try {
-    const updated = await UserModel.findByIdAndUpdate(
-      userId,
-      { $inc: { balanceUsd: parseFloat(amount) } },
+    const updateFields = {};
+    if (name !== undefined) updateFields.name = name.trim();
+    if (email !== undefined) updateFields.email = email.trim().toLowerCase();
+    if (role !== undefined) updateFields.role = role;
+    if (balanceUsd !== undefined) updateFields.balanceUsd = parseFloat(balanceUsd);
+    if (status !== undefined) updateFields.status = status;
+    if (phone !== undefined) updateFields.phone = phone.trim();
+    if (password && password.trim().length >= 6) {
+      updateFields.password = password.trim();
+    }
+
+    const updatedUser = await UserModel.findByIdAndUpdate(
+      id,
+      { $set: updateFields },
       { new: true }
     );
-    res.json({ success: true, message: `Topped up $${amount} to user account.`, user: updated });
+    if (!updatedUser) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+    res.json({ success: true, message: 'User updated successfully', user: updatedUser });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
@@ -914,7 +930,13 @@ app.get('/api/status', (req, res) => {
 });
 
 // Base route and all console routes serve the React Application
-app.get(['/', '/login', '/login.html', '/dashboard', '/admin', '/console', '/home', '/landing', '/marketing'], (req, res) => {
+app.get([
+  '/', '/login', '/login.html', '/register', '/forgot',
+  '/dashboard', '/logs', '/otp-logs', '/services', '/rates',
+  '/api', '/keys', '/billing', '/users', '/admin',
+  '/admin/users', '/admin/logs', '/admin-logs', '/console',
+  '/home', '/landing', '/marketing'
+], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
