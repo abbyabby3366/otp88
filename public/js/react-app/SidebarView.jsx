@@ -43,8 +43,23 @@ function SidebarView({
             <circle cx="27" cy="18" r="1.5" fill="#38BDF8"/>
             <circle cx="17.5" cy="30.5" r="1.5" fill="#818CF8"/>
           </svg>
-          <div style={{ fontSize: '15px', fontWeight: '800', lineHeight: 1, letterSpacing: '-0.02em', color: 'var(--text-primary)', whiteSpace: 'nowrap', display: 'inline-block' }}>
-            OTP<span style={{ background: 'linear-gradient(135deg, #10B981, #06B6D4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', whiteSpace: 'nowrap' }}>88</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ fontSize: '15px', fontWeight: '800', lineHeight: 1, letterSpacing: '-0.02em', color: 'var(--text-primary)', whiteSpace: 'nowrap', display: 'inline-block' }}>
+              OTP<span style={{ background: 'linear-gradient(135deg, #10B981, #06B6D4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', whiteSpace: 'nowrap' }}>88</span>
+            </div>
+            <span style={{
+              fontSize: '10px',
+              fontWeight: '700',
+              padding: '1px 5px',
+              borderRadius: '4px',
+              background: 'rgba(16, 185, 129, 0.12)',
+              color: '#10B981',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              lineHeight: 1.2,
+              letterSpacing: '0.02em'
+            }}>
+              v1.0
+            </span>
           </div>
         </a>
 
@@ -60,17 +75,12 @@ function SidebarView({
             <span>{t.navLogs} ({logsCount})</span>
           </button>
 
-          {/* 3. Services */}
-          <button className={`sheets-nav-item ${activeTab === 'services' ? 'active' : ''}`} onClick={() => setActiveTab('services')}>
-            <span>{t.navServices}</span>
-          </button>
-
-          {/* 4. API */}
+          {/* 3. API */}
           <button className={`sheets-nav-item ${activeTab === 'api' ? 'active' : ''}`} onClick={() => setActiveTab('api')}>
             <span>{t.navApi}</span>
           </button>
 
-          {/* 5. Billing */}
+          {/* 4. Billing */}
           <button className={`sheets-nav-item ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => setActiveTab('billing')}>
             <span>{t.navBilling}</span>
           </button>
@@ -88,8 +98,10 @@ function SidebarView({
                 <span>{t.navAdminOtpLogs}</span>
               </button>
 
+              <div className="sheets-nav-header" style={{ marginTop: '10px' }}>{t.navServicesSection || 'SERVICES'}</div>
+
               <button className={`sheets-nav-item ${activeTab === 'sms360' ? 'active' : ''}`} onClick={() => setActiveTab('sms360')}>
-                <span>{t.navSms360 || 'SMS360'}</span>
+                <span>{t.navSmsOtp || t.navSms360 || 'SMS OTP'}</span>
               </button>
 
               <button className={`sheets-nav-item ${activeTab === 'whatsapp-otp' ? 'active' : ''}`} onClick={() => setActiveTab('whatsapp-otp')}>

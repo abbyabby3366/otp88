@@ -189,11 +189,11 @@ function UsersView({
                       </button>
                       <button
                         className="sheets-btn"
-                        style={{ padding: '2px 6px', fontSize: '10px' }}
+                        style={{ padding: '2px 6px', fontSize: '10px', whiteSpace: 'nowrap' }}
                         onClick={() => copyToClipboard(usr.apiKeyLive || 'otp_live_88a90184bcedf', 'API Key')}
                         title="Copy API Key"
                       >
-                        Copy
+                        {t.copyApiKey || 'Copy API Key'}
                       </button>
                     </div>
                   </td>
@@ -222,7 +222,7 @@ function UsersView({
                 ✕
               </button>
             </div>
-            <form onSubmit={handleSubmitEdit}>
+            <form onSubmit={handleSubmitEdit} autoComplete="off">
               <div className="sheets-modal-body">
                 <div>
                   <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
@@ -230,6 +230,8 @@ function UsersView({
                   </label>
                   <input
                     type="text"
+                    name="edit_user_name"
+                    autoComplete="off"
                     className="sheets-input"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
@@ -243,6 +245,8 @@ function UsersView({
                   </label>
                   <input
                     type="email"
+                    name="edit_user_email"
+                    autoComplete="off"
                     className="sheets-input"
                     value={editEmail}
                     onChange={(e) => setEditEmail(e.target.value)}
@@ -301,10 +305,16 @@ function UsersView({
                   </label>
                   <input
                     type="password"
+                    name="admin_edit_user_pwd"
+                    id="admin_edit_user_pwd"
                     className="sheets-input"
                     value={editPassword}
                     onChange={(e) => setEditPassword(e.target.value)}
-                    placeholder="Leave blank to keep unchanged"
+                    placeholder={t.placeholderPassword || 'Leave blank to keep unchanged'}
+                    autoComplete="new-password"
+                    readOnly
+                    onFocus={(e) => e.target.removeAttribute('readonly')}
+                    onMouseDown={(e) => e.target.removeAttribute('readonly')}
                   />
                 </div>
               </div>

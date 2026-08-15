@@ -51,7 +51,8 @@ export default function App() {
     if (clean === '/billing' || clean === '/topup' || clean === '/invoices') return 'billing';
     if (clean === '/users' || clean === '/admin/users' || clean === '/tenants') return 'users';
     if (clean === '/admin/logs' || clean === '/admin-logs' || clean === '/audit-logs') return 'admin-logs';
-    if (clean === '/sms360' || clean === '/admin/sms360' || clean === '/admin-sms360') return 'sms360';
+    if (clean === '/sms360' || clean === '/admin/sms360' || clean === '/admin-sms360' || clean === '/sms-otp' || clean === '/admin/sms-otp') return 'sms360';
+    if (clean === '/whatsapp-otp' || clean === '/admin/whatsapp-otp' || clean === '/admin-whatsapp-otp') return 'whatsapp-otp';
     return 'dashboard';
   };
 
@@ -65,6 +66,7 @@ export default function App() {
       case 'users': return '/users';
       case 'admin-logs': return '/admin/logs';
       case 'sms360': return '/admin/sms360';
+      case 'whatsapp-otp': return '/admin/whatsapp-otp';
       case 'dashboard':
       default:
         return '/dashboard';
@@ -129,6 +131,7 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState('');
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [revealedApiKey, setRevealedApiKey] = useState(false);
+  const [isBackendOnline, setIsBackendOnline] = useState(true);
 
   // Live Admin Metrics & Rates from MongoDB
   const [adminMetrics, setAdminMetrics] = useState(null);
@@ -206,6 +209,37 @@ export default function App() {
     document.body.className = active === 'light' ? 'theme-light' : 'theme-dark';
   }, [theme, session]);
 
+  // Real-time Backend Online Status Verification
+  const checkBackendHealth = async () => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch('/api/health', { signal: controller.signal, cache: 'no-store' });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        setIsBackendOnline(true);
+      } else {
+        setIsBackendOnline(false);
+      }
+    } catch (err) {
+      setIsBackendOnline(false);
+    }
+  };
+
+  useEffect(() => {
+    checkBackendHealth();
+    const interval = setInterval(checkBackendHealth, 10000);
+    const handleOnline = () => checkBackendHealth();
+    const handleOffline = () => setIsBackendOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   // Initial rates load
   useEffect(() => {
     fetchRates();
@@ -226,6 +260,23 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  const fetchUserProfile = async (token = jwtToken) => {
+    if (!token) return;
+    try {
+      const res = await fetch('/api/user/profile', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        setSession(prev => {
+          const merged = { ...(prev || {}), ...data.user };
+          localStorage.setItem('otp88_session', JSON.stringify(merged));
+          return merged;
+        });
+      }
+    } catch (e) {}
+  };
+
   // Session Mount & Route Synchronization
   useEffect(() => {
     const savedUser = localStorage.getItem('otp88_session');
@@ -239,6 +290,7 @@ export default function App() {
         }
         setSession(parsedUser);
         setJwtToken(savedToken);
+        fetchUserProfile(savedToken);
         setTheme(localStorage.getItem('otp88_console_theme') || 'light');
         const initialTab = getTabFromPath(window.location.pathname);
         _setActiveTab(initialTab);
@@ -256,12 +308,13 @@ export default function App() {
   useEffect(() => {
     if (jwtToken) {
       fetchLogs();
+      fetchUserProfile(jwtToken);
       if (session && session.role === 'ADMIN') {
         fetchAdminUsers();
         fetchAdminMetrics();
       }
     }
-  }, [session, jwtToken]);
+  }, [jwtToken]);
 
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
@@ -456,6 +509,11 @@ export default function App() {
       if (data.success) {
         showToast(lang === 'zh' ? '用户资料已更新' : 'User updated successfully');
         fetchAdminUsers();
+        if (session && (session.id === userId || (data.user && (session.email === data.user.email || session.name === data.user.name)))) {
+          const updatedSession = { ...session, ...data.user };
+          setSession(updatedSession);
+          localStorage.setItem('otp88_session', JSON.stringify(updatedSession));
+        }
         return true;
       } else {
         showToast(data.error || 'Failed to update user', 'error');
@@ -622,7 +680,10 @@ export default function App() {
                   <path d="M20 3L35 8.5V19.5C35 28.2 28.6 34.5 20 37C11.4 34.5 5 28.2 5 19.5V8.5L20 3Z" fill="url(#cleanShieldBg)" stroke="url(#cleanBrandGrad)" strokeWidth="2" strokeLinejoin="round"/>
                   <path d="M21.5 8.5L13 20H19.5L17.5 30.5L27 18H20.5L21.5 8.5Z" fill="url(#cleanBoltGrad)" stroke="#060913" strokeWidth="0.8" strokeLinejoin="round"/>
                 </svg>
-                <span>OTP<span className="text-gradient">88</span></span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>OTP<span className="text-gradient">88</span></span>
+                  <span style={{ fontSize: '11px', fontWeight: '700', padding: '1px 6px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', border: '1px solid rgba(16, 185, 129, 0.3)', lineHeight: 1.2 }}>v1.0</span>
+                </div>
               </a>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -763,7 +824,7 @@ export default function App() {
                   {activeTab === 'billing' && t.navBilling}
                   {activeTab === 'users' && t.navUsers}
                   {activeTab === 'admin-logs' && t.navAdminOtpLogs}
-                  {activeTab === 'sms360' && (t.navSms360 || 'SMS360')}
+                  {activeTab === 'sms360' && (t.navSmsOtp || t.navSms360 || 'SMS OTP')}
                   {activeTab === 'whatsapp-otp' && (t.navWhatsAppOtp || 'WhatsApp OTP')}
                 </span>
                 <span style={{ color: 'var(--border-subtle)' }}>|</span>
@@ -870,9 +931,23 @@ export default function App() {
             </div>
 
             {/* Bottom Status Bar */}
-            <footer className="sheets-status-bar">
-              <div>{t.statusReady} | {session.role} | {t.region}</div>
-              <div>Status: Online | Secure SSL | OTP88 Console</div>
+            <footer className="sheets-status-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    backgroundColor: isBackendOnline ? '#10B981' : '#EF4444',
+                    boxShadow: isBackendOnline ? '0 0 6px rgba(16, 185, 129, 0.6)' : '0 0 6px rgba(239, 68, 68, 0.6)',
+                    flexShrink: 0
+                  }}
+                />
+                <span style={{ fontWeight: 500, color: isBackendOnline ? '#10B981' : '#EF4444' }}>
+                  {isBackendOnline ? 'Status: Online' : 'Status: Offline'}
+                </span>
+              </div>
             </footer>
 
           </section>

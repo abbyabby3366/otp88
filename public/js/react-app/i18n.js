@@ -15,7 +15,9 @@ const OTP88_I18N = {
     // Admin only Navigation Tabs
     navUsers: 'Manage Users',
     navAdminOtpLogs: 'Admin OTP Logs',
-    navSms360: 'SMS360',
+    navServicesSection: 'SERVICES',
+    navSmsOtp: 'SMS OTP',
+    navSms360: 'SMS OTP',
     navWhatsAppOtp: 'WhatsApp OTP',
     
     signOut: 'Logout',
@@ -88,6 +90,7 @@ const OTP88_I18N = {
     placeholderEmail: 'user@example.com',
     editUser: 'Edit',
     editUserTitle: 'Edit User Details',
+    copyApiKey: 'Copy API Key',
     deleteUser: 'Delete User',
     deleteUserConfirm: 'Are you sure you want to delete this user? This action cannot be undone.',
     deleting: 'Deleting...',
@@ -95,6 +98,7 @@ const OTP88_I18N = {
     cancel: 'Cancel',
     statusLabel: 'Status',
     passwordOptional: 'New Password (Optional)',
+    placeholderPassword: 'Leave blank to keep unchanged',
     totalUsers: 'Total Users',
     commitChanges: 'Save Rate Changes',
     
@@ -134,7 +138,9 @@ const OTP88_I18N = {
     // Admin only Navigation Tabs
     navUsers: '用户管理',
     navAdminOtpLogs: '管理员日志',
-    navSms360: 'SMS360 通道',
+    navServicesSection: '服务通道',
+    navSmsOtp: 'SMS OTP 短信通道',
+    navSms360: 'SMS OTP 短信通道',
     navWhatsAppOtp: 'WhatsApp OTP',
     
     signOut: '退出登录',
@@ -206,6 +212,7 @@ const OTP88_I18N = {
     usersTitle: '用户管理列表',
     editUser: '编辑',
     editUserTitle: '编辑用户详情',
+    copyApiKey: '复制 API Key',
     deleteUser: '删除用户',
     deleteUserConfirm: '确定要删除此用户吗？此操作无法撤销。',
     deleting: '正在删除...',
@@ -213,6 +220,7 @@ const OTP88_I18N = {
     cancel: '取消',
     statusLabel: '状态',
     passwordOptional: '重置密码 (可选)',
+    placeholderPassword: '留空表示不修改密码',
     totalUsers: '用户总数',
     commitChanges: '保存费率修改',
     

@@ -21,6 +21,16 @@ app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 // Global Rates Fallback
 let GLOBAL_RATES = require('./data/rates.json');
 
+// --- Backend Health Check & Online Status ---
+app.get('/api/health', (req, res) => {
+  res.json({
+    success: true,
+    status: 'online',
+    dbConnected: isDbConnected,
+    timestamp: Date.now()
+  });
+});
+
 // --- Browser Live-Reload SSE Stream for Development ---
 let liveReloadClients = [];
 app.get('/api/live-reload', (req, res) => {
@@ -66,6 +76,7 @@ if (MONGODB_URI) {
       isDbConnected = true;
       console.log(' MongoDB Atlas Connected successfully to opt88-cluster database!');
       await seedInitialRates();
+      await seedInitialAdmin();
     })
     .catch((err) => {
       console.warn(' MongoDB Atlas connection warning (running in fallback mode):', err.message);
@@ -103,14 +114,18 @@ const UserSchema = new mongoose.Schema({
 
 const UserModel = mongoose.model('User', UserSchema);
 
-// 3. OTP Delivery Log Schema
 const OtpLogSchema = new mongoose.Schema({
   phoneNumber: { type: String, required: true },
   channel: { type: String, required: true },
   otpCode: { type: String },
+  messageText: { type: String },
+  senderId: { type: String },
+  segments: { type: Number, default: 1 },
   latency: { type: String },
   cost: { type: String },
-  status: { type: String, default: 'DELIVERED' },
+  status: { type: String, default: 'SENT' },
+  msgId: { type: String, index: true },
+  errorCode: { type: String, default: '0' },
   userId: { type: String }
 }, { timestamps: true });
 
@@ -147,9 +162,10 @@ const OtpAuditLogSchema = new mongoose.Schema({
   channel: { type: String, required: true },
   action: { type: String, required: true },
   actor: { type: String, required: true },
-  status: { type: String, default: 'DELIVERED' },
+  status: { type: String, default: 'SENT' },
   latency: { type: String, default: '0.8s' },
-  time: { type: String }
+  time: { type: String },
+  msgId: { type: String, index: true }
 }, { timestamps: true });
 
 const OtpAuditLogModel = mongoose.model('OtpAuditLog', OtpAuditLogSchema);
@@ -201,6 +217,41 @@ async function seedInitialRates() {
     }
   } catch (e) {
     console.error('Error seeding rates to MongoDB:', e.message);
+  }
+}
+
+// Auto-seed and sync Admin user in MongoDB
+async function seedInitialAdmin() {
+  try {
+    const adminQuery = {
+      $or: [
+        { email: 'admin' },
+        { email: ADMIN_USERNAME.toLowerCase() },
+        { name: 'admin' },
+        { name: ADMIN_USERNAME }
+      ]
+    };
+    const adminDoc = await UserModel.findOne(adminQuery);
+    if (adminDoc) {
+      if (adminDoc.role !== 'ADMIN') {
+        adminDoc.role = 'ADMIN';
+        await adminDoc.save();
+        console.log(' Synced and updated admin account role to ADMIN in MongoDB Atlas.');
+      }
+    } else {
+      await UserModel.create({
+        name: ADMIN_USERNAME,
+        email: ADMIN_USERNAME.toLowerCase(),
+        password: ADMIN_PASSWORD,
+        role: 'ADMIN',
+        balanceUsd: 100.00,
+        apiKeyLive: 'otp_live_' + Math.random().toString(36).substring(2, 16) + '88',
+        monthlyVolumeRemaining: 'Unlimited'
+      });
+      console.log(' Seeded default admin account into MongoDB Atlas.');
+    }
+  } catch (e) {
+    console.error('Error syncing admin user to MongoDB:', e.message);
   }
 }
 
@@ -432,6 +483,8 @@ app.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
         latency: `${(deliveryTimeMs / 1000).toFixed(1)}s`,
         cost: unitCost,
         status: 'DELIVERED',
+        msgId: txId,
+        errorCode: '0',
         userId: authUserId
       });
     } catch (err) {
@@ -462,12 +515,13 @@ app.get(['/api/logs', '/api/otp-logs'], verifyJwtMiddleware, async (req, res) =>
     }
     const rawLogs = await OtpLogModel.find(query).sort({ createdAt: -1 }).limit(100).lean();
     const formatted = rawLogs.map((l) => ({
-      id: 'LOG_' + l._id.toString().slice(-6).toUpperCase(),
+      id: l.msgId || ('LOG_' + l._id.toString().slice(-6).toUpperCase()),
       to: l.phoneNumber,
       channel: l.channel,
       latency: l.latency || '0.8s',
       cost: l.cost || '$0.0075',
       status: l.status || 'DELIVERED',
+      errorCode: l.errorCode || '0',
       time: l.createdAt ? new Date(l.createdAt).toTimeString().split(' ')[0] : 'Just now'
     }));
     res.json({ success: true, logs: formatted });
@@ -518,9 +572,34 @@ app.post('/api/auth/login', async (req, res) => {
     password === ADMIN_PASSWORD;
 
   if (isAdminMatch) {
+    let adminDbUser = null;
+    if (isDbConnected) {
+      try {
+        adminDbUser = await UserModel.findOne({
+          $or: [{ email: 'admin' }, { email: ADMIN_USERNAME.toLowerCase() }, { name: 'admin' }, { name: ADMIN_USERNAME }]
+        });
+        if (adminDbUser) {
+          let needsSave = false;
+          if (adminDbUser.role !== 'ADMIN') {
+            adminDbUser.role = 'ADMIN';
+            needsSave = true;
+          }
+          if (!adminDbUser.apiKeyLive) {
+            adminDbUser.apiKeyLive = 'otp_live_' + Math.random().toString(36).substring(2, 16) + '88';
+            needsSave = true;
+          }
+          if (needsSave) {
+            await adminDbUser.save();
+          }
+        }
+      } catch (e) {}
+    }
+
+    const adminApiKey = adminDbUser?.apiKeyLive || 'otp_live_88a90184bcedf88';
+
     // Admin JWT Generation
     const token = generateJwtToken({
-      id: 'admin_root_01',
+      id: adminDbUser ? adminDbUser._id.toString() : 'admin_root_01',
       username: ADMIN_USERNAME,
       role: 'ADMIN',
       scope: ['all']
@@ -531,10 +610,13 @@ app.post('/api/auth/login', async (req, res) => {
       message: 'Welcome back, Administrator. Full Control Plane unlocked.',
       token,
       user: {
-        id: 'admin_root_01',
+        id: adminDbUser ? adminDbUser._id.toString() : 'admin_root_01',
         email: ADMIN_USERNAME,
         name: ADMIN_USERNAME,
         role: 'ADMIN',
+        balanceUsd: adminDbUser ? adminDbUser.balanceUsd : 100.00,
+        apiKeyLive: adminApiKey,
+        monthlyVolumeRemaining: 'Unlimited',
         permissions: ['MANAGE_GATEWAYS', 'MANAGE_RATES', 'PROVISION_CREDITS', 'SYSTEM_AUDIT']
       }
     });
@@ -580,11 +662,12 @@ app.post('/api/auth/login', async (req, res) => {
 
   const userId = dbUser ? dbUser._id.toString() : ('usr_88' + Math.floor(1000 + Math.random() * 9000));
   const userDisplayName = dbUser?.name || dbUser?.phone || (cleanInput.includes('@') ? cleanInput.split('@')[0] : input);
+  const userRole = (dbUser && dbUser.role) ? dbUser.role : 'USER';
   const token = generateJwtToken({
     id: userId,
     email: dbUser?.email || cleanInput,
     phone: dbUser?.phone || (input.startsWith('+') ? input : undefined),
-    role: 'USER'
+    role: userRole
   });
 
   res.json({
@@ -596,7 +679,7 @@ app.post('/api/auth/login', async (req, res) => {
       email: dbUser?.email || cleanInput,
       phone: dbUser?.phone,
       name: userDisplayName,
-      role: 'USER',
+      role: userRole,
       balanceUsd: dbUser ? dbUser.balanceUsd : 50.00,
       apiKeyLive: dbUser ? dbUser.apiKeyLive : ('otp_live_' + Math.random().toString(36).substring(2, 16) + '88'),
       monthlyVolumeRemaining: dbUser ? dbUser.monthlyVolumeRemaining : '100,000'
@@ -863,45 +946,66 @@ let SMS360_CONFIG = {
   autoFallback: true
 };
 
-let SMS360_LOGS = [
-  {
-    id: '78-1633193001.0602',
-    recipient: '60123240066',
-    senderId: '66688',
-    telco: 'Bulk360',
-    segments: 1,
-    cost: 'MYR 0.0210',
-    status: 'DELIVERED',
-    latency: '0.42s',
-    timestamp: '18:42:15'
-  },
-  {
-    id: '78-1633193032.8416',
-    recipient: '60102200533',
-    senderId: '66688',
-    telco: 'Bulk360',
-    segments: 1,
-    cost: 'MYR 0.0210',
-    status: 'DELIVERED',
-    latency: '0.38s',
-    timestamp: '18:35:02'
-  },
-  {
-    id: '78-1633193045.1102',
-    recipient: '60102410102',
-    senderId: '66688',
-    telco: 'Bulk360',
-    segments: 1,
-    cost: 'MYR 0.0210',
-    status: 'DELIVERED',
-    latency: '0.51s',
-    timestamp: '18:22:49'
+let SMS360_LOGS = [];
+
+let cachedServerIp = null;
+let cachedServerIpTime = 0;
+
+async function detectPublicIp() {
+  const now = Date.now();
+  if (cachedServerIp && (now - cachedServerIpTime < 60000)) {
+    return cachedServerIp;
   }
-];
+  const services = [
+    { url: 'https://api4.ipify.org?format=json', parse: (d) => JSON.parse(d).ip },
+    { url: 'https://api.ipify.org?format=json', parse: (d) => JSON.parse(d).ip },
+    { url: 'https://ifconfig.me/ip', parse: (d) => d.trim() },
+    { url: 'https://api.ip.sb/jsonip', parse: (d) => JSON.parse(d).ip }
+  ];
+  for (const s of services) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2500);
+      const res = await fetch(s.url, { signal: controller.signal });
+      clearTimeout(timer);
+      if (res.ok) {
+        const text = await res.text();
+        const ip = s.parse(text);
+        if (ip && ip.length >= 7) {
+          cachedServerIp = ip;
+          cachedServerIpTime = now;
+          return ip;
+        }
+      }
+    } catch (e) {}
+  }
+  return cachedServerIp || '127.0.0.1';
+}
+
+app.get('/api/admin/sms360/my-ip', verifyJwtMiddleware, requireAdmin, async (req, res) => {
+  try {
+    const serverIp = await detectPublicIp();
+    const rawClientIp = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket.remoteAddress || '';
+    const clientIp = rawClientIp.split(',')[0].trim().replace(/^::ffff:/, '');
+    res.json({
+      success: true,
+      serverIp,
+      clientIp: clientIp || serverIp,
+      detectedAt: new Date().toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 app.get('/api/admin/sms360/stats', verifyJwtMiddleware, requireAdmin, async (req, res) => {
   try {
     let activeConfig = SMS360_CONFIG;
+    const serverIp = await detectPublicIp();
+    const rawClientIp = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket.remoteAddress || '';
+    const clientIp = rawClientIp.split(',')[0].trim().replace(/^::ffff:/, '');
+    let realLogs = [];
+
     if (isDbConnected) {
       try {
         let dbConfig = await Sms360ConfigModel.findOne({ key: 'sms360_primary' }).lean();
@@ -922,24 +1026,43 @@ app.get('/api/admin/sms360/stats', verifyJwtMiddleware, requireAdmin, async (req
           autoFallback: dbConfig.autoFallback !== undefined ? dbConfig.autoFallback : true
         };
         SMS360_CONFIG = activeConfig;
+
+        // Fetch actual last 10 sent SMS messages from MongoDB
+        const dbLogs = await OtpLogModel.find({ channel: { $regex: /sms/i } }).sort({ createdAt: -1 }).limit(10).lean();
+        realLogs = dbLogs.map(l => ({
+          id: l.msgId || ('78-' + l._id.toString().slice(-8)),
+          recipient: l.phoneNumber,
+          message: l.messageText || (l.otpCode ? `Your OTP88 verification code is ${l.otpCode}. Valid for 5 minutes.` : 'OTP88 authentication SMS'),
+          senderId: l.senderId || activeConfig.senderId || '66688',
+          telco: 'Bulk360',
+          segments: l.segments || 1,
+          cost: l.cost || `MYR ${activeConfig.ratePerSms || '0.0210'}`,
+          status: l.status || 'SENT',
+          errorCode: l.errorCode || '0',
+          latency: l.latency || '0.39s',
+          timestamp: l.createdAt ? new Date(l.createdAt).toTimeString().split(' ')[0] : 'Just now'
+        }));
       } catch (e) {
-        console.error('Error fetching SMS360 config from MongoDB:', e.message);
+        console.error('Error fetching SMS360 data from MongoDB:', e.message);
       }
+    } else {
+      realLogs = SMS360_LOGS.slice(0, 10);
     }
 
-    let deliveredCount = 1279;
-    let totalCount = 1280;
+    let deliveredCount = realLogs.filter(l => l.status === 'DELIVERED').length;
+    let totalCount = realLogs.length;
     if (isDbConnected) {
-      const smsLogs = await OtpLogModel.countDocuments({ channel: { $regex: /sms/i } });
-      if (smsLogs > 0) {
-        totalCount += smsLogs;
-        deliveredCount += smsLogs;
-      }
+      const smsTotal = await OtpLogModel.countDocuments({ channel: { $regex: /sms/i } });
+      const smsDelivered = await OtpLogModel.countDocuments({ channel: { $regex: /sms/i }, status: 'DELIVERED' });
+      totalCount = smsTotal;
+      deliveredCount = smsDelivered;
     }
-    const rate = ((deliveredCount / totalCount) * 100).toFixed(2) + '%';
+    const rate = totalCount > 0 ? ((deliveredCount / totalCount) * 100).toFixed(2) + '%' : '100.00%';
     res.json({
       success: true,
       config: activeConfig,
+      serverIp,
+      clientIp: clientIp || serverIp,
       source: isDbConnected ? 'mongodb-atlas' : 'memory',
       stats: {
         creditsRemaining: '14,850 SMS',
@@ -949,7 +1072,7 @@ app.get('/api/admin/sms360/stats', verifyJwtMiddleware, requireAdmin, async (req
         deliveryRate: rate,
         avgLatency: '0.44s'
       },
-      logs: SMS360_LOGS
+      logs: realLogs
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -1088,11 +1211,12 @@ app.post('/api/admin/sms360/test-send', verifyJwtMiddleware, requireAdmin, async
   const newLog = {
     id: messageId,
     recipient: cleanPhone,
+    message: message.trim(),
     senderId,
     telco: 'Bulk360',
     segments: Math.ceil(message.length / 160) || 1,
     cost: `MYR ${SMS360_CONFIG.ratePerSms || '0.0210'}`,
-    status: gwResult.code === 200 || gwResult.code === '200' ? 'DELIVERED' : 'SENT',
+    status: gwResult.code === 200 || gwResult.code === '200' ? 'SENT' : 'PENDING',
     latency: '0.39s',
     timestamp: new Date().toTimeString().split(' ')[0]
   };
@@ -1106,12 +1230,30 @@ app.post('/api/admin/sms360/test-send', verifyJwtMiddleware, requireAdmin, async
         phoneNumber: cleanPhone,
         channel: 'SMS360_V3',
         otpCode: message.match(/\b\d{4,8}\b/) ? message.match(/\b\d{4,8}\b/)[0] : '882049',
+        messageText: message.trim(),
+        senderId: senderId || '66688',
+        segments: Math.ceil(message.length / 160) || 1,
         latency: '0.39s',
         cost: `MYR ${SMS360_CONFIG.ratePerSms || '0.0210'}`,
-        status: 'DELIVERED',
+        status: 'SENT',
+        msgId: messageId,
+        errorCode: '0',
         userId: req.user.id
       });
-    } catch (e) {}
+      await OtpAuditLogModel.create({
+        auditId: 'AUD_' + Math.floor(1000 + Math.random() * 9000),
+        target: cleanPhone,
+        channel: 'SMS360_V3',
+        action: 'SMS_GATEWAY_DISPATCH',
+        actor: req.user.email || req.user.username || 'ADMIN',
+        status: 'SENT',
+        latency: '0.39s',
+        time: new Date().toTimeString().split(' ')[0],
+        msgId: messageId
+      });
+    } catch (e) {
+      console.error('Error saving SMS360 log to MongoDB:', e.message);
+    }
   }
 
   res.json({
@@ -1122,11 +1264,91 @@ app.post('/api/admin/sms360/test-send', verifyJwtMiddleware, requireAdmin, async
   });
 });
 
-// DLR Webhook Callback Handler for SMS 360 Delivery Notifications (DN)
-app.all('/api/webhooks/sms360/dlr', (req, res) => {
-  const payload = req.method === 'POST' ? req.body : req.query;
-  console.log('Received Bulk360 Delivery Notification (DN):', payload);
-  res.status(200).send('ACK');
+// DLR Webhook Callback Handler for SMS 360 & Telco Delivery Notifications (DN)
+app.all(['/api/webhooks/sms360/dlr', '/api/webhooks/dlr', '/api/webhooks/sms/dlr'], async (req, res) => {
+  try {
+    const payload = req.method === 'POST' ? req.body : req.query;
+    console.log('📬 Received Bulk360 / Telco Delivery Notification (DN):', payload);
+
+    if (!payload || Object.keys(payload).length === 0) {
+      return res.status(200).send('ACK');
+    }
+
+    // Extract payload fields (handling multiple parameter formats from Telcos/Bulk360)
+    const rawStatus = (payload.status || payload.stat || payload.dlr_status || payload.delivery_status || payload.Status || '').toString().toUpperCase();
+    let normalizedStatus = 'DELIVERED';
+    if (rawStatus.includes('UNDELIV') || rawStatus.includes('FAIL') || rawStatus.includes('REJECT') || rawStatus.includes('ERR')) {
+      normalizedStatus = 'FAILED';
+    } else if (rawStatus.includes('EXPIRE')) {
+      normalizedStatus = 'EXPIRED';
+    } else if (rawStatus.includes('ACCEPT') || rawStatus.includes('BUFF') || rawStatus.includes('QUEUE') || rawStatus.includes('PENDING') || rawStatus.includes('ENROUTE')) {
+      normalizedStatus = 'PENDING';
+    } else if (rawStatus.includes('DELIV') || rawStatus.includes('SUCCESS') || rawStatus === '0' || rawStatus === 'OK') {
+      normalizedStatus = 'DELIVERED';
+    }
+
+    const rawMsgId = (payload.msgid || payload.msgId || payload.ref || payload.id || payload.messageId || '').toString().trim();
+    const cleanPhone = (payload.msisdn || payload.to || payload.phone || payload.dest || payload.mobile || '').toString().replace(/[^0-9]/g, '');
+    const errorCode = (payload['error-code'] !== undefined ? payload['error-code'] : (payload.errorCode || payload.error_code || payload.err || '0')).toString().trim();
+
+    // Base msgId (strip telco suffix like -0 or .0602-0)
+    const baseMsgId = rawMsgId.split('-').slice(0, 2).join('-') || rawMsgId.split('.')[0] || rawMsgId;
+
+    let updatedCount = 0;
+
+    // 1. Update in-memory SMS360 logs
+    SMS360_LOGS.forEach(log => {
+      const matchMsg = rawMsgId && (log.id === rawMsgId || log.id.startsWith(baseMsgId) || rawMsgId.startsWith(log.id));
+      const matchPhone = cleanPhone && (log.recipient.replace(/[^0-9]/g, '') === cleanPhone || cleanPhone.endsWith(log.recipient.replace(/[^0-9]/g, '')) || log.recipient.replace(/[^0-9]/g, '').endsWith(cleanPhone));
+      
+      if (matchMsg || (!rawMsgId && matchPhone)) {
+        log.status = normalizedStatus;
+        log.errorCode = errorCode;
+        updatedCount++;
+      }
+    });
+
+    // 2. Update MongoDB Atlas OtpLog & OtpAuditLog for all users and admins
+    if (isDbConnected) {
+      const matchOr = [];
+      if (rawMsgId) {
+        matchOr.push({ msgId: rawMsgId });
+        if (baseMsgId && baseMsgId !== rawMsgId) {
+          matchOr.push({ msgId: new RegExp('^' + baseMsgId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) });
+        }
+      }
+      if (cleanPhone && cleanPhone.length >= 7) {
+        const last8 = cleanPhone.slice(-8);
+        matchOr.push({ phoneNumber: new RegExp(last8 + '$') });
+      }
+
+      if (matchOr.length > 0) {
+        const updateResult = await OtpLogModel.updateMany(
+          { $or: matchOr },
+          { $set: { status: normalizedStatus, errorCode: errorCode } }
+        );
+        await OtpAuditLogModel.updateMany(
+          { $or: matchOr.map(c => c.msgId ? { msgId: c.msgId } : { target: c.phoneNumber }) },
+          { $set: { status: normalizedStatus } }
+        );
+        updatedCount += (updateResult.modifiedCount || 0);
+      }
+    }
+
+    console.log(`✅ DN Processed: MsgID=${rawMsgId || 'N/A'}, Phone=${cleanPhone || 'N/A'}, Status=${normalizedStatus}, Updated=${updatedCount} record(s)`);
+
+    // Broadcast live reload to frontend SSE listeners
+    broadcastLiveReload();
+
+    // Standard Telco ACK response
+    if (req.headers.accept && req.headers.accept.includes('application/json')) {
+      return res.json({ success: true, status: normalizedStatus, msgId: rawMsgId, updatedCount });
+    }
+    return res.status(200).send('ACK');
+  } catch (err) {
+    console.error('Error processing Bulk360 DN webhook:', err.message);
+    return res.status(200).send('ACK');
+  }
 });
 
 // Admin WhatsApp (VerifyWay API) In-Memory & Live Config
@@ -1141,46 +1363,14 @@ let WHATSAPP_CONFIG = {
   status: 'ACTIVE'
 };
 
-let WHATSAPP_LOGS = [
-  {
-    id: 'VW_OTP_8021',
-    recipient: '+60123240066',
-    channel: 'whatsapp',
-    code: '882049',
-    fallback: 'no',
-    cost: 'MYR 0.0075',
-    status: 'DELIVERED',
-    latency: '0.22s',
-    timestamp: '18:50:11'
-  },
-  {
-    id: 'VW_OTP_8020',
-    recipient: '+60102200533',
-    channel: 'whatsapp',
-    code: '419820',
-    fallback: 'no',
-    cost: 'MYR 0.0075',
-    status: 'DELIVERED',
-    latency: '0.19s',
-    timestamp: '18:41:20'
-  },
-  {
-    id: 'VW_OTP_8019',
-    recipient: '+60102410102',
-    channel: 'whatsapp',
-    code: '773012',
-    fallback: 'yes',
-    cost: 'MYR 0.0075',
-    status: 'DELIVERED',
-    latency: '0.25s',
-    timestamp: '18:32:05'
-  }
-];
+let WHATSAPP_LOGS = [];
 
 // GET WhatsApp Config & Logs
 app.get('/api/admin/whatsapp/config', verifyJwtMiddleware, requireAdmin, async (req, res) => {
   try {
     let activeConfig = WHATSAPP_CONFIG;
+    let realLogs = [];
+
     if (isDbConnected) {
       try {
         let dbConfig = await WhatsAppConfigModel.findOne({ key: 'whatsapp_verifyway_primary' }).lean();
@@ -1198,14 +1388,30 @@ app.get('/api/admin/whatsapp/config', verifyJwtMiddleware, requireAdmin, async (
           status: dbConfig.status || WHATSAPP_CONFIG.status
         };
         WHATSAPP_CONFIG = activeConfig;
+
+        // Fetch actual last 10 sent WhatsApp messages from MongoDB
+        const dbLogs = await OtpLogModel.find({ channel: { $regex: /whatsapp/i } }).sort({ createdAt: -1 }).limit(10).lean();
+        realLogs = dbLogs.map(l => ({
+          id: l.msgId || ('VW_' + l._id.toString().slice(-8).toUpperCase()),
+          recipient: l.phoneNumber,
+          channel: 'whatsapp',
+          code: l.otpCode || '882049',
+          fallback: 'no',
+          cost: l.cost || `$${activeConfig.ratePerOtp || '0.0075'}`,
+          status: l.status || 'DELIVERED',
+          latency: l.latency || '0.8s',
+          timestamp: l.createdAt ? new Date(l.createdAt).toTimeString().split(' ')[0] : 'Just now'
+        }));
       } catch (e) {
         console.error('Error fetching WhatsApp config from MongoDB:', e.message);
       }
+    } else {
+      realLogs = WHATSAPP_LOGS.slice(0, 10);
     }
     res.json({
       success: true,
       config: activeConfig,
-      logs: WHATSAPP_LOGS
+      logs: realLogs
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -1465,6 +1671,60 @@ app.delete('/api/admin/users/:id', verifyJwtMiddleware, requireAdmin, async (req
     res.status(500).json({ success: false, error: e.message });
   }
 });
+
+// Authenticated User Live Profile
+app.get('/api/user/profile', verifyJwtMiddleware, async (req, res) => {
+  try {
+    let user = null;
+    if (isDbConnected) {
+      if (req.user.id && req.user.id !== 'admin_root_01' && mongoose.Types.ObjectId.isValid(req.user.id)) {
+        user = await UserModel.findById(req.user.id).lean();
+      }
+      if (!user && (req.user.role === 'ADMIN' || req.user.email === 'admin' || req.user.username === 'admin')) {
+        user = await UserModel.findOne({
+          $or: [{ email: 'admin' }, { email: ADMIN_USERNAME.toLowerCase() }, { name: 'admin' }, { name: ADMIN_USERNAME }]
+        }).lean();
+      }
+      if (!user && req.user.email) {
+        user = await UserModel.findOne({ email: req.user.email }).lean();
+      }
+      if (!user && req.user.phone) {
+        user = await UserModel.findOne({ phone: req.user.phone }).lean();
+      }
+    }
+
+    if (user) {
+      return res.json({
+        success: true,
+        user: {
+          id: user._id.toString(),
+          email: user.email,
+          name: user.name || user.email,
+          phone: user.phone,
+          role: user.role || 'USER',
+          balanceUsd: user.balanceUsd !== undefined ? user.balanceUsd : 50.00,
+          apiKeyLive: user.apiKeyLive || ('otp_live_' + Math.random().toString(36).substring(2, 16) + '88'),
+          monthlyVolumeRemaining: user.monthlyVolumeRemaining || '100,000'
+        }
+      });
+    }
+
+    return res.json({
+      success: true,
+      user: {
+        id: req.user.id || 'usr_fallback',
+        email: req.user.email || req.user.username || 'admin',
+        name: req.user.name || req.user.username || req.user.email || 'admin',
+        role: req.user.role || 'USER',
+        balanceUsd: 50.00,
+        apiKeyLive: req.user.role === 'ADMIN' ? 'otp_live_88a90184bcedf88' : 'otp_live_88a90184bcedf41'
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 
 // User Billing Invoices (Live MongoDB)
 app.get('/api/billing/invoices', verifyJwtMiddleware, async (req, res) => {

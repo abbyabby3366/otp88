@@ -59,9 +59,12 @@ export default function AuthView({
             <circle cx="27" cy="18" r="1.5" fill="#38BDF8"/>
             <circle cx="17.5" cy="30.5" r="1.5" fill="#818CF8"/>
           </svg>
-          <span style={{ fontSize: '24px', fontWeight: '800', color: '#fff', letterSpacing: '-0.02em', whiteSpace: 'nowrap', display: 'inline-block' }}>
-            OTP<span className="text-gradient" style={{ whiteSpace: 'nowrap' }}>88</span>
-          </span>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '24px', fontWeight: '800', color: '#fff', letterSpacing: '-0.02em', whiteSpace: 'nowrap', display: 'inline-block' }}>
+              OTP<span className="text-gradient" style={{ whiteSpace: 'nowrap' }}>88</span>
+            </span>
+            <span style={{ fontSize: '11px', fontWeight: '700', padding: '1px 6px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', border: '1px solid rgba(16, 185, 129, 0.3)', lineHeight: 1.2 }}>v1.0</span>
+          </div>
         </a>
         {authMode === 'forgot' && (
           <>

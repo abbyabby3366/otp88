@@ -31,10 +31,7 @@ function ApiView({ t, session, revealedApiKey, setRevealedApiKey, copyToClipboar
           {t.prodApiKey || 'API Key'}
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
-          <input type="text" className="sheets-input sheets-input-code" readOnly value={maskedKey} />
-          <button className="sheets-btn" onClick={() => setRevealedApiKey(!revealedApiKey)}>
-            {revealedApiKey ? 'Hide' : 'Reveal'}
-          </button>
+          <input type="text" className="sheets-input sheets-input-code" readOnly value={apiKey} style={{ fontWeight: '700' }} />
           <button className="sheets-btn sheets-btn-primary" onClick={() => copyToClipboard(apiKey, 'API Key')}>
             {t.copyKey || 'Copy Key'}
           </button>
