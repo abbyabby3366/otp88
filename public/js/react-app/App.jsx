@@ -116,6 +116,7 @@ export default function App() {
   const [ratesList, setRatesList] = useState([]);
   const [editCountryCode, setEditCountryCode] = useState('MY');
   const [editRateWhatsapp, setEditRateWhatsapp] = useState('0.0075');
+  const [editRateTelegram, setEditRateTelegram] = useState('0.0035');
   const [editRateSms, setEditRateSms] = useState('0.0210');
 
   // Live Admin Users List from MongoDB
@@ -129,7 +130,7 @@ export default function App() {
 
   // Simulator
   const [simPhone, setSimPhone] = useState('+60123456789');
-  const [simChannel, setSimChannel] = useState('waterfall');
+  const [simChannel, setSimChannel] = useState('whatsapp');
 
   // Data fetching functions
   const fetchRates = () => {
@@ -140,8 +141,9 @@ export default function App() {
           setRatesList(data.data);
           if (data.data.length > 0 && !editCountryCode) {
             setEditCountryCode(data.data[0].code);
-            setEditRateWhatsapp(data.data[0].whatsapp || '0.0075');
-            setEditRateSms(data.data[0].sms || '0.0210');
+            setEditRateWhatsapp(data.data[0].whatsapp ? data.data[0].whatsapp.toString() : '0.0075');
+            setEditRateTelegram(data.data[0].telegram ? data.data[0].telegram.toString() : '0.0035');
+            setEditRateSms(data.data[0].sms ? data.data[0].sms.toString() : '0.0210');
           }
         }
       })
@@ -502,6 +504,37 @@ export default function App() {
     }
   };
 
+  const handleSaveRate = async () => {
+    if (!jwtToken) return;
+    try {
+      setLoading(true);
+      const res = await fetch('/api/admin/rates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwtToken}`
+        },
+        body: JSON.stringify({
+          countryCode: editCountryCode,
+          whatsapp: editRateWhatsapp,
+          telegram: editRateTelegram,
+          sms: editCountryCode === 'MY' ? editRateSms : undefined
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(lang === 'zh' ? `费率已更新 (${editCountryCode})` : `Rates updated for ${editCountryCode}`);
+        fetchRates();
+      } else {
+        showToast(data.error || 'Failed to update rates', 'error');
+      }
+    } catch (e) {
+      showToast('Error updating rates', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSimulateQuickOtp = async () => {
     setLoading(true);
     try {
@@ -715,10 +748,6 @@ export default function App() {
                 <span style={{ color: 'var(--border-subtle)' }}>|</span>
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{session.role === 'ADMIN' ? 'Admin Panel' : 'Management Portal'}</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px' }}>
-                <span className="sheets-badge sheets-badge-emerald">Secure SSL</span>
-                <span style={{ color: 'var(--text-muted)' }}>{t.region}</span>
-              </div>
             </header>
 
             {/* TAB CONTENT RENDERERS */}
@@ -758,9 +787,12 @@ export default function App() {
                   setEditCountryCode={setEditCountryCode}
                   editRateWhatsapp={editRateWhatsapp}
                   setEditRateWhatsapp={setEditRateWhatsapp}
+                  editRateTelegram={editRateTelegram}
+                  setEditRateTelegram={setEditRateTelegram}
                   editRateSms={editRateSms}
                   setEditRateSms={setEditRateSms}
-                  showToast={showToast}
+                  handleSaveRate={handleSaveRate}
+                  loading={loading}
                 />
               )}
 
@@ -769,7 +801,6 @@ export default function App() {
                 <ApiView
                   t={t}
                   session={session}
-                  jwtToken={jwtToken}
                   revealedApiKey={revealedApiKey}
                   setRevealedApiKey={setRevealedApiKey}
                   copyToClipboard={copyToClipboard}

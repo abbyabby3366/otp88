@@ -152,7 +152,7 @@ export default function AuthView({
                   className="auth-input"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder={lang === 'zh' ? '请输入新密码' : 'Enter your new password'}
                   required
                 />
               </div>
@@ -247,7 +247,7 @@ export default function AuthView({
                 className="auth-input"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder={t.passwordPlaceholder || (lang === 'zh' ? '请输入密码' : 'Enter your password')}
                 autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
                 style={{ paddingRight: '42px' }}
                 required

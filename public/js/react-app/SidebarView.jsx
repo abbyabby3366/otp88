@@ -50,8 +50,6 @@ function SidebarView({
 
         {/* USER NAVIGATION TABS */}
         <div className="sheets-nav-group">
-          <div className="sheets-nav-header">{t.navTitle}</div>
-          
           {/* 1. Dashboard */}
           <button className={`sheets-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
             <span>{t.navDashboard}</span>
@@ -67,12 +65,7 @@ function SidebarView({
             <span>{t.navServices}</span>
           </button>
 
-          {/* 4. Carrier Rates */}
-          <button className={`sheets-nav-item ${activeTab === 'rates' ? 'active' : ''}`} onClick={() => setActiveTab('rates')}>
-            <span>{t.navRates || 'Carrier Rates'}</span>
-          </button>
-
-          {/* 5. API */}
+          {/* 4. API */}
           <button className={`sheets-nav-item ${activeTab === 'api' ? 'active' : ''}`} onClick={() => setActiveTab('api')}>
             <span>{t.navApi}</span>
           </button>

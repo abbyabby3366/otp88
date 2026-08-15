@@ -1,14 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // API & Keys Integration Spreadsheet View
-function ApiView({ t, session, jwtToken, revealedApiKey, setRevealedApiKey, copyToClipboard, showToast }) {
-  const [webhookUrl, setWebhookUrl] = useState('https://api.yourdomain.com/webhooks/otp88');
+function ApiView({ t, session, revealedApiKey, setRevealedApiKey, copyToClipboard, showToast }) {
+  // Dynamically deduce the origin from the current active browser link/host
+  const currentOrigin = typeof window !== 'undefined' && window.location.origin
+    ? window.location.origin
+    : 'http://localhost:8884';
+
+  const [webhookUrl, setWebhookUrl] = useState(`${currentOrigin}/api/webhooks/otp88`);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.origin) {
+      setWebhookUrl(`${window.location.origin}/api/webhooks/otp88`);
+    }
+  }, []);
 
   const apiKey = session?.apiKeyLive || 'otp_live_88a90184bcedf41';
   const maskedKey = revealedApiKey ? apiKey : '••••••••••••••••••••••••••••••••';
 
-  const curlSnippet = `curl -X POST https://otp88.com/api/simulate-otp \\
-  -H "Authorization: Bearer ${jwtToken || apiKey}" \\
+  const curlSnippet = `curl -X POST ${currentOrigin}/v1/otp/send \\
+  -H "Authorization: Bearer ${apiKey}" \\
   -H "Content-Type: application/json" \\
   -d '{"phoneNumber": "+60123456789", "channel": "whatsapp"}'`;
 
@@ -17,7 +28,7 @@ function ApiView({ t, session, jwtToken, revealedApiKey, setRevealedApiKey, copy
       {/* API Key */}
       <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '10px', background: '#FFFFFF' }}>
         <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>
-          {t.prodApiKey}
+          {t.prodApiKey || 'API Key'}
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
           <input type="text" className="sheets-input sheets-input-code" readOnly value={maskedKey} />
@@ -25,26 +36,15 @@ function ApiView({ t, session, jwtToken, revealedApiKey, setRevealedApiKey, copy
             {revealedApiKey ? 'Hide' : 'Reveal'}
           </button>
           <button className="sheets-btn sheets-btn-primary" onClick={() => copyToClipboard(apiKey, 'API Key')}>
-            {t.copyKey}
+            {t.copyKey || 'Copy Key'}
           </button>
         </div>
-      </div>
-
-      {/* JWT Token */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '10px', background: '#FFFFFF' }}>
-        <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>
-          {t.jwtBearer}
-        </div>
-        <textarea className="sheets-input sheets-input-code" readOnly rows={2} value={jwtToken} style={{ resize: 'none' }} />
-        <button className="sheets-btn" style={{ marginTop: '6px' }} onClick={() => copyToClipboard(jwtToken, 'JWT Token')}>
-          {t.copyJwt}
-        </button>
       </div>
 
       {/* Webhook Configuration */}
       <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '10px', background: '#FFFFFF' }}>
         <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>
-          {t.webhookUrl}
+          {t.webhookUrl || 'Webhook URL'}
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
           <input
@@ -54,7 +54,7 @@ function ApiView({ t, session, jwtToken, revealedApiKey, setRevealedApiKey, copy
             onChange={(e) => setWebhookUrl(e.target.value)}
           />
           <button className="sheets-btn sheets-btn-primary" onClick={() => showToast('Webhook URL saved!')}>
-            {t.saveWebhook}
+            {t.saveWebhook || 'Save Webhook'}
           </button>
         </div>
       </div>
@@ -63,7 +63,7 @@ function ApiView({ t, session, jwtToken, revealedApiKey, setRevealedApiKey, copy
       <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '10px', background: '#FFFFFF' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
           <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>
-            {t.quickstartCode}
+            {t.quickstartCode || 'API Code Example'}
           </div>
           <button className="sheets-btn" onClick={() => copyToClipboard(curlSnippet, 'cURL snippet')} style={{ fontSize: '10px', padding: '2px 8px' }}>
             Copy cURL

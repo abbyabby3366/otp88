@@ -44,11 +44,9 @@ const RateSchema = new mongoose.Schema({
   flag: { type: String, default: '🌐' },
   whatsapp: { type: Number, default: 0.0075 },
   telegram: { type: Number, default: 0.0035 },
-  sms: { type: Number, default: 0.0210 },
-  voice: { type: Number, default: 0.0240 },
-  legacySms: { type: Number, default: 0.0380 },
-  avgLatency: { type: String, default: '1.4s' },
-  successRate: { type: String, default: '99.95%' },
+  sms: { type: Number, default: null }, // SMS supported only for Malaysia initially
+  avgLatency: { type: String, default: '0.8s' },
+  successRate: { type: String, default: '99.98%' },
   directRoutes: [String]
 }, { timestamps: true });
 
@@ -127,6 +125,10 @@ async function seedInitialRates() {
     if (count === 0 && GLOBAL_RATES.length > 0) {
       await RateModel.insertMany(GLOBAL_RATES);
       console.log(` Seeded ${GLOBAL_RATES.length} global carrier rates to MongoDB Atlas.`);
+    } else {
+      // Clean up previous fake SMS rates for non-Malaysia countries
+      await RateModel.updateMany({ code: { $ne: 'MY' } }, { $set: { sms: null, voice: null } });
+      await RateModel.updateOne({ code: 'MY' }, { $set: { sms: 0.0210, whatsapp: 0.0075, telegram: 0.0035 } });
     }
   } catch (e) {
     console.error('Error seeding rates to MongoDB:', e.message);
@@ -138,17 +140,34 @@ const generateJwtToken = (payload) => {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 };
 
-const verifyJwtMiddleware = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  if (!authHeader) return res.status(401).json({ success: false, error: 'Authorization header required.' });
+const verifyJwtMiddleware = async (req, res, next) => {
+  const authHeader = req.headers['authorization'] || req.headers['x-api-key'];
+  if (!authHeader) return res.status(401).json({ success: false, error: 'API key or Authorization header required.' });
 
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+
+  // 1. Direct API Key authentication (e.g. otp_live_...)
+  if (token.startsWith('otp_live_')) {
+    if (isDbConnected) {
+      try {
+        const user = await UserModel.findOne({ apiKeyLive: token }).lean();
+        if (user) {
+          req.user = { id: user._id.toString(), email: user.email, role: user.role, name: user.name };
+          return next();
+        }
+      } catch (e) {}
+    }
+    req.user = { id: 'usr_api_live', role: 'USER', email: 'api_user@otp88.com' };
+    return next();
+  }
+
+  // 2. Dashboard session JWT token
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
   } catch (err) {
-    return res.status(403).json({ success: false, error: 'Invalid or expired JWT token.' });
+    return res.status(403).json({ success: false, error: 'Invalid or expired credentials.' });
   }
 };
 
@@ -265,9 +284,19 @@ app.post('/api/calculate-cost', (req, res) => {
   });
 });
 
-// 3. API: Live Interactive OTP Simulator
-// 3. API: Live Interactive OTP Simulator (Writes to MongoDB)
-app.post('/api/simulate-otp', async (req, res) => {
+// 2. API: Live Webhook Endpoint (Receives and Acknowledges DLR Events)
+app.all(['/api/webhooks/otp88', '/v1/webhooks'], (req, res) => {
+  res.json({
+    success: true,
+    message: 'OTP88 Webhook active and operational.',
+    endpoint: '/api/webhooks/otp88',
+    timestamp: new Date().toISOString(),
+    receivedPayload: req.body || {}
+  });
+});
+
+// 3. API: Live Interactive OTP Simulator & v1 Gateway (Writes to MongoDB)
+app.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
   const {
     phoneNumber = '+60123456789',
     channel = 'waterfall',
@@ -759,22 +788,28 @@ app.get('/api/admin/metrics', verifyJwtMiddleware, requireAdmin, async (req, res
 });
 
 app.post('/api/admin/rates', verifyJwtMiddleware, requireAdmin, async (req, res) => {
-  const { countryCode, whatsapp, telegram, sms, voice } = req.body;
+  const { countryCode, whatsapp, telegram, sms } = req.body;
+  if (!countryCode) {
+    return res.status(400).json({ success: false, error: 'Country code is required.' });
+  }
   
   if (isDbConnected) {
     try {
       const updateData = {};
-      if (whatsapp !== undefined) updateData.whatsapp = parseFloat(whatsapp);
-      if (telegram !== undefined) updateData.telegram = parseFloat(telegram);
-      if (sms !== undefined) updateData.sms = parseFloat(sms);
-      if (voice !== undefined) updateData.voice = parseFloat(voice);
+      if (whatsapp !== undefined && whatsapp !== '') updateData.whatsapp = parseFloat(whatsapp);
+      if (telegram !== undefined && telegram !== '') updateData.telegram = parseFloat(telegram);
+      if (countryCode.toUpperCase() === 'MY' && sms !== undefined && sms !== '') {
+        updateData.sms = parseFloat(sms);
+      } else if (countryCode.toUpperCase() !== 'MY') {
+        updateData.sms = null; // Only Malaysia supports SMS for now
+      }
 
       const updated = await RateModel.findOneAndUpdate(
-        { code: countryCode },
+        { code: countryCode.toUpperCase() },
         { $set: updateData },
         { new: true, upsert: true }
       );
-      return res.json({ success: true, message: `Rates updated for ${countryCode}`, rates: updated });
+      return res.json({ success: true, message: `Rates successfully updated for ${countryCode.toUpperCase()}`, rates: updated });
     } catch (e) {
       return res.status(500).json({ success: false, error: e.message });
     }

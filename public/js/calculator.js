@@ -125,7 +125,7 @@ function renderRateTable(rates) {
   if (!tableBody) return;
 
   if (rates.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted);">No matching countries found.</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted);">No matching countries found.</td></tr>`;
     return;
   }
 
@@ -140,16 +140,18 @@ function renderRateTable(rates) {
           </div>
         </div>
       </td>
-      <td><span class="price-tag">$${r.whatsapp.toFixed(4)}</span></td>
-      <td><span class="price-tag" style="color:var(--text-cyan);">$${r.telegram.toFixed(4)}</span></td>
+      <td><span class="price-tag">$${(r.whatsapp ?? 0.0075).toFixed(4)}</span></td>
+      <td><span class="price-tag" style="color:var(--text-cyan);">$${(r.telegram ?? 0.0035).toFixed(4)}</span></td>
       <td>
-        <span class="price-tag">$${r.sms.toFixed(4)}</span>
-        <span class="price-legacy">$${r.legacySms.toFixed(4)}</span>
+        ${r.code === 'MY' && r.sms !== null && r.sms !== undefined ? `
+          <span class="price-tag">$${Number(r.sms).toFixed(4)}</span>
+        ` : `
+          <span style="color:var(--text-muted);font-size:12px;">—</span>
+        `}
       </td>
-      <td><span class="price-tag" style="color:#C084FC;">$${r.voice.toFixed(4)}</span></td>
-      <td><span style="color:var(--text-emerald);font-weight:600;">${r.avgLatency}</span></td>
+      <td><span style="color:var(--text-emerald);font-weight:600;">${r.avgLatency || '0.8s'}</span></td>
       <td>
-        <span class="badge-pill" style="font-size:11px;padding:4px 8px;">Direct Tier-1</span>
+        <span class="badge-pill" style="font-size:11px;padding:4px 8px;">Active Direct</span>
       </td>
     </tr>
   `).join('');
