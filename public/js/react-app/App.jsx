@@ -281,7 +281,7 @@ export default function App() {
     e.preventDefault();
     setErrorMessage('');
     if (!username.trim() || !password) {
-      setErrorMessage(lang === 'zh' ? '请输入用户名和密码。' : 'Please enter username and password.');
+      setErrorMessage(lang === 'zh' ? '请输入用户名/手机号和密码。' : 'Please enter username/phone and password.');
       return;
     }
 
@@ -290,7 +290,7 @@ export default function App() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: username.trim(), password })
+        body: JSON.stringify({ identifier: username.trim(), username: username.trim(), email: username.trim(), phone: username.trim(), password })
       });
       const data = await res.json();
       if (data.success) {

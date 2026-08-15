@@ -21,7 +21,7 @@ function ApiView({ t, session, revealedApiKey, setRevealedApiKey, copyToClipboar
   const curlSnippet = `curl -X POST ${currentOrigin}/v1/otp/send \\
   -H "Authorization: Bearer ${apiKey}" \\
   -H "Content-Type: application/json" \\
-  -d '{"phoneNumber": "+60123456789", "channel": "whatsapp"}'`;
+  -d '{"phoneNumber": "+60123456789", "channel": "whatsapp", "otpCode": "882910"}'`;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

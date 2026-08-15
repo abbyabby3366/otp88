@@ -33,7 +33,7 @@ export default function AuthView({
       
       {/* Brand Logo & Heading */}
       <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-        <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', marginBottom: '10px', textDecoration: 'none' }} title={t.backToHome || 'Back to Home'}>
+        <a href="/" tabIndex={-1} style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', marginBottom: '10px', textDecoration: 'none' }} title={t.backToHome || 'Back to Home'}>
           <svg width="36" height="36" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <linearGradient id="authCardBrandGrad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
@@ -63,17 +63,15 @@ export default function AuthView({
             OTP<span className="text-gradient" style={{ whiteSpace: 'nowrap' }}>88</span>
           </span>
         </a>
-        <h1 style={{ fontSize: '18px', fontWeight: '700', margin: 0, color: 'var(--text-primary)' }}>
-          {authMode === 'forgot'
-            ? (lang === 'zh' ? '重置密码' : 'Reset Password')
-            : authMode === 'register'
-            ? (lang === 'zh' ? '创建账号' : 'Create Account')
-            : (lang === 'zh' ? '登录账号' : 'Sign In')}
-        </h1>
         {authMode === 'forgot' && (
-          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', marginBottom: 0 }}>
-            {lang === 'zh' ? '通过手机验证码重置密码' : 'Reset your password via phone OTP verification'}
-          </p>
+          <>
+            <h1 style={{ fontSize: '18px', fontWeight: '700', margin: '8px 0 0 0', color: 'var(--text-primary)' }}>
+              {lang === 'zh' ? '重置密码' : 'Reset Password'}
+            </h1>
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', marginBottom: 0 }}>
+              {lang === 'zh' ? '通过手机验证码重置密码' : 'Reset your password via phone OTP verification'}
+            </p>
+          </>
         )}
       </div>
 
@@ -82,6 +80,7 @@ export default function AuthView({
         <div className="auth-tab-group" style={{ marginBottom: '20px' }}>
           <button
             type="button"
+            tabIndex={-1}
             className={`auth-tab ${authMode === 'login' ? 'active' : ''}`}
             onClick={() => setAuthMode('login')}
           >
@@ -89,6 +88,7 @@ export default function AuthView({
           </button>
           <button
             type="button"
+            tabIndex={-1}
             className={`auth-tab ${authMode === 'register' ? 'active' : ''}`}
             onClick={() => setAuthMode('register')}
           >
@@ -171,6 +171,7 @@ export default function AuthView({
           <div style={{ textAlign: 'center', fontSize: '13px', marginTop: '16px' }}>
             <a
               href="#login"
+              tabIndex={-1}
               onClick={(e) => { e.preventDefault(); setAuthMode('login'); setResetStep(1); }}
               style={{ color: 'var(--text-muted)', textDecoration: 'none', transition: 'color 0.2s' }}
             >
@@ -188,7 +189,7 @@ export default function AuthView({
           
           <div className="auth-input-group">
             <label className="auth-label">
-              {t.usernameLabel || (lang === 'zh' ? '用户名或邮箱' : 'Username or Email')}
+              {t.usernameLabel || (lang === 'zh' ? '用户名或手机号' : 'Username or Phone')}
             </label>
             <input
               type="text"
@@ -197,7 +198,7 @@ export default function AuthView({
               className="auth-input"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder={authMode === 'register' ? (lang === 'zh' ? '输入用户名或邮箱' : 'Enter username or email') : 'user@example.com'}
+              placeholder={authMode === 'register' ? (lang === 'zh' ? '输入用户名' : 'Enter username') : (lang === 'zh' ? '输入用户名或手机号' : 'Enter username or phone')}
               autoComplete={authMode === 'register' ? 'off' : 'username'}
               autoFocus
               required
@@ -223,7 +224,7 @@ export default function AuthView({
             </div>
           )}
 
-          <div className="auth-input-group" style={{ marginBottom: '16px' }}>
+          <div className="auth-input-group" style={{ marginBottom: '22px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
               <label className="auth-label" style={{ margin: 0 }}>
                 {t.passwordLabel || (lang === 'zh' ? '密码' : 'Password')}
@@ -231,6 +232,7 @@ export default function AuthView({
               {authMode === 'login' && (
                 <a
                   href="#forgot"
+                  tabIndex={-1}
                   onClick={(e) => { e.preventDefault(); setAuthMode('forgot'); setResetStep(1); }}
                   style={{ fontSize: '12px', color: 'var(--text-cyan)', textDecoration: 'none', fontWeight: '500' }}
                 >
@@ -254,6 +256,7 @@ export default function AuthView({
               />
               <button
                 type="button"
+                tabIndex={-1}
                 onClick={() => setShowPassword(!showPassword)}
                 style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
                 aria-label="Toggle password visibility"
@@ -261,22 +264,10 @@ export default function AuthView({
                 {showPassword ? (
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
                 ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 backward" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                 )}
               </button>
             </div>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', fontSize: '12px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: 'var(--text-muted)' }}>
-              <input
-                type="checkbox"
-                checked={showPassword}
-                onChange={(e) => setShowPassword(e.target.checked)}
-                style={{ accentColor: 'var(--primary-emerald)', cursor: 'pointer' }}
-              />
-              {t.showPassword || (lang === 'zh' ? '显示密码' : 'Show Password')}
-            </label>
           </div>
 
           <button
@@ -294,6 +285,7 @@ export default function AuthView({
                 <span>{t.noAccount || "Don't have an account?"} </span>
                 <a
                   href="#register"
+                  tabIndex={-1}
                   onClick={(e) => { e.preventDefault(); setAuthMode('register'); }}
                   style={{ color: 'var(--text-emerald)', fontWeight: '700', textDecoration: 'none' }}
                 >
@@ -305,6 +297,7 @@ export default function AuthView({
                 <span>{t.haveAccount || 'Already have an account?'} </span>
                 <a
                   href="#login"
+                  tabIndex={-1}
                   onClick={(e) => { e.preventDefault(); setAuthMode('login'); }}
                   style={{ color: 'var(--text-emerald)', fontWeight: '700', textDecoration: 'none' }}
                 >
@@ -321,6 +314,7 @@ export default function AuthView({
       <div style={{ marginTop: '22px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
         <a
           href="/"
+          tabIndex={-1}
           style={{
             display: 'inline-flex',
             alignItems: 'center',

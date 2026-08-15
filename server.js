@@ -335,15 +335,20 @@ app.all(['/api/webhooks/otp88', '/v1/webhooks'], (req, res) => {
 app.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
   const {
     phoneNumber = '+60123456789',
-    channel = 'waterfall',
+    channel = 'whatsapp',
+    otpCode: customOtpCode,
+    code: customCode,
     senderId = 'OTP88_AUTH',
     codeLength = 6
   } = req.body;
 
-  // Generate real OTP
-  const min = Math.pow(10, codeLength - 1);
-  const max = Math.pow(10, codeLength) - 1;
-  const otpCode = Math.floor(min + Math.random() * (max - min + 1)).toString();
+  // Use provided OTP code or auto-generate
+  let otpCode = customOtpCode || customCode;
+  if (!otpCode) {
+    const min = Math.pow(10, codeLength - 1);
+    const max = Math.pow(10, codeLength) - 1;
+    otpCode = Math.floor(min + Math.random() * (max - min + 1)).toString();
+  }
   const txId = 'tx_' + Math.random().toString(36).substring(2, 11);
 
   let finalChannel = 'WhatsApp Direct';
@@ -364,15 +369,24 @@ app.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
     unitCost = '$0.0240';
   }
 
-  // Extract auth user if token provided
+  // Extract auth user if token / API Key provided
   let authUserId = null;
-  const authHeader = req.headers['authorization'];
+  const authHeader = req.headers['authorization'] || req.headers['x-api-key'];
   if (authHeader) {
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET);
-      authUserId = decoded.id;
-    } catch (e) {}
+    if (token.startsWith('otp_live_')) {
+      if (isDbConnected) {
+        try {
+          const user = await UserModel.findOne({ apiKeyLive: token }).lean();
+          if (user) authUserId = user._id.toString();
+        } catch (e) {}
+      }
+    } else {
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        authUserId = decoded.id;
+      } catch (e) {}
+    }
   }
 
   let createdLog = null;
@@ -457,16 +471,17 @@ app.post('/api/contact', async (req, res) => {
   });
 });
 
-// Authentication Endpoint (Admin from .env & Developer Users)
+// Authentication Endpoint (Admin from .env & Developer Users by Username, Phone, or Email)
 app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ success: false, error: 'Username/Email and password are required.' });
+  const { email, username, phone, identifier, password } = req.body;
+  const input = (identifier || username || phone || email || '').trim();
+  if (!input || !password) {
+    return res.status(400).json({ success: false, error: 'Username/Phone and password are required.' });
   }
 
-  const cleanEmail = email.trim().toLowerCase();
+  const cleanInput = input.toLowerCase();
   const isAdminMatch = 
-    (cleanEmail === ADMIN_USERNAME.toLowerCase() || cleanEmail === 'admin') && 
+    (cleanInput === ADMIN_USERNAME.toLowerCase() || cleanInput === 'admin') && 
     password === ADMIN_PASSWORD;
 
   if (isAdminMatch) {
@@ -492,15 +507,33 @@ app.post('/api/auth/login', async (req, res) => {
     });
   }
 
-  // Standard Developer User Login
+  // Standard Developer User Login (Query by email, username/name, or phone number)
   let dbUser = null;
   if (isDbConnected) {
     try {
-      dbUser = await UserModel.findOne({ email: cleanEmail });
-      if (!dbUser) {
+      const sanitizedPhone = input.replace(/[\s\-()]/g, '');
+      const escapedInput = input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      dbUser = await UserModel.findOne({
+        $or: [
+          { email: cleanInput },
+          { name: new RegExp(`^${escapedInput}$`, 'i') },
+          { phone: input },
+          { phone: sanitizedPhone }
+        ]
+      });
+
+      if (dbUser) {
+        if (dbUser.password && dbUser.password !== password) {
+          return res.status(401).json({ success: false, error: 'Incorrect password. Please try again.' });
+        }
+      } else {
+        const isPhone = /^\+?[0-9]{7,16}$/.test(sanitizedPhone);
         dbUser = await UserModel.create({
-          email: cleanEmail,
-          name: cleanEmail.split('@')[0],
+          email: isPhone ? `${sanitizedPhone}@otp88.user` : cleanInput,
+          phone: isPhone ? sanitizedPhone : undefined,
+          name: isPhone ? sanitizedPhone : (cleanInput.includes('@') ? cleanInput.split('@')[0] : input),
+          password: password,
           role: 'USER',
           balanceUsd: 50.00,
           apiKeyLive: 'otp_live_' + Math.random().toString(36).substring(2, 16) + '88',
@@ -513,9 +546,11 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   const userId = dbUser ? dbUser._id.toString() : ('usr_88' + Math.floor(1000 + Math.random() * 9000));
+  const userDisplayName = dbUser?.name || dbUser?.phone || (cleanInput.includes('@') ? cleanInput.split('@')[0] : input);
   const token = generateJwtToken({
     id: userId,
-    email: cleanEmail,
+    email: dbUser?.email || cleanInput,
+    phone: dbUser?.phone || (input.startsWith('+') ? input : undefined),
     role: 'USER'
   });
 
@@ -525,8 +560,9 @@ app.post('/api/auth/login', async (req, res) => {
     token,
     user: {
       id: userId,
-      email: cleanEmail,
-      name: (dbUser && dbUser.name) ? dbUser.name : cleanEmail.split('@')[0],
+      email: dbUser?.email || cleanInput,
+      phone: dbUser?.phone,
+      name: userDisplayName,
       role: 'USER',
       balanceUsd: dbUser ? dbUser.balanceUsd : 50.00,
       apiKeyLive: dbUser ? dbUser.apiKeyLive : ('otp_live_' + Math.random().toString(36).substring(2, 16) + '88'),
