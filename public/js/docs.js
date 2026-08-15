@@ -10,7 +10,7 @@ const CODE_EXAMPLES = {
     "to": "+60123456789",
     "channel_strategy": "waterfall",
     "channels": ["whatsapp", "telegram", "sms"],
-    "sender_id": "OTP88_AUTH",
+    "sender_name": "OTP88_AUTH",
     "code_length": 6,
     "expiry_seconds": 300
   }'`,
@@ -48,7 +48,7 @@ payload = {
     "to": "+60123456789",
     "channel_strategy": "waterfall",
     "channels": ["whatsapp", "telegram", "sms"],
-    "sender_id": "OTP88_AUTH",
+    "sender_name": "OTP88_AUTH",
     "code_length": 6,
     "expiry_seconds": 300
 }

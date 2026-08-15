@@ -14,7 +14,9 @@ const OTP88_I18N = {
     
     // Admin only Navigation Tabs
     navUsers: 'Manage Users',
-    navAdminOtpLogs: 'Admin OTP Logs',
+    navAdminOtpLogs: 'OTP Logs',
+    navAdminApi: 'API & Keys',
+    navAdminBilling: 'Billing & Top-up',
     navServicesSection: 'SERVICES',
     navSmsOtp: 'SMS OTP',
     navSms360: 'SMS OTP',
@@ -137,7 +139,9 @@ const OTP88_I18N = {
     
     // Admin only Navigation Tabs
     navUsers: '用户管理',
-    navAdminOtpLogs: '管理员日志',
+    navAdminOtpLogs: 'OTP 日志',
+    navAdminApi: 'API 密钥',
+    navAdminBilling: '账单与充值',
     navServicesSection: '服务通道',
     navSmsOtp: 'SMS OTP 短信通道',
     navSms360: 'SMS OTP 短信通道',

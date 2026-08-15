@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 
-// Code snippet helper for multiple channels and languages
-function getCodeSnippet({ origin, apiKey, channel, lang, action, phone = '+60123456789' }) {
+function getAdminCodeSnippet({ origin, apiKey, channel, lang, action, phone = '+60123456789' }) {
   const isVerify = action === 'verify';
   const url = isVerify ? `${origin}/v1/otp/verify` : `${origin}/v1/otp/send`;
 
@@ -61,7 +60,7 @@ function getCodeSnippet({ origin, apiKey, channel, lang, action, phone = '+60123
   }
 
   if (lang === 'node') {
-    return `// Node.js (v18+ fetch / axios)
+    return `// Node.js
 async function sendOtp() {
   const res = await fetch('${url}', {
     method: 'POST',
@@ -71,11 +70,9 @@ async function sendOtp() {
     },
     body: JSON.stringify(${jsonStr})
   });
-
   const data = await res.json();
-  console.log('OTP Response:', data);
+  console.log('Response:', data);
 }
-
 sendOtp();`;
   }
 
@@ -100,11 +97,8 @@ print("Response:", response.json())`;
 
   if (lang === 'php') {
     return `<?php
-// PHP cURL Example
 $ch = curl_init('${url}');
-
 $payload = json_encode(${JSON.stringify(payloadObj, null, 4)});
-
 curl_setopt_array($ch, [
     CURLOPT_POST => true,
     CURLOPT_POSTFIELDS => $payload,
@@ -114,16 +108,14 @@ curl_setopt_array($ch, [
     ],
     CURLOPT_RETURNTRANSFER => true
 ]);
-
 $response = curl_exec($ch);
 curl_close($ch);
-
 echo $response;
 ?>`;
   }
 
   if (lang === 'go') {
-    return `// Go (net/http)
+    return `// Go
 package main
 
 import (
@@ -139,18 +131,13 @@ func main() {
 ${Object.entries(payloadObj).map(([k, v]) => `\t\t"${k}": ${Array.isArray(v) ? `[]string{${v.map(x => `"${x}"`).join(', ')}}` : typeof v === 'string' ? `"${v}"` : v},`).join('\n')}
 	}
 	body, _ := json.Marshal(payload)
-
 	req, _ := http.NewRequest("POST", "${url}", bytes.NewBuffer(body))
 	req.Header.Set("Authorization", "Bearer ${apiKey}")
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		panic(err)
-	}
+	resp, _ := client.Do(req)
 	defer resp.Body.Close()
-
 	respBody, _ := io.ReadAll(resp.Body)
 	fmt.Println("Response:", string(respBody))
 }`;
@@ -159,53 +146,141 @@ ${Object.entries(payloadObj).map(([k, v]) => `\t\t"${k}": ${Array.isArray(v) ? `
   return '';
 }
 
-// API & Keys Integration Spreadsheet View
-function ApiView({ t, session, revealedApiKey, setRevealedApiKey, copyToClipboard, showToast }) {
+// Admin Multi-Tenant API Keys & Credentials Management View
+function AdminApiView({ t, usersList = [], session, copyToClipboard, showToast }) {
   const currentOrigin = typeof window !== 'undefined' && window.location.origin
     ? window.location.origin
     : 'http://localhost:8884';
 
+  const [selectedApiKey, setSelectedApiKey] = useState(() => {
+    return usersList[0]?.apiKeyLive || session?.apiKeyLive || 'otp_live_88a90184bcedf41';
+  });
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedChannel, setSelectedChannel] = useState('sms');
   const [selectedLang, setSelectedLang] = useState('curl');
   const [selectedAction, setSelectedAction] = useState('send');
 
-  const apiKey = session?.apiKeyLive || 'otp_live_88a90184bcedf41';
+  const filteredUsers = usersList.filter(u => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      (u.name && u.name.toLowerCase().includes(term)) ||
+      (u.email && u.email.toLowerCase().includes(term)) ||
+      (u.apiKeyLive && u.apiKeyLive.toLowerCase().includes(term))
+    );
+  });
 
   const activeSnippet = useMemo(() => {
-    return getCodeSnippet({
+    return getAdminCodeSnippet({
       origin: currentOrigin,
-      apiKey,
+      apiKey: selectedApiKey,
       channel: selectedChannel,
       lang: selectedLang,
       action: selectedAction
     });
-  }, [currentOrigin, apiKey, selectedChannel, selectedLang, selectedAction]);
+  }, [currentOrigin, selectedApiKey, selectedChannel, selectedLang, selectedAction]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-      {/* API Key */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '10px', background: '#FFFFFF' }}>
-        <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>
-          {t.prodApiKey || 'API Key'}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      
+      {/* Multi-Tenant API Keys Directory */}
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
+        <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+          <span>USER API KEYS DIRECTORY ({filteredUsers.length} Tenants)</span>
+          
+          <input
+            type="text"
+            className="sheets-input sheets-input-code"
+            placeholder="Search tenant or key..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ width: '200px', padding: '4px 8px', fontSize: '11px' }}
+          />
         </div>
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <input type="text" className="sheets-input sheets-input-code" readOnly value={apiKey} style={{ fontWeight: '700' }} />
-          <button className="sheets-btn sheets-btn-primary" onClick={() => copyToClipboard(apiKey, 'API Key')}>
-            {t.copyKey || 'Copy Key'}
-          </button>
-        </div>
+
+        <table className="sheets-table">
+          <thead>
+            <tr>
+              <th style={{ width: '35px' }}>#</th>
+              <th>User / Tenant</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Live API Key</th>
+              <th>Balance</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredUsers.length === 0 ? (
+              <tr>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
+                  No users found.
+                </td>
+              </tr>
+            ) : (
+              filteredUsers.map((usr, idx) => {
+                const keyVal = usr.apiKeyLive || 'otp_live_88a90184bcedf41';
+                const isSelected = selectedApiKey === keyVal;
+                return (
+                  <tr key={usr._id || idx} style={{ background: isSelected ? 'rgba(16, 185, 129, 0.04)' : undefined }}>
+                    <td style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-code)', fontSize: '10px' }}>{idx + 1}</td>
+                    <td><strong>{usr.name || usr.email}</strong></td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{usr.email}</td>
+                    <td>
+                      <span className={`sheets-badge ${usr.role === 'ADMIN' ? 'sheets-badge-purple' : 'sheets-badge-blue'}`}>
+                        {usr.role || 'USER'}
+                      </span>
+                    </td>
+                    <td>
+                      <code style={{ fontFamily: 'var(--font-code)', fontWeight: '700', fontSize: '11px', background: '#F1F5F9', padding: '2px 6px', borderRadius: '3px' }}>
+                        {keyVal}
+                      </code>
+                    </td>
+                    <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700', color: '#059669' }}>
+                      ${(usr.balanceUsd || 0).toFixed(2)}
+                    </td>
+                    <td>
+                      <span className={`sheets-badge ${usr.status === 'PAUSED' ? 'sheets-badge-amber' : usr.status === 'SUSPENDED' ? 'sheets-badge-danger' : 'sheets-badge-emerald'}`}>
+                        {usr.status || 'ACTIVE'}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button
+                          className="sheets-btn"
+                          style={{ padding: '2px 6px', fontSize: '10px' }}
+                          onClick={() => copyToClipboard(keyVal, `${usr.name || 'User'}'s API Key`)}
+                          title="Copy API Key"
+                        >
+                          Copy Key
+                        </button>
+                        <button
+                          className={`sheets-btn ${isSelected ? 'sheets-btn-primary' : ''}`}
+                          style={{ padding: '2px 6px', fontSize: '10px' }}
+                          onClick={() => {
+                            setSelectedApiKey(keyVal);
+                            showToast(`Selected ${usr.name || usr.email} for cURL test`);
+                          }}
+                        >
+                          Test cURL
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* Code Examples & Channel Selectors */}
+      {/* Dynamic Code Example Box */}
       <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
         <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span>{t.quickstartCode || 'API Code Examples'}</span>
-            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'normal' }}>
-              ({selectedAction === 'send' ? 'POST /v1/otp/send' : 'POST /v1/otp/verify'})
-            </span>
+          <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>
+            API DISPATCH CODE GENERATOR (Active Key: <code style={{ color: '#059669' }}>{selectedApiKey.slice(0, 18)}...</code>)
           </div>
-
           <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
             <button
               type="button"
@@ -226,8 +301,8 @@ function ApiView({ t, session, revealedApiKey, setRevealedApiKey, copyToClipboar
           </div>
         </div>
 
-        {/* Channel & Language Controls */}
-        <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '8px', background: '#FAFAFA' }}>
+        {/* Controls */}
+        <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '6px', background: '#FAFAFA' }}>
           {selectedAction === 'send' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', width: '65px' }}>Channel:</span>
@@ -243,7 +318,7 @@ function ApiView({ t, session, revealedApiKey, setRevealedApiKey, copyToClipboar
                   type="button"
                   className={`sheets-btn ${selectedChannel === ch.id ? 'sheets-btn-primary' : ''}`}
                   onClick={() => setSelectedChannel(ch.id)}
-                  style={{ fontSize: '10px', padding: '3px 8px' }}
+                  style={{ fontSize: '10px', padding: '2px 7px' }}
                 >
                   {ch.label}
                 </button>
@@ -265,7 +340,7 @@ function ApiView({ t, session, revealedApiKey, setRevealedApiKey, copyToClipboar
                 type="button"
                 className={`sheets-btn ${selectedLang === lang.id ? 'sheets-btn-primary' : ''}`}
                 onClick={() => setSelectedLang(lang.id)}
-                style={{ fontSize: '10px', padding: '3px 8px' }}
+                style={{ fontSize: '10px', padding: '2px 7px' }}
               >
                 {lang.label}
               </button>
@@ -276,7 +351,7 @@ function ApiView({ t, session, revealedApiKey, setRevealedApiKey, copyToClipboar
                 type="button"
                 className="sheets-btn"
                 onClick={() => copyToClipboard(activeSnippet, `${selectedChannel.toUpperCase()} ${selectedLang.toUpperCase()} example`)}
-                style={{ fontSize: '10px', padding: '3px 10px', fontWeight: '700' }}
+                style={{ fontSize: '10px', padding: '2px 8px', fontWeight: '700' }}
               >
                 Copy Code
               </button>
@@ -284,19 +359,19 @@ function ApiView({ t, session, revealedApiKey, setRevealedApiKey, copyToClipboar
           </div>
         </div>
 
-        {/* Code View */}
         <div style={{ padding: '12px', background: '#0F172A' }}>
           <pre style={{ margin: 0, color: '#38BDF8', fontFamily: 'var(--font-code)', fontSize: '11px', lineHeight: 1.5, overflowX: 'auto' }}>
             {activeSnippet}
           </pre>
         </div>
       </div>
+
     </div>
   );
 }
 
 if (typeof window !== 'undefined') {
-  window.ApiView = ApiView;
+  window.AdminApiView = AdminApiView;
 }
 
-export default ApiView;
+export default AdminApiView;

@@ -8,8 +8,9 @@ import UsersView from './UsersView.jsx';
 import RatesView from './RatesView.jsx';
 import AuthView from './AuthView.jsx';
 import LogsView from './LogsView.jsx';
-import OverviewView from './OverviewView.jsx';
 import AdminOtpLogsView from './AdminOtpLogsView.jsx';
+import AdminApiView from './AdminApiView.jsx';
+import AdminBillingView from './AdminBillingView.jsx';
 import Sms360View from './Sms360View.jsx';
 import WhatsAppOtpView from './WhatsAppOtpView.jsx';
 import SidebarView from './SidebarView.jsx';
@@ -44,32 +45,37 @@ export default function App() {
   // Route Mapping Helpers
   const getTabFromPath = (path) => {
     const clean = (path || (typeof window !== 'undefined' ? window.location.pathname : '') || '/').toLowerCase().replace(/\/$/, '');
+    if (clean === '/admin' || clean === '/admin/dashboard') return 'dashboard';
+    if (clean === '/admin/logs' || clean === '/admin-logs' || clean === '/admin/otp-logs' || clean === '/admin/otp-audit-logs') return 'admin-logs';
     if (clean === '/logs' || clean === '/otp-logs') return 'logs';
+    if (clean === '/admin/api' || clean === '/admin/keys' || clean === '/admin/api-keys') return 'admin-api';
+    if (clean === '/api' || clean === '/keys' || clean === '/developer' || clean === '/api-keys') return 'api';
+    if (clean === '/admin/billing' || clean === '/admin/topup' || clean === '/admin/invoices') return 'admin-billing';
+    if (clean === '/billing' || clean === '/topup' || clean === '/invoices') return 'billing';
+    if (clean === '/admin/users' || clean === '/users' || clean === '/tenants') return 'users';
     if (clean === '/services' || clean === '/channels' || clean === '/routing') return 'services';
     if (clean === '/rates' || clean === '/pricing' || clean === '/carrier-rates') return 'rates';
-    if (clean === '/api' || clean === '/keys' || clean === '/developer' || clean === '/api-keys') return 'api';
-    if (clean === '/billing' || clean === '/topup' || clean === '/invoices') return 'billing';
-    if (clean === '/users' || clean === '/admin/users' || clean === '/tenants') return 'users';
-    if (clean === '/admin/logs' || clean === '/admin-logs' || clean === '/audit-logs') return 'admin-logs';
-    if (clean === '/sms360' || clean === '/admin/sms360' || clean === '/admin-sms360' || clean === '/sms-otp' || clean === '/admin/sms-otp') return 'sms360';
-    if (clean === '/whatsapp-otp' || clean === '/admin/whatsapp-otp' || clean === '/admin-whatsapp-otp') return 'whatsapp-otp';
+    if (clean === '/admin/sms360' || clean === '/sms360' || clean === '/admin-sms360' || clean === '/admin/sms-otp' || clean === '/sms-otp') return 'sms360';
+    if (clean === '/admin/whatsapp-otp' || clean === '/whatsapp-otp' || clean === '/admin-whatsapp-otp') return 'whatsapp-otp';
     return 'dashboard';
   };
 
-  const getPathFromTab = (tab) => {
+  const getPathFromTab = (tab, role = (session ? session.role : null)) => {
     switch (tab) {
-      case 'logs': return '/logs';
-      case 'services': return '/services';
-      case 'rates': return '/rates';
-      case 'api': return '/api';
-      case 'billing': return '/billing';
-      case 'users': return '/users';
+      case 'logs': return role === 'ADMIN' ? '/admin/logs' : '/logs';
       case 'admin-logs': return '/admin/logs';
+      case 'api': return role === 'ADMIN' ? '/admin/api' : '/api';
+      case 'admin-api': return '/admin/api';
+      case 'billing': return role === 'ADMIN' ? '/admin/billing' : '/billing';
+      case 'admin-billing': return '/admin/billing';
+      case 'users': return '/admin/users';
       case 'sms360': return '/admin/sms360';
       case 'whatsapp-otp': return '/admin/whatsapp-otp';
+      case 'services': return '/services';
+      case 'rates': return '/rates';
       case 'dashboard':
       default:
-        return '/dashboard';
+        return role === 'ADMIN' ? '/admin' : '/dashboard';
     }
   };
 
@@ -86,7 +92,7 @@ export default function App() {
   const navigateToTab = (tab, replace = false) => {
     _setActiveTab(tab);
     if (typeof window !== 'undefined') {
-      const targetPath = getPathFromTab(tab);
+      const targetPath = getPathFromTab(tab, session?.role);
       if (window.location.pathname !== targetPath) {
         if (replace) {
           window.history.replaceState({ tab }, '', targetPath);
@@ -295,7 +301,8 @@ export default function App() {
         const initialTab = getTabFromPath(window.location.pathname);
         _setActiveTab(initialTab);
         if (window.location.pathname === '/' || window.location.pathname.includes('login')) {
-          window.history.replaceState({ tab: 'dashboard' }, '', '/dashboard');
+          const defaultPath = parsedUser && parsedUser.role === 'ADMIN' ? '/admin' : '/dashboard';
+          window.history.replaceState({ tab: 'dashboard' }, '', defaultPath);
         }
       } catch (e) {
         localStorage.removeItem('otp88_session');
@@ -359,7 +366,7 @@ export default function App() {
         localStorage.setItem('otp88_console_theme', 'light');
         const targetTab = getTabFromPath(window.location.pathname);
         _setActiveTab(targetTab);
-        const destinationPath = targetTab !== 'dashboard' ? getPathFromTab(targetTab) : '/dashboard';
+        const destinationPath = targetTab !== 'dashboard' ? getPathFromTab(targetTab, data.user.role) : (data.user.role === 'ADMIN' ? '/admin' : '/dashboard');
         window.history.pushState({ tab: targetTab }, '', destinationPath);
         showToast(`${lang === 'zh' ? '欢迎回来' : 'Welcome'}, ${data.user.name || data.user.email}!`);
       } else {
@@ -402,7 +409,7 @@ export default function App() {
         localStorage.setItem('otp88_console_theme', 'light');
         const targetTab = getTabFromPath(window.location.pathname);
         _setActiveTab(targetTab);
-        const destinationPath = targetTab !== 'dashboard' ? getPathFromTab(targetTab) : '/dashboard';
+        const destinationPath = targetTab !== 'dashboard' ? getPathFromTab(targetTab, data.user.role) : (data.user.role === 'ADMIN' ? '/admin' : '/dashboard');
         window.history.pushState({ tab: targetTab }, '', destinationPath);
         showToast(lang === 'zh' ? `注册成功！欢迎加入 OTP88, ${data.user.name}` : `Welcome to OTP88, ${data.user.name}!`);
       } else {
@@ -823,7 +830,9 @@ export default function App() {
                   {activeTab === 'api' && t.navApi}
                   {activeTab === 'billing' && t.navBilling}
                   {activeTab === 'users' && t.navUsers}
-                  {activeTab === 'admin-logs' && t.navAdminOtpLogs}
+                  {activeTab === 'admin-logs' && (t.navAdminOtpLogs || 'OTP Logs')}
+                  {activeTab === 'admin-api' && (t.navAdminApi || t.navApi || 'API & Keys')}
+                  {activeTab === 'admin-billing' && (t.navAdminBilling || t.navBilling || 'Billing & Top-up')}
                   {activeTab === 'sms360' && (t.navSmsOtp || t.navSms360 || 'SMS OTP')}
                   {activeTab === 'whatsapp-otp' && (t.navWhatsAppOtp || 'WhatsApp OTP')}
                 </span>
@@ -840,8 +849,8 @@ export default function App() {
                 <DashboardView t={t} session={session} adminMetrics={adminMetrics} logs={logs} />
               )}
 
-              {/* TAB 2: OTP LOGS (WITH PLATFORM FILTERS & PAGINATION) */}
-              {activeTab === 'logs' && (LogsView || window.LogsView) && (
+              {/* TAB 2: OTP LOGS (USER MODE) */}
+              {activeTab === 'logs' && session.role !== 'ADMIN' && (LogsView || window.LogsView) && (
                 <LogsView t={t} logs={logs} />
               )}
 
@@ -878,8 +887,8 @@ export default function App() {
                 />
               )}
 
-              {/* TAB 5: API */}
-              {activeTab === 'api' && (ApiView || window.ApiView) && (
+              {/* TAB 5: API (USER MODE) */}
+              {activeTab === 'api' && session.role !== 'ADMIN' && (ApiView || window.ApiView) && (
                 <ApiView
                   t={t}
                   session={session}
@@ -890,8 +899,8 @@ export default function App() {
                 />
               )}
 
-              {/* TAB 5: BILLING */}
-              {activeTab === 'billing' && (BillingView || window.BillingView) && (
+              {/* TAB 6: BILLING (USER MODE) */}
+              {activeTab === 'billing' && session.role !== 'ADMIN' && (BillingView || window.BillingView) && (
                 <BillingView t={t} session={session} setSession={setSession} jwtToken={jwtToken} showToast={showToast} />
               )}
 
@@ -913,9 +922,31 @@ export default function App() {
                 />
               )}
 
-              {/* ADMIN ONLY: ADMIN OTP AUDIT LOGS TAB */}
-              {activeTab === 'admin-logs' && session.role === 'ADMIN' && (AdminOtpLogsView || window.AdminOtpLogsView) && (
-                <AdminOtpLogsView t={t} jwtToken={jwtToken} showToast={showToast} />
+              {/* ADMIN ONLY: ALL USERS OTP LOGS TAB */}
+              {(activeTab === 'admin-logs' || (activeTab === 'logs' && session.role === 'ADMIN')) && session.role === 'ADMIN' && (AdminOtpLogsView || window.AdminOtpLogsView) && (
+                <AdminOtpLogsView t={t} jwtToken={jwtToken} showToast={showToast} usersList={usersList} />
+              )}
+
+              {/* ADMIN ONLY: ALL USERS API & KEYS TAB */}
+              {(activeTab === 'admin-api' || (activeTab === 'api' && session.role === 'ADMIN')) && session.role === 'ADMIN' && (AdminApiView || window.AdminApiView) && (
+                <AdminApiView
+                  t={t}
+                  usersList={usersList}
+                  session={session}
+                  copyToClipboard={copyToClipboard}
+                  showToast={showToast}
+                />
+              )}
+
+              {/* ADMIN ONLY: ALL USERS BILLING & TOP-UP TAB */}
+              {(activeTab === 'admin-billing' || (activeTab === 'billing' && session.role === 'ADMIN')) && session.role === 'ADMIN' && (AdminBillingView || window.AdminBillingView) && (
+                <AdminBillingView
+                  t={t}
+                  usersList={usersList}
+                  jwtToken={jwtToken}
+                  showToast={showToast}
+                  refreshUsers={fetchAdminUsers}
+                />
               )}
 
               {/* ADMIN ONLY: SMS360 GATEWAY TAB */}

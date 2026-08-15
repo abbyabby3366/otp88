@@ -63,27 +63,32 @@ function SidebarView({
           </div>
         </a>
 
-        {/* USER NAVIGATION TABS */}
+        {/* NAVIGATION TABS */}
         <div className="sheets-nav-group">
           {/* 1. Dashboard */}
           <button className={`sheets-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
             <span>{t.navDashboard}</span>
           </button>
 
-          {/* 2. OTP Logs */}
-          <button className={`sheets-nav-item ${activeTab === 'logs' ? 'active' : ''}`} onClick={() => setActiveTab('logs')}>
-            <span>{t.navLogs} ({logsCount})</span>
-          </button>
+          {/* USER-ONLY NAVIGATION TABS (Hidden for Admin) */}
+          {session.role !== 'ADMIN' && (
+            <>
+              {/* 2. OTP Logs */}
+              <button className={`sheets-nav-item ${activeTab === 'logs' ? 'active' : ''}`} onClick={() => setActiveTab('logs')}>
+                <span>{t.navLogs} ({logsCount})</span>
+              </button>
 
-          {/* 3. API */}
-          <button className={`sheets-nav-item ${activeTab === 'api' ? 'active' : ''}`} onClick={() => setActiveTab('api')}>
-            <span>{t.navApi}</span>
-          </button>
+              {/* 3. API */}
+              <button className={`sheets-nav-item ${activeTab === 'api' ? 'active' : ''}`} onClick={() => setActiveTab('api')}>
+                <span>{t.navApi}</span>
+              </button>
 
-          {/* 4. Billing */}
-          <button className={`sheets-nav-item ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => setActiveTab('billing')}>
-            <span>{t.navBilling}</span>
-          </button>
+              {/* 4. Billing */}
+              <button className={`sheets-nav-item ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => setActiveTab('billing')}>
+                <span>{t.navBilling}</span>
+              </button>
+            </>
+          )}
 
           {/* ADMIN ONLY NAVIGATION SECTION */}
           {session.role === 'ADMIN' && (
@@ -95,7 +100,15 @@ function SidebarView({
               </button>
 
               <button className={`sheets-nav-item ${activeTab === 'admin-logs' ? 'active' : ''}`} onClick={() => setActiveTab('admin-logs')}>
-                <span>{t.navAdminOtpLogs}</span>
+                <span>{t.navAdminOtpLogs || 'OTP Logs'}</span>
+              </button>
+
+              <button className={`sheets-nav-item ${activeTab === 'admin-api' ? 'active' : ''}`} onClick={() => setActiveTab('admin-api')}>
+                <span>{t.navAdminApi || t.navApi || 'API & Keys'}</span>
+              </button>
+
+              <button className={`sheets-nav-item ${activeTab === 'admin-billing' ? 'active' : ''}`} onClick={() => setActiveTab('admin-billing')}>
+                <span>{t.navAdminBilling || t.navBilling || 'Billing & Top-up'}</span>
               </button>
 
               <div className="sheets-nav-header" style={{ marginTop: '10px' }}>{t.navServicesSection || 'SERVICES'}</div>

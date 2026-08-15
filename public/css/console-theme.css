@@ -341,6 +341,16 @@ body.theme-light::before {
   border-color: #94A3B8;
 }
 
+.sheets-btn:disabled,
+.sheets-btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: #F1F5F9;
+  border-color: #E2E8F0;
+  color: #94A3B8;
+}
+
 .sheets-btn-primary {
   background: #059669;
   border-color: #047857;

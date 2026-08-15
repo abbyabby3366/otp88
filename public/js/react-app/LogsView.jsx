@@ -139,43 +139,49 @@ function LogsView({ t, logs }) {
         </table>
 
         {/* Compact Pagination Bar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', padding: '4px 10px', borderTop: '1px solid var(--border-subtle)', fontSize: '11px' }}>
-          <div style={{ color: 'var(--text-muted)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', padding: '6px 12px', borderTop: '1px solid var(--border-subtle)', fontSize: '11px', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
             Showing {filteredLogs.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} to {Math.min(currentPage * pageSize, filteredLogs.length)} of {filteredLogs.length} entries
           </div>
           
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            <span style={{ color: 'var(--text-muted)' }}>Rows:</span>
-            <select
-              value={pageSize}
-              onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
-              className="sheets-input"
-              style={{ padding: '2px 4px', fontSize: '10px' }}
-            >
-              <option value="10">10</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
-            </select>
+          <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Rows:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                className="sheets-input"
+                style={{ padding: '2px 6px', fontSize: '11px', height: '24px' }}
+              >
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+              </select>
+            </div>
 
-            <button
-              className="sheets-btn"
-              disabled={currentPage <= 1}
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              style={{ padding: '2px 6px', fontSize: '10px' }}
-            >
-              ◀ Prev
-            </button>
-            <span style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>
-              {currentPage} / {totalPages}
-            </span>
-            <button
-              className="sheets-btn"
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              style={{ padding: '2px 6px', fontSize: '10px' }}
-            >
-              Next ▶
-            </button>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <button
+                type="button"
+                className="sheets-btn"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                style={{ padding: '2px 8px', fontSize: '11px', height: '24px', whiteSpace: 'nowrap' }}
+              >
+                ◀ Prev
+              </button>
+              <span style={{ fontFamily: 'var(--font-code)', fontWeight: '700', whiteSpace: 'nowrap', display: 'inline-block', minWidth: '32px', textAlign: 'center' }}>
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                type="button"
+                className="sheets-btn"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                style={{ padding: '2px 8px', fontSize: '11px', height: '24px', whiteSpace: 'nowrap' }}
+              >
+                Next ▶
+              </button>
+            </div>
           </div>
         </div>
 

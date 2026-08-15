@@ -246,6 +246,80 @@
                   </table>
                 </div>
               </div>
+
+              <!-- Dedicated Channel Code Examples -->
+              <div style="margin-top:24px;">
+                <h4 style="font-size:14px;color:var(--text-primary);margin-bottom:12px;">SMS OTP Integration Example (cURL)</h4>
+                <div class="code-card">
+                  <div class="code-body">
+                    <pre>curl -X POST https://api.otp88.com/v1/otp/send \
+  -H "Authorization: Bearer otp_live_99882200aabbcc" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "+60123456789",
+    "channel_strategy": "sms",
+    "sender_id": "OTP88_SMS",
+    "code_length": 6,
+    "expiry_seconds": 300
+  }'</pre>
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-top:20px;">
+                <h4 style="font-size:14px;color:var(--text-primary);margin-bottom:12px;">Telegram Bot OTP Integration Example (Python)</h4>
+                <div class="code-card">
+                  <div class="code-body">
+                    <pre>import requests
+
+url = "https://api.otp88.com/v1/otp/send"
+headers = {
+    "Authorization": "Bearer otp_live_99882200aabbcc",
+    "Content-Type": "application/json"
+}
+payload = {
+    "to": "+60123456789",
+    "channel_strategy": "telegram",
+    "sender_id": "OTP88_BOT",
+    "code_length": 6,
+    "expiry_seconds": 300
+}
+
+response = requests.post(url, json=payload, headers=headers)
+print(response.json())</pre>
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-top:20px;">
+                <h4 style="font-size:14px;color:var(--text-primary);margin-bottom:12px;">Multi-Channel Waterfall (WhatsApp → Telegram → SMS) (Node.js)</h4>
+                <div class="code-card">
+                  <div class="code-body">
+                    <pre>const axios = require('axios');
+
+async function sendWaterfallOTP() {
+  const res = await axios.post('https://api.otp88.com/v1/otp/send', {
+    to: '+60123456789',
+    channel_strategy: 'waterfall',
+    channels: ['whatsapp', 'telegram', 'sms'],
+    sender_id: 'OTP88_AUTH',
+    code_length: 6,
+    expiry_seconds: 300
+  }, {
+    headers: {
+      'Authorization': 'Bearer otp_live_99882200aabbcc',
+      'Content-Type': 'application/json'
+    }
+  });
+
+  console.log('Dispatched:', res.data);
+}
+
+sendWaterfallOTP();</pre>
+                  </div>
+                </div>
+              </div>
+
             </div>
 
             <!-- Endpoint: Verify OTP -->

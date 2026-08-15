@@ -1,75 +1,236 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 
-// Admin OTP Usage & Audit Logs Component
-function AdminOtpLogsView({ t, jwtToken, showToast }) {
-  const [auditLogs, setAuditLogs] = useState([]);
+// Admin All-Users OTP Logs & Audit View
+function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [platformFilter, setPlatformFilter] = useState('ALL');
+  const [userFilter, setUserFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
+
+  const fetchAllLogs = () => {
+    if (!jwtToken) return;
+    setLoading(true);
+    fetch('/api/logs', { headers: { 'Authorization': `Bearer ${jwtToken}` } })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.logs) setLogs(data.logs);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
 
   useEffect(() => {
-    if (jwtToken) {
-      fetch('/api/admin/otp-audit-logs', { headers: { 'Authorization': `Bearer ${jwtToken}` } })
-        .then(res => res.json())
-        .then(data => { if (data.success && data.logs) setAuditLogs(data.logs); })
-        .catch(() => {});
-    }
+    fetchAllLogs();
   }, [jwtToken]);
+
+  // Filter logs
+  const filteredLogs = useMemo(() => {
+    return logs.filter(log => {
+      const matchPlatform = platformFilter === 'ALL' || (log.channel && log.channel.toUpperCase().includes(platformFilter));
+      const matchStatus = statusFilter === 'ALL' || (log.status && log.status.toUpperCase() === statusFilter);
+      const matchUser = userFilter === 'ALL' || log.userId === userFilter || (log.userName && log.userName.toLowerCase().includes(userFilter.toLowerCase()));
+      const matchSearch = !searchTerm || 
+        (log.to && log.to.includes(searchTerm)) || 
+        (log.id && log.id.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (log.userName && log.userName.toLowerCase().includes(searchTerm.toLowerCase()));
+      return matchPlatform && matchStatus && matchUser && matchSearch;
+    });
+  }, [logs, platformFilter, statusFilter, userFilter, searchTerm]);
+
+  // Pagination calculation
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / pageSize));
+  const paginatedLogs = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredLogs.slice(start, start + pageSize);
+  }, [filteredLogs, currentPage, pageSize]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', padding: '6px 10px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px' }}>
-          <span style={{ fontWeight: '700' }}>ADMIN OTP AUDIT LOGS</span>
-          <span style={{ color: 'var(--text-muted)' }}>Security & Authentication Events</span>
+      
+      {/* Filter Ribbon */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FFFFFF', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '6px 10px', gap: '8px', flexWrap: 'wrap' }}>
+        
+        {/* User and Channel Selectors */}
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)' }}>Tenant:</span>
+          <select
+            className="sheets-input"
+            value={userFilter}
+            onChange={(e) => { setUserFilter(e.target.value); setCurrentPage(1); }}
+            style={{ padding: '3px 6px', fontSize: '11px', maxWidth: '160px' }}
+          >
+            <option value="ALL">All Tenants</option>
+            {usersList.map(u => (
+              <option key={u._id} value={u._id}>{u.name || u.email}</option>
+            ))}
+          </select>
+
+          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', marginLeft: '4px' }}>Channel:</span>
+          {[
+            { id: 'ALL', label: 'All' },
+            { id: 'WHATSAPP', label: 'WhatsApp' },
+            { id: 'TELEGRAM', label: 'Telegram' },
+            { id: 'SMS', label: 'SMS' },
+            { id: 'VOICE', label: 'Voice' }
+          ].map(p => (
+            <button
+              key={p.id}
+              type="button"
+              className={`sheets-btn ${platformFilter === p.id ? 'sheets-btn-primary' : ''}`}
+              onClick={() => { setPlatformFilter(p.id); setCurrentPage(1); }}
+              style={{ padding: '2px 7px', fontSize: '11px' }}
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
+
+        {/* Search & Status Filter */}
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <input
+            type="text"
+            className="sheets-input sheets-input-code"
+            placeholder="Search phone, ID or user..."
+            value={searchTerm}
+            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+            style={{ width: '180px', padding: '4px 6px', fontSize: '11px' }}
+          />
+
+          <select
+            className="sheets-input"
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+            style={{ padding: '4px 6px', fontSize: '11px' }}
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="DELIVERED">DELIVERED</option>
+            <option value="PENDING">PENDING</option>
+            <option value="FAILED">FAILED</option>
+          </select>
+
+          <button
+            type="button"
+            className="sheets-btn"
+            onClick={fetchAllLogs}
+            disabled={loading}
+            style={{ padding: '3px 8px', fontSize: '11px' }}
+            title="Refresh logs"
+          >
+            {loading ? '...' : '↻'}
+          </button>
+        </div>
+      </div>
+
+      {/* Spreadsheet Data Grid */}
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
         <table className="sheets-table">
           <thead>
             <tr>
               <th style={{ width: '35px' }}>#</th>
-              <th>Audit ID</th>
-              <th>Phone Number</th>
-              <th>Channel</th>
-              <th>Action</th>
-              <th>Triggered By</th>
+              <th>{t.txId || 'Transaction ID'}</th>
+              <th>User / Tenant</th>
+              <th>{t.recipient || 'Phone Number'}</th>
+              <th>{t.carrierRoute || 'Channel'}</th>
               <th>Latency</th>
-              <th>Status</th>
-              <th>Time</th>
+              <th>{t.unitCost || 'Cost'}</th>
+              <th>{t.status || 'Status'}</th>
+              <th>{t.timestamp || 'Time'}</th>
             </tr>
           </thead>
           <tbody>
-            {auditLogs.length === 0 ? (
+            {paginatedLogs.length === 0 ? (
               <tr>
-                <td colSpan="9" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
-                  No audit logs recorded yet.
+                <td colSpan="9" style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>
+                  No OTP logs match the selected filter criteria.
                 </td>
               </tr>
             ) : (
-              auditLogs.map((log, idx) => (
+              paginatedLogs.map((log, idx) => (
                 <tr key={log.id || idx}>
-                  <td style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-code)', fontSize: '10px' }}>{idx + 1}</td>
-                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>{log.id}</td>
-                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>{log.target}</td>
+                  <td style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-code)', fontSize: '10px' }}>
+                    {(currentPage - 1) * pageSize + idx + 1}
+                  </td>
+                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '600' }}>{log.id}</td>
+                  <td>
+                    <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
+                      {log.userName || 'System / Direct API'}
+                    </span>
+                  </td>
+                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>{log.to}</td>
                   <td>
                     <span className={`sheets-badge ${
-                      log.channel === 'WHATSAPP' ? 'sheets-badge-emerald' :
-                      log.channel === 'TELEGRAM' ? 'sheets-badge-blue' :
-                      log.channel === 'VOICE_OTP' ? 'sheets-badge-purple' : 'sheets-badge-amber'
+                      log.channel && log.channel.includes('WHATSAPP') ? 'sheets-badge-emerald' :
+                      log.channel && log.channel.includes('TELEGRAM') ? 'sheets-badge-blue' :
+                      log.channel && log.channel.includes('VOICE') ? 'sheets-badge-purple' : 'sheets-badge-amber'
                     }`}>
                       {log.channel}
                     </span>
                   </td>
+                  <td style={{ fontFamily: 'var(--font-code)', color: '#059669', fontWeight: '700' }}>{log.latency}</td>
+                  <td style={{ fontFamily: 'var(--font-code)' }}>{log.cost || '$0.0075'}</td>
                   <td>
-                    <span style={{ fontFamily: 'var(--font-code)', fontSize: '11px', fontWeight: '700', color: '#1E293B' }}>
-                      {log.action}
+                    <span style={{ color: log.status === 'FAILED' ? '#DC2626' : '#059669', fontWeight: '700', fontSize: '11px' }}>
+                      {log.status === 'FAILED' ? 'FAILED' : (log.status || 'DELIVERED')}
                     </span>
                   </td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{log.actor}</td>
-                  <td style={{ fontFamily: 'var(--font-code)', color: '#059669' }}>{log.latency}</td>
-                  <td><span className="sheets-badge sheets-badge-emerald">{log.status}</span></td>
-                  <td style={{ fontFamily: 'var(--font-code)', color: 'var(--text-muted)' }}>{log.time}</td>
+                  <td style={{ fontFamily: 'var(--font-code)', color: 'var(--text-muted)', fontSize: '11px' }}>{log.time}</td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
+
+        {/* Compact Pagination Bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', padding: '6px 12px', borderTop: '1px solid var(--border-subtle)', fontSize: '11px', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+            Showing {filteredLogs.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} to {Math.min(currentPage * pageSize, filteredLogs.length)} of {filteredLogs.length} total entries
+          </div>
+          
+          <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Rows:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                className="sheets-input"
+                style={{ padding: '2px 6px', fontSize: '11px', height: '24px' }}
+              >
+                <option value="15">15</option>
+                <option value="30">30</option>
+                <option value="50">50</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <button
+                type="button"
+                className="sheets-btn"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                style={{ padding: '2px 8px', fontSize: '11px', height: '24px', whiteSpace: 'nowrap' }}
+              >
+                ◀ Prev
+              </button>
+              <span style={{ fontFamily: 'var(--font-code)', fontWeight: '700', whiteSpace: 'nowrap', display: 'inline-block', minWidth: '32px', textAlign: 'center' }}>
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                type="button"
+                className="sheets-btn"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                style={{ padding: '2px 8px', fontSize: '11px', height: '24px', whiteSpace: 'nowrap' }}
+              >
+                Next ▶
+              </button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );

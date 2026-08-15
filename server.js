@@ -196,6 +196,7 @@ const WhatsAppConfigSchema = new mongoose.Schema({
   channel: { type: String, default: 'whatsapp' },
   fallback: { type: String, default: 'no' },
   lang: { type: String, default: 'en' },
+  webhookUrl: { type: String, default: 'https://api.otp88.com/api/webhooks/whatsapp/dlr' },
   ratePerOtp: { type: String, default: '0.0075' },
   currency: { type: String, default: 'MYR' },
   status: { type: String, default: 'ACTIVE' }
@@ -422,9 +423,15 @@ app.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
     channel = 'whatsapp',
     otpCode: customOtpCode,
     code: customCode,
-    senderId = 'OTP88_AUTH',
+    senderName: reqSenderName,
+    sender_name: reqSender_name,
+    senderId: reqSenderId,
+    sender_id: reqSender_id,
+    from: reqFrom,
     codeLength = 6
   } = req.body;
+
+  const senderName = reqSenderName || reqSender_name || reqSenderId || reqSender_id || reqFrom || 'OTP88_AUTH';
 
   // Use provided OTP code or auto-generate
   let otpCode = customOtpCode || customCode;
@@ -468,23 +475,23 @@ app.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
     } else {
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
-        authUserId = decoded.id;
+        if (decoded && decoded.id) authUserId = decoded.id;
       } catch (e) {}
     }
   }
 
+  // Save OTP transaction record into MongoDB if connected
   let createdLog = null;
   if (isDbConnected) {
     try {
       createdLog = await OtpLogModel.create({
-        phoneNumber,
+        txId,
+        to: phoneNumber,
         channel: finalChannel,
-        otpCode,
+        status: 'DELIVERED',
         latency: `${(deliveryTimeMs / 1000).toFixed(1)}s`,
         cost: unitCost,
-        status: 'DELIVERED',
-        msgId: txId,
-        errorCode: '0',
+        time: new Date().toLocaleTimeString('en-GB'),
         userId: authUserId
       });
     } catch (err) {
@@ -497,7 +504,8 @@ app.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
     transactionId: txId,
     phoneNumber,
     otpCode,
-    senderId,
+    senderName,
+    senderId: senderName,
     channelUsed: finalChannel,
     latency: `${(deliveryTimeMs / 1000).toFixed(1)}s`,
     cost: unitCost,
@@ -507,13 +515,22 @@ app.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
 });
 
 // Live OTP Logs Endpoint
-app.get(['/api/logs', '/api/otp-logs'], verifyJwtMiddleware, async (req, res) => {
+app.get(['/api/logs', '/api/otp-logs', '/api/admin/logs'], verifyJwtMiddleware, async (req, res) => {
   try {
     let query = {};
     if (req.user && req.user.role !== 'ADMIN') {
       query = { $or: [{ userId: req.user.id }, { userId: null }] };
     }
-    const rawLogs = await OtpLogModel.find(query).sort({ createdAt: -1 }).limit(100).lean();
+    const rawLogs = await OtpLogModel.find(query).sort({ createdAt: -1 }).limit(150).lean();
+    
+    let userMap = {};
+    if (req.user && req.user.role === 'ADMIN') {
+      const users = await UserModel.find({}).select('name email _id').lean();
+      users.forEach(u => {
+        userMap[u._id.toString()] = u.name || u.email;
+      });
+    }
+
     const formatted = rawLogs.map((l) => ({
       id: l.msgId || ('LOG_' + l._id.toString().slice(-6).toUpperCase()),
       to: l.phoneNumber,
@@ -522,6 +539,8 @@ app.get(['/api/logs', '/api/otp-logs'], verifyJwtMiddleware, async (req, res) =>
       cost: l.cost || '$0.0075',
       status: l.status || 'DELIVERED',
       errorCode: l.errorCode || '0',
+      userId: l.userId || '',
+      userName: (l.userId && userMap[l.userId]) ? userMap[l.userId] : (l.userId ? 'User #' + l.userId.slice(-4) : 'System / Direct API'),
       time: l.createdAt ? new Date(l.createdAt).toTimeString().split(' ')[0] : 'Just now'
     }));
     res.json({ success: true, logs: formatted });
@@ -1358,6 +1377,7 @@ let WHATSAPP_CONFIG = {
   channel: 'whatsapp',
   fallback: 'no',
   lang: 'en',
+  webhookUrl: 'https://api.otp88.com/api/webhooks/whatsapp/dlr',
   ratePerOtp: '0.0075',
   currency: 'MYR',
   status: 'ACTIVE'
@@ -1383,23 +1403,24 @@ app.get('/api/admin/whatsapp/config', verifyJwtMiddleware, requireAdmin, async (
           channel: dbConfig.channel || WHATSAPP_CONFIG.channel,
           fallback: dbConfig.fallback || WHATSAPP_CONFIG.fallback,
           lang: dbConfig.lang || WHATSAPP_CONFIG.lang,
+          webhookUrl: dbConfig.webhookUrl || WHATSAPP_CONFIG.webhookUrl,
           ratePerOtp: dbConfig.ratePerOtp || WHATSAPP_CONFIG.ratePerOtp,
           currency: dbConfig.currency || WHATSAPP_CONFIG.currency,
           status: dbConfig.status || WHATSAPP_CONFIG.status
         };
         WHATSAPP_CONFIG = activeConfig;
 
-        // Fetch actual last 10 sent WhatsApp messages from MongoDB
-        const dbLogs = await OtpLogModel.find({ channel: { $regex: /whatsapp/i } }).sort({ createdAt: -1 }).limit(10).lean();
+        // Fetch actual last 20 sent WhatsApp messages from MongoDB
+        const dbLogs = await OtpLogModel.find({ channel: { $regex: /whatsapp/i } }).sort({ createdAt: -1 }).limit(20).lean();
         realLogs = dbLogs.map(l => ({
-          id: l.msgId || ('VW_' + l._id.toString().slice(-8).toUpperCase()),
+          id: l.msgId || ('VW-' + l._id.toString().slice(-8).toUpperCase()),
           recipient: l.phoneNumber,
-          channel: 'whatsapp',
-          code: l.otpCode || '882049',
-          fallback: 'no',
-          cost: l.cost || `$${activeConfig.ratePerOtp || '0.0075'}`,
-          status: l.status || 'DELIVERED',
-          latency: l.latency || '0.8s',
+          channel: (l.channel || 'whatsapp').toLowerCase().replace('_verifyway', ''),
+          code: l.otpCode || '-',
+          fallback: l.fallback || 'no',
+          cost: l.cost ? (l.cost.startsWith('$') ? l.cost.replace('$', 'MYR ') : l.cost) : `MYR ${activeConfig.ratePerOtp || '0.0075'}`,
+          status: l.status || 'SENT',
+          latency: l.latency || '-',
           timestamp: l.createdAt ? new Date(l.createdAt).toTimeString().split(' ')[0] : 'Just now'
         }));
       } catch (e) {
@@ -1421,13 +1442,14 @@ app.get('/api/admin/whatsapp/config', verifyJwtMiddleware, requireAdmin, async (
 // POST Save WhatsApp Config
 app.post('/api/admin/whatsapp/config', verifyJwtMiddleware, requireAdmin, async (req, res) => {
   try {
-    const { apiKey, apiUrl, channel, fallback, lang, ratePerOtp, currency, status } = req.body;
+    const { apiKey, apiUrl, channel, fallback, lang, webhookUrl, ratePerOtp, currency, status } = req.body;
     const updateData = {};
     if (apiKey !== undefined) updateData.apiKey = apiKey.trim();
     if (apiUrl !== undefined) updateData.apiUrl = apiUrl.trim();
     if (channel !== undefined) updateData.channel = channel.trim();
     if (fallback !== undefined) updateData.fallback = fallback.trim();
     if (lang !== undefined) updateData.lang = lang.trim();
+    if (webhookUrl !== undefined) updateData.webhookUrl = webhookUrl.trim();
     if (ratePerOtp !== undefined) updateData.ratePerOtp = ratePerOtp.trim();
     if (currency !== undefined) updateData.currency = currency.trim();
     if (status !== undefined) updateData.status = status;
@@ -1513,12 +1535,129 @@ app.post('/api/admin/whatsapp/test-send', verifyJwtMiddleware, requireAdmin, asy
   WHATSAPP_LOGS.unshift(newLog);
   if (WHATSAPP_LOGS.length > 50) WHATSAPP_LOGS.pop();
 
+  if (isDbConnected) {
+    try {
+      await OtpLogModel.create({
+        phoneNumber: payload.recipient,
+        channel: 'WHATSAPP_VERIFYWAY',
+        otpCode: payload.code,
+        messageText: `Your OTP is ${payload.code}`,
+        senderId: 'WhatsApp',
+        segments: 1,
+        latency: '0.21s',
+        cost: `MYR ${WHATSAPP_CONFIG.ratePerOtp || '0.0075'}`,
+        status: newLog.status,
+        msgId: messageId,
+        errorCode: '0',
+        userId: req.user?.id || 'admin'
+      });
+      await OtpAuditLogModel.create({
+        auditId: 'AUD_' + Math.floor(1000 + Math.random() * 9000),
+        target: payload.recipient,
+        channel: 'WHATSAPP_VERIFYWAY',
+        action: 'WHATSAPP_OTP_DISPATCH',
+        actor: req.user?.email || req.user?.username || 'ADMIN',
+        status: newLog.status,
+        latency: '0.21s',
+        time: new Date().toTimeString().split(' ')[0],
+        msgId: messageId
+      });
+    } catch (e) {
+      console.error('Error saving WhatsApp OTP log to MongoDB:', e.message);
+    }
+  }
+
   res.json({
     success: true,
     message: 'OTP dispatched via VerifyWay API',
     messageId,
     response: apiResult
   });
+});
+
+// DLR Webhook Callback Handler for WhatsApp (VerifyWay & WhatsApp Routers)
+app.all(['/api/webhooks/whatsapp/dlr', '/api/webhooks/whatsapp', '/v1/webhooks/whatsapp'], async (req, res) => {
+  try {
+    const payload = req.method === 'POST' ? req.body : req.query;
+    console.log('📬 Received VerifyWay / WhatsApp Delivery Notification (DLR):', payload);
+
+    if (!payload || Object.keys(payload).length === 0) {
+      return res.status(200).send('ACK');
+    }
+
+    const rawStatus = (payload.status || payload.stat || payload.dlr_status || payload.delivery_status || payload.Status || '').toString().toUpperCase();
+    let normalizedStatus = 'DELIVERED';
+    if (rawStatus.includes('UNDELIV') || rawStatus.includes('FAIL') || rawStatus.includes('REJECT') || rawStatus.includes('ERR')) {
+      normalizedStatus = 'FAILED';
+    } else if (rawStatus.includes('EXPIRE')) {
+      normalizedStatus = 'EXPIRED';
+    } else if (rawStatus.includes('READ')) {
+      normalizedStatus = 'READ';
+    } else if (rawStatus.includes('ACCEPT') || rawStatus.includes('BUFF') || rawStatus.includes('QUEUE') || rawStatus.includes('PENDING') || rawStatus.includes('ENROUTE') || rawStatus.includes('SENT')) {
+      normalizedStatus = 'PENDING';
+    } else if (rawStatus.includes('DELIV') || rawStatus.includes('SUCCESS') || rawStatus === '0' || rawStatus === 'OK') {
+      normalizedStatus = 'DELIVERED';
+    }
+
+    const rawMsgId = (payload.id || payload.msgid || payload.msgId || payload.ref || payload.messageId || '').toString().trim();
+    const cleanPhone = (payload.recipient || payload.msisdn || payload.to || payload.phone || payload.dest || payload.mobile || '').toString().replace(/[^0-9]/g, '');
+    const errorCode = (payload['error-code'] !== undefined ? payload['error-code'] : (payload.errorCode || payload.error_code || payload.err || '0')).toString().trim();
+
+    const baseMsgId = rawMsgId.split('-').slice(0, 2).join('-') || rawMsgId.split('.')[0] || rawMsgId;
+
+    let updatedCount = 0;
+
+    // 1. Update in-memory WHATSAPP_LOGS
+    WHATSAPP_LOGS.forEach(log => {
+      const matchMsg = rawMsgId && (log.id === rawMsgId || log.id.startsWith(baseMsgId) || rawMsgId.startsWith(log.id));
+      const matchPhone = cleanPhone && (log.recipient.replace(/[^0-9]/g, '') === cleanPhone || cleanPhone.endsWith(log.recipient.replace(/[^0-9]/g, '')) || log.recipient.replace(/[^0-9]/g, '').endsWith(cleanPhone));
+      
+      if (matchMsg || (!rawMsgId && matchPhone)) {
+        log.status = normalizedStatus;
+        log.errorCode = errorCode;
+        updatedCount++;
+      }
+    });
+
+    // 2. Update MongoDB Atlas OtpLog & OtpAuditLog
+    if (isDbConnected) {
+      const matchOr = [];
+      if (rawMsgId) {
+        matchOr.push({ msgId: rawMsgId });
+        if (baseMsgId && baseMsgId !== rawMsgId) {
+          matchOr.push({ msgId: new RegExp('^' + baseMsgId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) });
+        }
+      }
+      if (cleanPhone && cleanPhone.length >= 7) {
+        const last8 = cleanPhone.slice(-8);
+        matchOr.push({ phoneNumber: new RegExp(last8 + '$') });
+      }
+
+      if (matchOr.length > 0) {
+        const updateResult = await OtpLogModel.updateMany(
+          { $or: matchOr },
+          { $set: { status: normalizedStatus, errorCode: errorCode } }
+        );
+        await OtpAuditLogModel.updateMany(
+          { $or: matchOr.map(c => c.msgId ? { msgId: c.msgId } : { target: c.phoneNumber }) },
+          { $set: { status: normalizedStatus } }
+        );
+        updatedCount += (updateResult.modifiedCount || 0);
+      }
+    }
+
+    console.log(`✅ WhatsApp DLR Processed: MsgID=${rawMsgId || 'N/A'}, Phone=${cleanPhone || 'N/A'}, Status=${normalizedStatus}, Updated=${updatedCount} record(s)`);
+
+    broadcastLiveReload();
+
+    if (req.headers.accept && req.headers.accept.includes('application/json')) {
+      return res.json({ success: true, status: normalizedStatus, msgId: rawMsgId, updatedCount });
+    }
+    return res.status(200).send('ACK');
+  } catch (err) {
+    console.error('Error processing VerifyWay WhatsApp DLR webhook:', err.message);
+    return res.status(200).send('ACK');
+  }
 });
 
 // Admin Live Metrics (Calculated dynamically from MongoDB)
@@ -1726,21 +1865,86 @@ app.get('/api/user/profile', verifyJwtMiddleware, async (req, res) => {
 });
 
 
-// User Billing Invoices (Live MongoDB)
-app.get('/api/billing/invoices', verifyJwtMiddleware, async (req, res) => {
+// User & Admin Billing Invoices (Live MongoDB)
+app.get(['/api/billing/invoices', '/api/admin/invoices', '/api/admin/billing/invoices'], verifyJwtMiddleware, async (req, res) => {
   try {
     const query = req.user.role === 'ADMIN' ? {} : { userId: req.user.id };
     const invoices = await InvoiceModel.find(query).sort({ createdAt: -1 }).lean();
+    
+    let userMap = {};
+    if (req.user.role === 'ADMIN') {
+      const users = await UserModel.find({}).select('name email _id').lean();
+      users.forEach(u => {
+        userMap[u._id.toString()] = { name: u.name || u.email, email: u.email };
+      });
+    }
+
     const formatted = invoices.map(inv => ({
       id: inv.invoiceId,
       date: inv.date,
       amount: inv.amount,
       method: inv.method,
-      status: inv.status
+      status: inv.status,
+      userId: inv.userId,
+      userName: (inv.userId && userMap[inv.userId]) ? userMap[inv.userId].name : (inv.userId === 'usr_dev' ? 'dev_user' : 'User'),
+      userEmail: (inv.userId && userMap[inv.userId]) ? userMap[inv.userId].email : ''
     }));
     res.json({ success: true, invoices: formatted });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message, invoices: [] });
+  }
+});
+
+// Admin Manual Balance Top-up for any User
+app.post('/api/admin/billing/topup', verifyJwtMiddleware, requireAdmin, async (req, res) => {
+  const { userId, amount = 100, method = 'Manual Admin Credit' } = req.body;
+  const numAmount = parseFloat(amount) || 100;
+  const invoiceId = 'INV-ADM-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
+  const dateStr = new Date().toISOString().split('T')[0];
+
+  try {
+    let targetUser = null;
+    if (userId && userId.match(/^[0-9a-fA-F]{24}$/)) {
+      targetUser = await UserModel.findById(userId);
+    } else {
+      targetUser = await UserModel.findOne({ role: 'USER' });
+    }
+
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: 'Target user not found.' });
+    }
+
+    const updatedUser = await UserModel.findByIdAndUpdate(
+      targetUser._id,
+      { $inc: { balanceUsd: numAmount } },
+      { new: true }
+    );
+
+    const inv = await InvoiceModel.create({
+      userId: targetUser._id.toString(),
+      invoiceId,
+      date: dateStr,
+      amount: `$${numAmount.toFixed(2)}`,
+      method,
+      status: 'PAID'
+    });
+
+    res.json({
+      success: true,
+      message: `Successfully credited $${numAmount.toFixed(2)} to ${targetUser.name || targetUser.email}! New balance: $${updatedUser.balanceUsd.toFixed(2)}`,
+      invoice: {
+        id: inv.invoiceId,
+        date: inv.date,
+        amount: inv.amount,
+        method: inv.method,
+        status: inv.status,
+        userName: targetUser.name || targetUser.email,
+        userEmail: targetUser.email
+      },
+      newBalance: updatedUser.balanceUsd
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -1819,9 +2023,10 @@ app.get([
 app.get([
   '/login', '/login.html', '/register', '/forgot', '/reset',
   '/dashboard', '/logs', '/otp-logs', '/services', '/rates',
-  '/api', '/keys', '/billing', '/users', '/admin',
-  '/admin/users', '/admin/logs', '/admin-logs', '/sms360',
-  '/admin/sms360', '/admin-sms360', '/whatsapp-otp', '/admin/whatsapp-otp', '/console'
+  '/api', '/keys', '/billing', '/users', '/admin', '/admin/dashboard',
+  '/admin/users', '/admin/logs', '/admin-logs', '/admin/api', '/admin/keys',
+  '/admin/billing', '/admin/invoices', '/admin/topup',
+  '/sms360', '/admin/sms360', '/admin-sms360', '/whatsapp-otp', '/admin/whatsapp-otp', '/console'
 ], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });

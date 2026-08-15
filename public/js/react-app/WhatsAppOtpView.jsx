@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import WhatsAppWebhookTab from './WhatsAppWebhookTab.jsx';
 
 // Admin VerifyWay WhatsApp OTP API Complete Management & Interactive Explorer
 function WhatsAppOtpView({ t, jwtToken, showToast }) {
@@ -346,22 +347,16 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
 
       {/* SUB-TAB 3: DELIVERY WEBHOOKS */}
       {activeSubTab === 'webhook' && (
-        <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-          <div style={{ background: '#F8FAFC', padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', fontSize: '12px', fontWeight: '800' }}>
-            DELIVERY NOTIFICATION & STATUS WEBHOOK
-          </div>
-          <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: 0 }}>Configure your endpoint to receive automated delivery receipts from VerifyWay WhatsApp router.</p>
-            <div style={{ background: '#F8FAFC', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
-              <div style={{ fontSize: '11px', fontWeight: '700', marginBottom: '4px' }}>Webhook Callback URL:</div>
-              <input type="text" className="sheets-input" value={config.webhookUrl} onChange={(e) => setConfig({ ...config, webhookUrl: e.target.value })} style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-code)' }} />
-            </div>
-            <div style={{ fontSize: '11px', fontWeight: '700', marginTop: '4px' }}>Incoming Webhook Payload Format:</div>
-            <div style={{ background: '#0F172A', color: '#38BDF8', padding: '10px', borderRadius: '4px', fontFamily: 'var(--font-code)', fontSize: '11px' }}>
-              <pre style={{ margin: 0 }}>{`{\n  "id": "VW-882049-MSG",\n  "status": "DELIVERED",\n  "recipient": "+60123456789",\n  "channel": "whatsapp",\n  "cost": 0.0075,\n  "delivered_at": "2026-08-15T12:00:00Z"\n}`}</pre>
-            </div>
-          </div>
-        </div>
+        <WhatsAppWebhookTab
+          config={config}
+          setConfig={setConfig}
+          logs={logs}
+          jwtToken={jwtToken}
+          showToast={showToast}
+          savingConfig={savingConfig}
+          handleSaveConfig={handleSaveConfig}
+          loadData={loadData}
+        />
       )}
 
       {/* SUB-TAB 4: API CREDENTIALS & SETTINGS */}

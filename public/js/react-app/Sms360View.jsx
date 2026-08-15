@@ -638,7 +638,7 @@ function Sms360View({ t, jwtToken, showToast }) {
           <div style={{ background: '#F8FAFC', padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', fontSize: '12px', fontWeight: '800' }}>
             BULK360 SMS API V3.0 SPECIFICATION & RESPONSE CODES
           </div>
-          <div style={{ padding: '14px' }}>
+          <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <table className="sheets-table">
               <thead>
                 <tr><th style={{ width: '80px' }}>Code</th><th style={{ width: '120px' }}>Status</th><th>Description & Cause</th><th>Action Required</th></tr>
@@ -649,6 +649,36 @@ function Sms360View({ t, jwtToken, showToast }) {
                 ))}
               </tbody>
             </table>
+
+            {/* SMS cURL Examples */}
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: '700', marginBottom: '6px', color: 'var(--text-primary)' }}>1. Universal SMS OTP Request (cURL):</div>
+              <div style={{ background: '#0F172A', color: '#38BDF8', padding: '10px', borderRadius: '4px', fontFamily: 'var(--font-code)', fontSize: '11px', overflowX: 'auto' }}>
+                <pre style={{ margin: 0 }}>{`curl -X POST ${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8884'}/v1/otp/send \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "phoneNumber": "+60123456789",
+    "channel": "sms",
+    "senderId": "OTP88_SMS",
+    "codeLength": 6,
+    "expirySeconds": 300
+  }'`}</pre>
+              </div>
+            </div>
+
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: '700', marginBottom: '6px', color: 'var(--text-primary)' }}>2. Bulk360 Direct MT Gateway (HTTP POST):</div>
+              <div style={{ background: '#0F172A', color: '#38BDF8', padding: '10px', borderRadius: '4px', fontFamily: 'var(--font-code)', fontSize: '11px', overflowX: 'auto' }}>
+                <pre style={{ margin: 0 }}>{`curl -X POST https://sms.360.my/gw/bulk360/v3_0/send.php \\
+  -F "user=${config.user || 'YOUR_USER'}" \\
+  -F "pass=${config.pass ? '••••••••' : 'YOUR_PASS'}" \\
+  -F "to=+60123456789" \\
+  -F "text=RM0.00 OTP88: Your SMS verification code is 882910. Valid for 5 mins." \\
+  -F "from=${config.from || 'OTP88'}" \\
+  -F "detail=1"`}</pre>
+              </div>
+            </div>
           </div>
         </div>
       )}
