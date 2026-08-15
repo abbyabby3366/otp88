@@ -204,6 +204,33 @@ const WhatsAppConfigSchema = new mongoose.Schema({
 
 const WhatsAppConfigModel = mongoose.model('WhatsAppConfig', WhatsAppConfigSchema);
 
+// Global Gateway In-Memory / Fallback Configs
+let SMS360_CONFIG = {
+  appKey: 'KGRb4qxdBL',
+  appSecret: 'NE4Ui9KcgxJJl8Y9NbJKhgCohsk6l71GzzBC1gya',
+  apiKey: 'KGRb4qxdBL',
+  apiUrl: 'https://sms.360.my/gw/bulk360/v3_0/send.php',
+  balanceUrl: 'https://sms.360.my/api/balance/v3_0/getBalance',
+  senderId: '66688',
+  webhookUrl: 'https://api.otp88.com/api/webhooks/sms360/dlr',
+  ratePerSms: '0.0210',
+  currency: 'MYR',
+  status: 'ACTIVE',
+  autoFallback: true
+};
+
+let WHATSAPP_CONFIG = {
+  apiKey: '',
+  apiUrl: 'https://api.verifyway.com/api/v1/',
+  channel: 'whatsapp',
+  fallback: 'no',
+  lang: 'en',
+  webhookUrl: 'https://api.otp88.com/api/webhooks/whatsapp/dlr',
+  ratePerOtp: '0.0075',
+  currency: 'MYR',
+  status: 'ACTIVE'
+};
+
 // Auto-seed rates if MongoDB collection is empty
 async function seedInitialRates() {
   try {
@@ -416,7 +443,7 @@ app.all(['/api/webhooks/otp88', '/v1/webhooks'], (req, res) => {
   });
 });
 
-// 3. API: Live Interactive OTP Simulator & v1 Gateway (Writes to MongoDB)
+// 3. API: Live Interactive OTP Gateway & Real Upstream Dispatch (Writes to MongoDB)
 app.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
   const {
     phoneNumber: reqPhoneNumber,
@@ -431,11 +458,16 @@ app.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
     senderId: reqSenderId,
     sender_id: reqSender_id,
     from: reqFrom,
+    expiryMinutes: reqExpiryMinutes,
+    expiry_minutes: reqExpiry_minutes,
+    expirySeconds: reqExpirySeconds,
+    expiry_seconds: reqExpiry_seconds,
     codeLength = 6
   } = req.body;
 
   const phoneNumber = reqPhoneNumber || reqPhone || reqTo || '+60123456789';
   const senderName = reqSenderName || reqSender_name || reqSenderId || reqSender_id || reqFrom || 'Alibaba';
+  const expiryMinutes = parseInt(reqExpiryMinutes || reqExpiry_minutes || (reqExpirySeconds ? Math.round(reqExpirySeconds / 60) : null) || (reqExpiry_seconds ? Math.round(reqExpiry_seconds / 60) : null) || 5, 10);
 
   // Use provided OTP code or auto-generate
   let otpCode = customOtpDirect || customOtpCode || customCode;
@@ -444,25 +476,100 @@ app.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
     const max = Math.pow(10, codeLength) - 1;
     otpCode = Math.floor(min + Math.random() * (max - min + 1)).toString();
   }
-  const txId = 'tx_' + Math.random().toString(36).substring(2, 11);
+
+  const messageText = `Your ${senderName} verification code is ${otpCode}. Valid for ${expiryMinutes} minutes.`;
 
   let finalChannel = 'WhatsApp Direct';
   let deliveryTimeMs = 820;
   let unitCost = '$0.0075';
+  let upstreamRef = null;
+  let upstreamResult = null;
 
-  if (channel === 'telegram') {
+  if (channel === 'sms') {
+    finalChannel = 'Direct Telco SMS';
+    deliveryTimeMs = 450;
+    unitCost = '$0.0210';
+
+    // Dispatch real live SMS via Bulk360 API V3.0
+    try {
+      let dbSmsConfig = null;
+      if (isDbConnected) {
+        try { dbSmsConfig = await Sms360ConfigModel.findOne({ key: 'sms360_primary' }).lean(); } catch (e) {}
+      }
+      const user = dbSmsConfig?.appKey || SMS360_CONFIG.appKey || 'KGRb4qxdBL';
+      const pass = dbSmsConfig?.appSecret || SMS360_CONFIG.appSecret || 'NE4Ui9KcgxJJl8Y9NbJKhgCohsk6l71GzzBC1gya';
+      const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
+      const apiUrl = dbSmsConfig?.apiUrl || SMS360_CONFIG.apiUrl || 'https://sms.360.my/gw/bulk360/v3_0/send.php';
+      const sendUrl = `${apiUrl}?user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}&from=${encodeURIComponent(senderName)}&to=${encodeURIComponent(cleanPhone)}&text=${encodeURIComponent(messageText)}&detail=1`;
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const resp = await fetch(sendUrl, { signal: controller.signal });
+      clearTimeout(timeout);
+      const rawText = await resp.text();
+      try {
+        upstreamResult = JSON.parse(rawText);
+        if (upstreamResult && (upstreamResult.ref || upstreamResult.code === 200 || upstreamResult.code === '200')) {
+          upstreamRef = upstreamResult.ref;
+        }
+      } catch (pe) {
+        upstreamResult = { raw: rawText };
+      }
+    } catch (gwErr) {
+      console.error('Error dispatching live SMS via Bulk360:', gwErr.message);
+    }
+  } else if (channel === 'whatsapp') {
+    finalChannel = 'WhatsApp Direct';
+    deliveryTimeMs = 620;
+    unitCost = '$0.0075';
+
+    try {
+      let dbWaConfig = null;
+      if (isDbConnected) {
+        try { dbWaConfig = await WhatsAppConfigModel.findOne({ key: 'whatsapp_verifyway_primary' }).lean(); } catch (e) {}
+      }
+      const waApiKey = dbWaConfig?.apiKey || WHATSAPP_CONFIG.apiKey;
+      const waApiUrl = dbWaConfig?.apiUrl || WHATSAPP_CONFIG.apiUrl || 'https://api.verifyway.com/api/v1/';
+      if (waApiKey) {
+        const cleanPhone = phoneNumber.startsWith('+') ? phoneNumber : '+' + phoneNumber.replace(/[^0-9]/g, '');
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+        const waResp = await fetch(waApiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${waApiKey}`
+          },
+          body: JSON.stringify({
+            recipient: cleanPhone,
+            type: 'otp',
+            channel: 'whatsapp',
+            code: otpCode,
+            lang: 'en'
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+        const waData = await waResp.json().catch(() => ({}));
+        if (waData && (waData.id || waData.msgid)) {
+          upstreamRef = waData.id || waData.msgid;
+          upstreamResult = waData;
+        }
+      }
+    } catch (waErr) {
+      console.error('Error dispatching WhatsApp OTP:', waErr.message);
+    }
+  } else if (channel === 'telegram') {
     finalChannel = 'Telegram Bot';
     deliveryTimeMs = 640;
     unitCost = '$0.0035';
-  } else if (channel === 'sms') {
-    finalChannel = 'Direct Telco SMS';
-    deliveryTimeMs = 1420;
-    unitCost = '$0.0210';
   } else if (channel === 'voice') {
     finalChannel = 'Voice Flash Call';
     deliveryTimeMs = 2100;
     unitCost = '$0.0240';
   }
+
+  const txId = upstreamRef || ('tx_' + Math.random().toString(36).substring(2, 11));
 
   // Extract auth user if token / API Key provided
   let authUserId = null;
@@ -489,13 +596,15 @@ app.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
   if (isDbConnected) {
     try {
       createdLog = await OtpLogModel.create({
-        txId,
-        to: phoneNumber,
+        phoneNumber,
         channel: finalChannel,
+        otpCode,
+        messageText,
+        senderId: senderName,
+        msgId: txId,
         status: 'DELIVERED',
         latency: `${(deliveryTimeMs / 1000).toFixed(1)}s`,
         cost: unitCost,
-        time: new Date().toLocaleTimeString('en-GB'),
         userId: authUserId
       });
     } catch (err) {
@@ -510,10 +619,13 @@ app.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
     otpCode,
     senderName,
     senderId: senderName,
+    expiryMinutes,
+    messageText,
     channelUsed: finalChannel,
     latency: `${(deliveryTimeMs / 1000).toFixed(1)}s`,
     cost: unitCost,
     status: 'DELIVERED',
+    gatewayResponse: upstreamResult || undefined,
     logId: createdLog ? createdLog._id : undefined
   });
 });
@@ -539,6 +651,9 @@ app.get(['/api/logs', '/api/otp-logs', '/api/admin/logs'], verifyJwtMiddleware, 
       id: l.msgId || ('LOG_' + l._id.toString().slice(-6).toUpperCase()),
       to: l.phoneNumber,
       channel: l.channel,
+      otpCode: l.otpCode || '',
+      message: l.messageText || (l.otpCode ? `Your ${l.senderId || 'Alibaba'} verification code is ${l.otpCode}. Valid for 5 minutes.` : 'Authentication OTP Message'),
+      senderId: l.senderId || 'Alibaba',
       latency: l.latency || '0.8s',
       cost: l.cost || '$0.0075',
       status: l.status || 'DELIVERED',
@@ -955,19 +1070,6 @@ app.get('/api/admin/otp-audit-logs', verifyJwtMiddleware, requireAdmin, async (r
 });
 
 // Admin SMS360 Gateway In-Memory / Live Config & Stats
-let SMS360_CONFIG = {
-  appKey: 'KGRb4qxdBL',
-  appSecret: 'NE4Ui9KcgxJJl8Y9NbJKhgCohsk6l71GzzBC1gya',
-  apiKey: 'KGRb4qxdBL',
-  apiUrl: 'https://sms.360.my/gw/bulk360/v3_0/send.php',
-  balanceUrl: 'https://sms.360.my/api/balance/v3_0/getBalance',
-  senderId: '66688',
-  webhookUrl: 'https://api.otp88.com/api/webhooks/sms360/dlr',
-  ratePerSms: '0.0210',
-  currency: 'MYR',
-  status: 'ACTIVE',
-  autoFallback: true
-};
 
 let SMS360_LOGS = [];
 
@@ -1375,17 +1477,6 @@ app.all(['/api/webhooks/sms360/dlr', '/api/webhooks/dlr', '/api/webhooks/sms/dlr
 });
 
 // Admin WhatsApp (VerifyWay API) In-Memory & Live Config
-let WHATSAPP_CONFIG = {
-  apiKey: '',
-  apiUrl: 'https://api.verifyway.com/api/v1/',
-  channel: 'whatsapp',
-  fallback: 'no',
-  lang: 'en',
-  webhookUrl: 'https://api.otp88.com/api/webhooks/whatsapp/dlr',
-  ratePerOtp: '0.0075',
-  currency: 'MYR',
-  status: 'ACTIVE'
-};
 
 let WHATSAPP_LOGS = [];
 

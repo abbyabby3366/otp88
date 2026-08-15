@@ -16,28 +16,32 @@ function getAdminCodeSnippet({ origin, apiKey, channel, lang, action, phone = '+
         phoneNumber: phone,
         channel: 'sms',
         senderName: 'Alibaba',
-        otp: '882910'
+        otp: '882910',
+        expiryMinutes: 5
       };
     } else if (channel === 'telegram') {
       payloadObj = {
         phoneNumber: phone,
         channel: 'telegram',
         senderName: 'Alibaba',
-        otp: '882910'
+        otp: '882910',
+        expiryMinutes: 5
       };
     } else if (channel === 'whatsapp') {
       payloadObj = {
         phoneNumber: phone,
         channel: 'whatsapp',
         senderName: 'Alibaba',
-        otp: '882910'
+        otp: '882910',
+        expiryMinutes: 5
       };
     } else if (channel === 'voice') {
       payloadObj = {
         phoneNumber: phone,
         channel: 'voice',
         senderName: 'Alibaba',
-        otp: '882910'
+        otp: '882910',
+        expiryMinutes: 5
       };
     } else {
       payloadObj = {
@@ -45,7 +49,8 @@ function getAdminCodeSnippet({ origin, apiKey, channel, lang, action, phone = '+
         channel: 'waterfall',
         channels: ['whatsapp', 'telegram', 'sms'],
         senderName: 'Alibaba',
-        otp: '882910'
+        otp: '882910',
+        expiryMinutes: 5
       };
     }
   }

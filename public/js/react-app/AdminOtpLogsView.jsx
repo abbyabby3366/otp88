@@ -135,6 +135,7 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
               <th>User</th>
               <th>{t.recipient || 'Recipient Phone'}</th>
               <th>{t.carrierRoute || 'Channel'}</th>
+              <th>Message Content</th>
               <th>Latency</th>
               <th>{t.unitCost || 'Cost'}</th>
               <th>{t.status || 'Status'}</th>
@@ -144,7 +145,7 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
           <tbody>
             {paginatedLogs.length === 0 ? (
               <tr>
-                <td colSpan="9" style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>
+                <td colSpan="10" style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>
                   No OTP logs match the selected filter criteria.
                 </td>
               </tr>
@@ -169,6 +170,9 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
                     }`}>
                       {log.channel}
                     </span>
+                  </td>
+                  <td style={{ maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '11px', color: 'var(--text-primary)' }} title={log.message || (log.otpCode ? `Your ${log.senderId || 'Alibaba'} verification code is ${log.otpCode}. Valid for 5 minutes.` : 'Authentication OTP Message')}>
+                    {log.message || (log.otpCode ? `Your ${log.senderId || 'Alibaba'} verification code is ${log.otpCode}. Valid for 5 minutes.` : '-')}
                   </td>
                   <td style={{ fontFamily: 'var(--font-code)', color: '#059669', fontWeight: '700' }}>{log.latency}</td>
                   <td style={{ fontFamily: 'var(--font-code)' }}>{log.cost || '$0.0075'}</td>

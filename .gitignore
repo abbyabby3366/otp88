@@ -1,30 +1,68 @@
-# Node modules
+# Node dependencies & caches
 node_modules/
+.npm/
+.cache/
+.vite/
+
+# Logs
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Environment files
+# Environment files & Secrets
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-*.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
 
-# Logs
-logs
-*.log
+# Local databases & dumps
+*.sqlite
+*.sqlite3
+*.db
+*.dump
 
-# OS / Editor files
+# Test & Coverage
+coverage/
+.nyc_output/
+
+# OS metadata
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 Thumbs.db
-.idea/
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# Editor & IDE files
 .vscode/
+.idea/
+.cursor/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# Temporary & swap files
+*.tmp
+*.temp
+*~
+
+# Build outputs
+dist/
+public/dist/
+
