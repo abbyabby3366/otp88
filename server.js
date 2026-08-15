@@ -847,6 +847,26 @@ app.put('/api/admin/users/:id', verifyJwtMiddleware, requireAdmin, async (req, r
   }
 });
 
+app.delete('/api/admin/users/:id', verifyJwtMiddleware, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    if (id === req.user.id || id === 'admin_root_01') {
+      return res.status(400).json({ success: false, error: 'Cannot delete the primary root admin account.' });
+    }
+    const user = await UserModel.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+    if (user.role === 'ADMIN' && user.email === ADMIN_USERNAME.toLowerCase()) {
+      return res.status(400).json({ success: false, error: 'Cannot delete the default root admin.' });
+    }
+    await UserModel.findByIdAndDelete(id);
+    res.json({ success: true, message: 'User deleted successfully' });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // User Billing Invoices (Live MongoDB)
 app.get('/api/billing/invoices', verifyJwtMiddleware, async (req, res) => {
   try {

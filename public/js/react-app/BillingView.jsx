@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-// User Billing & Top-up Spreadsheet View
+// User Billing & Top-up View
 function BillingView({ t, session, setSession, jwtToken, showToast }) {
   const [topupAmount, setTopupAmount] = useState(100);
   const [invoices, setInvoices] = useState([]);
@@ -65,9 +65,9 @@ function BillingView({ t, session, setSession, jwtToken, showToast }) {
           <div className="sheets-kpi-sub">Based on WhatsApp $0.0075/msg</div>
         </div>
         <div className="sheets-kpi-cell">
-          <div className="sheets-kpi-label">Current Billing Tier</div>
-          <div className="sheets-kpi-value" style={{ color: '#7C3AED' }}>Tier 1: Growth</div>
-          <div className="sheets-kpi-sub">Pay-As-You-Go Standard</div>
+          <div className="sheets-kpi-label">Plan / Tier</div>
+          <div className="sheets-kpi-value" style={{ color: '#7C3AED' }}>Standard</div>
+          <div className="sheets-kpi-sub">Pay-As-You-Go</div>
         </div>
       </div>
 
@@ -100,7 +100,7 @@ function BillingView({ t, session, setSession, jwtToken, showToast }) {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="sheets-btn sheets-btn-primary" style={{ padding: '6px 14px' }} onClick={() => handleSimulateTopup('Stripe')}>
+          <button className="sheets-btn sheets-btn-primary" style={{ padding: '6px 14px' }} onClick={() => handleSimulateTopup('Credit Card')}>
             {t.payWithCard}
           </button>
           <button className="sheets-btn" style={{ padding: '6px 14px' }} onClick={() => handleSimulateTopup('USDT Crypto')}>
@@ -129,7 +129,7 @@ function BillingView({ t, session, setSession, jwtToken, showToast }) {
             {invoices.length === 0 ? (
               <tr>
                 <td colSpan="6" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
-                  No transaction history recorded in MongoDB. Top-up credits above to generate your first invoice.
+                  No transaction history found.
                 </td>
               </tr>
             ) : (
@@ -160,4 +160,3 @@ if (typeof window !== 'undefined') {
 }
 
 export default BillingView;
-

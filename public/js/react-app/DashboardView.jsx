@@ -1,6 +1,6 @@
 import React from 'react';
 
-// Dashboard Tab View (Overview KPIs + Live Delivery Stream)
+// Dashboard Tab View (Overview KPIs + Recent Logs)
 function DashboardView({ t, session, adminMetrics, logs }) {
   return (
     <div>
@@ -30,11 +30,11 @@ function DashboardView({ t, session, adminMetrics, logs }) {
         </div>
       </div>
 
-      {/* Live Delivery Stream Table */}
+      {/* Recent Logs Table */}
       <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', padding: '6px 10px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px' }}>
           <span style={{ fontWeight: '700' }}>{t.liveLogsTitle}</span>
-          <span style={{ color: 'var(--text-muted)' }}>Auto WebSocket Live Stream</span>
+          <span style={{ color: 'var(--text-muted)' }}>Real-time updates</span>
         </div>
         <table className="sheets-table">
           <thead>
@@ -53,7 +53,7 @@ function DashboardView({ t, session, adminMetrics, logs }) {
             {(!logs || logs.length === 0) ? (
               <tr>
                 <td colSpan="8" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
-                  No live OTP logs recorded in MongoDB yet. Dispatch a test OTP from the Services tab to view live delivery stream.
+                  No OTP logs recorded yet. Send a test OTP from the Services tab to see activity.
                 </td>
               </tr>
             ) : (
@@ -86,4 +86,3 @@ if (typeof window !== 'undefined') {
 }
 
 export default DashboardView;
-

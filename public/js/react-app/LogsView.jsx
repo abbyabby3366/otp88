@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 
-// User Full OTP Delivery Logs Component (with Platform Filters & Pagination)
+// User OTP Logs Component (with Filters & Pagination)
 function LogsView({ t, logs }) {
   const [platformFilter, setPlatformFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -35,18 +35,18 @@ function LogsView({ t, logs }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       
-      {/* Excel Filter Ribbon */}
+      {/* Filter Ribbon */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FFFFFF', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '6px 10px', gap: '8px', flexWrap: 'wrap' }}>
         
         {/* Platform Buttons */}
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', marginRight: '4px' }}>Platform:</span>
+          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', marginRight: '4px' }}>Channel:</span>
           {[
             { id: 'ALL', label: 'All Channels' },
             { id: 'WHATSAPP', label: 'WhatsApp' },
             { id: 'TELEGRAM', label: 'Telegram' },
-            { id: 'SMS', label: 'Direct SMS' },
-            { id: 'VOICE', label: 'Voice OTP' }
+            { id: 'SMS', label: 'SMS' },
+            { id: 'VOICE', label: 'Voice' }
           ].map(p => (
             <button
               key={p.id}
@@ -65,7 +65,7 @@ function LogsView({ t, logs }) {
           <input
             type="text"
             className="sheets-input sheets-input-code"
-            placeholder="Search MSISDN / TxID..."
+            placeholder="Search phone / ID..."
             value={searchTerm}
             onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             style={{ width: '180px', padding: '4px 6px', fontSize: '11px' }}
@@ -91,13 +91,13 @@ function LogsView({ t, logs }) {
           <thead>
             <tr>
               <th style={{ width: '35px' }}>#</th>
-              <th>{t.txId}</th>
-              <th>{t.recipient}</th>
-              <th>Platform / Channel</th>
+              <th>{t.txId || 'Transaction ID'}</th>
+              <th>{t.recipient || 'Phone Number'}</th>
+              <th>{t.carrierRoute || 'Channel'}</th>
               <th>Latency</th>
-              <th>Unit Cost</th>
-              <th>Status</th>
-              <th>Timestamp</th>
+              <th>{t.unitCost || 'Cost'}</th>
+              <th>{t.status || 'Status'}</th>
+              <th>{t.timestamp || 'Time'}</th>
             </tr>
           </thead>
           <tbody>
@@ -189,4 +189,3 @@ if (typeof window !== 'undefined') {
 }
 
 export default LogsView;
-

@@ -1,6 +1,6 @@
 import React from 'react';
 
-// Sleek Dark Glassmorphism Auth Component (Commit d357c03 Style)
+// Clean Auth Component (Sign In / Register / Reset)
 export default function AuthView({
   t,
   lang,
@@ -65,15 +65,15 @@ export default function AuthView({
         </div>
         <h1 style={{ fontSize: '18px', fontWeight: '700', margin: 0, color: 'var(--text-primary)' }}>
           {authMode === 'forgot'
-            ? (lang === 'zh' ? '找回与重置密码' : 'Reset Password')
+            ? (lang === 'zh' ? '重置密码' : 'Reset Password')
             : authMode === 'register'
-            ? (lang === 'zh' ? '创建开发者账号' : 'Create Account')
-            : (lang === 'zh' ? '登录控制台' : 'Sign In')}
+            ? (lang === 'zh' ? '创建账号' : 'Create Account')
+            : (lang === 'zh' ? '登录账号' : 'Sign In')}
         </h1>
         <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', marginBottom: 0 }}>
           {authMode === 'forgot'
-            ? (lang === 'zh' ? '通过手机验证码重置登录密码' : 'Reset your password via phone OTP verification')
-            : (lang === 'zh' ? '企业级多通道验证与通信控制台' : 'Enterprise Multi-Channel Authentication Platform')}
+            ? (lang === 'zh' ? '通过手机验证码重置密码' : 'Reset your password via phone OTP verification')
+            : (lang === 'zh' ? 'OTP88 管理控制台' : 'OTP88 Management Portal')}
         </p>
       </div>
 
@@ -85,14 +85,14 @@ export default function AuthView({
             className={`auth-tab ${authMode === 'login' ? 'active' : ''}`}
             onClick={() => setAuthMode('login')}
           >
-            {t.signInTab || (lang === 'zh' ? '登录账号' : 'Sign In')}
+            {t.signInTab || (lang === 'zh' ? '登录' : 'Sign In')}
           </button>
           <button
             type="button"
             className={`auth-tab ${authMode === 'register' ? 'active' : ''}`}
             onClick={() => setAuthMode('register')}
           >
-            {t.registerTab || (lang === 'zh' ? '免费注册' : 'Create Account')}
+            {t.registerTab || (lang === 'zh' ? '注册' : 'Create Account')}
           </button>
         </div>
       )}
@@ -110,7 +110,7 @@ export default function AuthView({
         <form onSubmit={resetStep === 1 ? handleResetPasswordSendOtp : handleResetPasswordVerify}>
           <div className="auth-input-group">
             <label className="auth-label">
-              {lang === 'zh' ? '注册手机号 (接收验证码)' : 'Registered Phone Number'}
+              {lang === 'zh' ? '注册手机号' : 'Phone Number'}
             </label>
             <input
               type="tel"
@@ -128,7 +128,7 @@ export default function AuthView({
             <>
               <div className="auth-input-group">
                 <label className="auth-label">
-                  {lang === 'zh' ? '6位短信/WhatsApp验证码' : '6-Digit OTP Code'}
+                  {lang === 'zh' ? '6位验证码' : '6-Digit OTP Code'}
                 </label>
                 <input
                   type="text"
@@ -145,7 +145,7 @@ export default function AuthView({
 
               <div className="auth-input-group">
                 <label className="auth-label">
-                  {lang === 'zh' ? '设置新登录密码 (至少6位)' : 'New Password (min 6 chars)'}
+                  {lang === 'zh' ? '新密码 (至少6位)' : 'New Password (min 6 chars)'}
                 </label>
                 <input
                   type="password"
@@ -165,7 +165,7 @@ export default function AuthView({
             disabled={loading}
             style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: '700', marginTop: '8px' }}
           >
-            {loading ? 'Processing...' : resetStep === 1 ? (lang === 'zh' ? '发送重置验证码' : 'Send Reset Code') : (lang === 'zh' ? '确认重置并登录' : 'Reset Password & Sign In')}
+            {loading ? 'Processing...' : resetStep === 1 ? (lang === 'zh' ? '发送验证码' : 'Send Code') : (lang === 'zh' ? '重置密码并登录' : 'Reset Password & Sign In')}
           </button>
 
           <div style={{ textAlign: 'center', fontSize: '13px', marginTop: '16px' }}>
@@ -191,7 +191,7 @@ export default function AuthView({
               className="auth-input"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="admin / developer@example.com"
+              placeholder="user@example.com"
               autoComplete="username"
               autoFocus
               required
@@ -201,7 +201,7 @@ export default function AuthView({
           {authMode === 'register' && (
             <div className="auth-input-group">
               <label className="auth-label">
-                {t.phoneLabel || (lang === 'zh' ? '手机号码 (E.164国际格式)' : 'Phone Number (E.164)')}
+                {t.phoneLabel || (lang === 'zh' ? '手机号码' : 'Phone Number')}
               </label>
               <input
                 type="tel"
@@ -250,7 +250,7 @@ export default function AuthView({
                 {showPassword ? (
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
                 ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 backward" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                 )}
               </button>
             </div>
@@ -274,7 +274,7 @@ export default function AuthView({
             disabled={loading}
             style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: '700' }}
           >
-            {loading ? 'Processing...' : (authMode === 'login' ? (t.signInBtn || 'Sign In to Console') : (t.registerBtn || 'Create Developer Account'))}
+            {loading ? 'Processing...' : (authMode === 'login' ? (t.signInBtn || 'Sign In') : (t.registerBtn || 'Create Account'))}
           </button>
 
           <div style={{ textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)', marginTop: '18px' }}>

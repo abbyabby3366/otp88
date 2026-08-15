@@ -437,9 +437,34 @@ export default function App() {
     }
   };
 
+  const handleDeleteUser = async (userId) => {
+    if (!jwtToken) return false;
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${jwtToken}`
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(lang === 'zh' ? '用户已成功删除' : 'User deleted successfully');
+        fetchAdminUsers();
+        fetchAdminMetrics();
+        return true;
+      } else {
+        showToast(data.error || 'Failed to delete user', 'error');
+        return false;
+      }
+    } catch (e) {
+      showToast('Error deleting user', 'error');
+      return false;
+    }
+  };
+
   const handleCreateUser = async (e) => {
-    e.preventDefault();
-    if (!newUserEmail.trim()) return;
+    if (e && e.preventDefault) e.preventDefault();
+    if (!newUserEmail.trim()) return false;
     try {
       const res = await fetch('/api/admin/users', {
         method: 'POST',
@@ -457,9 +482,14 @@ export default function App() {
         setNewUserEmail('');
         showToast(lang === 'zh' ? `已创建用户: ${data.user.name}` : `User created: ${data.user.name}`);
         fetchAdminUsers();
+        return true;
+      } else {
+        showToast(data.error || 'Failed to create user', 'error');
+        return false;
       }
     } catch (e) {
       showToast('Error creating user', 'error');
+      return false;
     }
   };
 
@@ -642,26 +672,13 @@ export default function App() {
                   {activeTab === 'admin-logs' && t.navAdminOtpLogs}
                 </span>
                 <span style={{ color: 'var(--border-subtle)' }}>|</span>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Admin Panel</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{session.role === 'ADMIN' ? 'Admin Panel' : 'Management Portal'}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px' }}>
-                <span className="sheets-badge sheets-badge-emerald">256-bit SSL</span>
+                <span className="sheets-badge sheets-badge-emerald">Secure SSL</span>
                 <span style={{ color: 'var(--text-muted)' }}>{t.region}</span>
               </div>
             </header>
-
-            <div style={{ padding: '6px 12px', background: 'rgba(0,0,0,0.02)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-code)', color: 'var(--text-secondary)' }}>
-                <span style={{ color: 'var(--primary-emerald)', fontWeight: '700' }}>ONLINE</span>
-                <span>/</span>
-                <span>{activeTab}</span>
-                <span>/</span>
-                <span>{session.email}</span>
-              </div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>
-                Role: <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{session.role}</span>
-              </div>
-            </div>
 
             {/* TAB CONTENT RENDERERS */}
             <div style={{ padding: '10px', flex: 1 }}>
@@ -731,6 +748,7 @@ export default function App() {
                   usersList={usersList}
                   handleCreateUser={handleCreateUser}
                   handleUpdateUser={handleUpdateUser}
+                  handleDeleteUser={handleDeleteUser}
                   copyToClipboard={copyToClipboard}
                   newUserName={newUserName}
                   setNewUserName={setNewUserName}
@@ -750,8 +768,8 @@ export default function App() {
 
             {/* Bottom Status Bar */}
             <footer className="sheets-status-bar">
-              <div>{t.statusReady} | {session.role} | {t.region} | {t.latency}</div>
-              <div>100% Zoom | SSL 256-bit | OTP88 Platform v2.4</div>
+              <div>{t.statusReady} | {session.role} | {t.region}</div>
+              <div>Status: Online | Secure SSL | OTP88 Console</div>
             </footer>
 
           </section>

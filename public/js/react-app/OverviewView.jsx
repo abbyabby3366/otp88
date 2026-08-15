@@ -29,7 +29,7 @@ function OverviewView({ t, session, adminMetrics }) {
 
       <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden' }}>
         <div style={{ background: '#F8FAFC', padding: '6px 10px', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-subtle)' }}>
-          {t.routingSummaryTitle}
+          {t.servicesTitle || 'MESSAGING CHANNELS'}
         </div>
         <table className="sheets-table">
           <thead>
@@ -43,32 +43,32 @@ function OverviewView({ t, session, adminMetrics }) {
           </thead>
           <tbody>
             <tr>
-              <td><strong>WhatsApp Cloud API Direct</strong></td>
+              <td><strong>WhatsApp</strong></td>
               <td><span className="sheets-badge sheets-badge-emerald">58% Primary</span></td>
               <td style={{ fontFamily: 'var(--font-code)' }}>0.8s</td>
               <td style={{ fontFamily: 'var(--font-code)' }}>$0.0075</td>
-              <td><span style={{ color: '#059669', fontWeight: '700' }}>● Optimal</span></td>
+              <td><span style={{ color: '#059669', fontWeight: '700' }}>● Active</span></td>
             </tr>
             <tr>
-              <td><strong>Telegram MTProto Bot</strong></td>
-              <td><span className="sheets-badge sheets-badge-blue">18% Fallback 1</span></td>
+              <td><strong>Telegram</strong></td>
+              <td><span className="sheets-badge sheets-badge-blue">18% Secondary</span></td>
               <td style={{ fontFamily: 'var(--font-code)' }}>0.6s</td>
               <td style={{ fontFamily: 'var(--font-code)' }}>$0.0035</td>
-              <td><span style={{ color: '#059669', fontWeight: '700' }}>● Optimal</span></td>
+              <td><span style={{ color: '#059669', fontWeight: '700' }}>● Active</span></td>
             </tr>
             <tr>
-              <td><strong>Direct Telco SS7 SMS</strong></td>
-              <td><span className="sheets-badge sheets-badge-amber">21% Fallback 2</span></td>
+              <td><strong>SMS</strong></td>
+              <td><span className="sheets-badge sheets-badge-amber">21% Secondary</span></td>
               <td style={{ fontFamily: 'var(--font-code)' }}>1.4s</td>
               <td style={{ fontFamily: 'var(--font-code)' }}>$0.0210</td>
-              <td><span style={{ color: '#059669', fontWeight: '700' }}>● Operational</span></td>
+              <td><span style={{ color: '#059669', fontWeight: '700' }}>● Active</span></td>
             </tr>
             <tr>
-              <td><strong>Voice Flash Call OTP</strong></td>
-              <td><span className="sheets-badge sheets-badge-purple">3% Final Failover</span></td>
+              <td><strong>Voice Call</strong></td>
+              <td><span className="sheets-badge sheets-badge-purple">3% Fallback</span></td>
               <td style={{ fontFamily: 'var(--font-code)' }}>2.1s</td>
               <td style={{ fontFamily: 'var(--font-code)' }}>$0.0240</td>
-              <td><span style={{ color: '#059669', fontWeight: '700' }}>● Operational</span></td>
+              <td><span style={{ color: '#059669', fontWeight: '700' }}>● Active</span></td>
             </tr>
           </tbody>
         </table>
@@ -82,5 +82,3 @@ if (typeof window !== 'undefined') {
 }
 
 export default OverviewView;
-
-

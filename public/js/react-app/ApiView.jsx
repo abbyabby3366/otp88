@@ -14,7 +14,7 @@ function ApiView({ t, session, jwtToken, revealedApiKey, setRevealedApiKey, copy
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-      {/* Live API Key */}
+      {/* API Key */}
       <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '10px', background: '#FFFFFF' }}>
         <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>
           {t.prodApiKey}
@@ -30,7 +30,7 @@ function ApiView({ t, session, jwtToken, revealedApiKey, setRevealedApiKey, copy
         </div>
       </div>
 
-      {/* Bearer JWT */}
+      {/* JWT Token */}
       <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '10px', background: '#FFFFFF' }}>
         <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>
           {t.jwtBearer}
@@ -53,13 +53,13 @@ function ApiView({ t, session, jwtToken, revealedApiKey, setRevealedApiKey, copy
             value={webhookUrl}
             onChange={(e) => setWebhookUrl(e.target.value)}
           />
-          <button className="sheets-btn sheets-btn-primary" onClick={() => showToast('Webhook URL saved and verified!')}>
+          <button className="sheets-btn sheets-btn-primary" onClick={() => showToast('Webhook URL saved!')}>
             {t.saveWebhook}
           </button>
         </div>
       </div>
 
-      {/* SDK Quickstarts */}
+      {/* Code Example */}
       <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '10px', background: '#FFFFFF' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
           <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>
@@ -82,4 +82,3 @@ if (typeof window !== 'undefined') {
 }
 
 export default ApiView;
-

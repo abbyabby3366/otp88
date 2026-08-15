@@ -14,7 +14,7 @@ function RatesView({ t, ratesList, session, editCountryCode, setEditCountryCode,
               <th>ISO</th>
               <th>{t.country}</th>
               <th>WhatsApp ($)</th>
-              <th>Direct SMS ($)</th>
+              <th>SMS ($)</th>
               <th>Telegram ($)</th>
               <th>Voice ($)</th>
               <th>Avg Latency</th>
@@ -38,7 +38,7 @@ function RatesView({ t, ratesList, session, editCountryCode, setEditCountryCode,
 
       {session.role === 'ADMIN' && (
         <div style={{ background: '#F8FAFC', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '10px' }}>
-          <div style={{ fontSize: '11px', fontWeight: '700', marginBottom: '8px' }}>ADMIN OVERWRITE (MONGODB SYNC)</div>
+          <div style={{ fontSize: '11px', fontWeight: '700', marginBottom: '8px' }}>UPDATE CARRIER RATES</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
             <div>
               <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)' }}>{t.country}</label>
@@ -55,7 +55,7 @@ function RatesView({ t, ratesList, session, editCountryCode, setEditCountryCode,
               <input type="number" step="0.0001" className="sheets-input sheets-input-code" value={editRateWhatsapp} onChange={(e) => setEditRateWhatsapp(e.target.value)} />
             </div>
             <div>
-              <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)' }}>Direct SMS ($)</label>
+              <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)' }}>SMS ($)</label>
               <input type="number" step="0.0001" className="sheets-input sheets-input-code" value={editRateSms} onChange={(e) => setEditRateSms(e.target.value)} />
             </div>
             <div style={{ display: 'flex', alignItems: 'flex-end' }}>
@@ -75,4 +75,3 @@ if (typeof window !== 'undefined') {
 }
 
 export default RatesView;
-

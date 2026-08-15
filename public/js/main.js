@@ -111,10 +111,20 @@ function initModals() {
     });
   });
 
-  // Light dismiss on backdrop click
+  // Light dismiss on backdrop click (standard modal behavior: requires both mousedown and mouseup on backdrop)
   if (contactModal) {
-    contactModal.addEventListener('click', (e) => {
-      if (e.target === contactModal) {
+    let backdropMouseDown = false;
+    contactModal.addEventListener('mousedown', (e) => {
+      backdropMouseDown = (e.target === contactModal);
+    });
+    contactModal.addEventListener('mouseup', (e) => {
+      if (backdropMouseDown && e.target === contactModal) {
+        contactModal.classList.remove('active');
+      }
+      backdropMouseDown = false;
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && contactModal.classList.contains('active')) {
         contactModal.classList.remove('active');
       }
     });

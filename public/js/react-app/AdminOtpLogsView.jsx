@@ -17,28 +17,28 @@ function AdminOtpLogsView({ t, jwtToken, showToast }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', padding: '6px 10px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px' }}>
-          <span style={{ fontWeight: '700' }}>ADMIN & SYSTEM OTP AUDIT TELEMETRY (REAL USAGE TRACKING)</span>
-          <span style={{ color: 'var(--text-muted)' }}>MFA, Password Resets & Auth Dispatches</span>
+          <span style={{ fontWeight: '700' }}>ADMIN OTP AUDIT LOGS</span>
+          <span style={{ color: 'var(--text-muted)' }}>Security & Authentication Events</span>
         </div>
         <table className="sheets-table">
           <thead>
             <tr>
               <th style={{ width: '35px' }}>#</th>
               <th>Audit ID</th>
-              <th>Target MSISDN</th>
+              <th>Phone Number</th>
               <th>Channel</th>
-              <th>Audit Event / Action</th>
-              <th>Actor / Trigger</th>
+              <th>Action</th>
+              <th>Triggered By</th>
               <th>Latency</th>
               <th>Status</th>
-              <th>Timestamp</th>
+              <th>Time</th>
             </tr>
           </thead>
           <tbody>
             {auditLogs.length === 0 ? (
               <tr>
                 <td colSpan="9" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
-                  No system audit events recorded in MongoDB yet.
+                  No audit logs recorded yet.
                 </td>
               </tr>
             ) : (
@@ -80,4 +80,3 @@ if (typeof window !== 'undefined') {
 }
 
 export default AdminOtpLogsView;
-
