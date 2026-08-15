@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const DEFAULT_GLOBAL_RATES = [
   { country: 'Malaysia', code: 'MY', dialCode: '+60', flag: '🇲🇾', whatsapp: 0.0075, telegram: 0.0035, sms: 0.0210 },
@@ -6,13 +6,7 @@ const DEFAULT_GLOBAL_RATES = [
   { country: 'Indonesia', code: 'ID', dialCode: '+62', flag: '🇮🇩', whatsapp: 0.0075, telegram: 0.0035, sms: null },
   { country: 'Thailand', code: 'TH', dialCode: '+66', flag: '🇹🇭', whatsapp: 0.0075, telegram: 0.0035, sms: null },
   { country: 'Vietnam', code: 'VN', dialCode: '+84', flag: '🇻🇳', whatsapp: 0.0075, telegram: 0.0035, sms: null },
-  { country: 'Philippines', code: 'PH', dialCode: '+63', flag: '🇵🇭', whatsapp: 0.0075, telegram: 0.0035, sms: null },
-  { country: 'United States', code: 'US', dialCode: '+1', flag: '🇺🇸', whatsapp: 0.0075, telegram: 0.0035, sms: null },
-  { country: 'United Kingdom', code: 'GB', dialCode: '+44', flag: '🇬🇧', whatsapp: 0.0075, telegram: 0.0035, sms: null },
-  { country: 'Australia', code: 'AU', dialCode: '+61', flag: '🇦🇺', whatsapp: 0.0075, telegram: 0.0035, sms: null },
-  { country: 'India', code: 'IN', dialCode: '+91', flag: '🇮🇳', whatsapp: 0.0075, telegram: 0.0035, sms: null },
-  { country: 'United Arab Emirates', code: 'AE', dialCode: '+971', flag: '🇦🇪', whatsapp: 0.0075, telegram: 0.0035, sms: null },
-  { country: 'Japan', code: 'JP', dialCode: '+81', flag: '🇯🇵', whatsapp: 0.0075, telegram: 0.0035, sms: null }
+  { country: 'Philippines', code: 'PH', dialCode: '+63', flag: '🇵🇭', whatsapp: 0.0075, telegram: 0.0035, sms: null }
 ];
 
 // Carrier Rates & OTP Pricing Management View
@@ -32,26 +26,51 @@ function RatesView({
   loading
 }) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingRate, setEditingRate] = useState(null);
+  const backdropMouseDownRef = useRef(false);
 
   const activeRatesList = (ratesList && ratesList.length > 0) ? ratesList : DEFAULT_GLOBAL_RATES;
 
-  // Sync form inputs when country select changes
-  useEffect(() => {
-    const found = activeRatesList.find(r => r.code === editCountryCode);
-    if (found) {
-      setEditRateWhatsapp(found.whatsapp !== undefined && found.whatsapp !== null ? found.whatsapp.toString() : '0.0075');
-      setEditRateTelegram(found.telegram !== undefined && found.telegram !== null ? found.telegram.toString() : '0.0035');
-      setEditRateSms(found.sms !== undefined && found.sms !== null ? found.sms.toString() : (editCountryCode === 'MY' ? '0.0210' : ''));
-    }
-  }, [editCountryCode, activeRatesList]);
+  // Sync modal inputs when open
+  const openEditModal = (rate) => {
+    setEditingRate(rate);
+    setEditCountryCode(rate.code);
+    setEditRateWhatsapp(rate.whatsapp !== undefined && rate.whatsapp !== null ? rate.whatsapp.toString() : '0.0075');
+    setEditRateTelegram(rate.telegram !== undefined && rate.telegram !== null ? rate.telegram.toString() : '0.0035');
+    setEditRateSms(rate.sms !== undefined && rate.sms !== null ? rate.sms.toString() : (rate.code === 'MY' ? '0.0210' : ''));
+  };
 
-  const selectCountryToEdit = (code) => {
-    setEditCountryCode(code);
-    const found = activeRatesList.find(r => r.code === code);
-    if (found) {
-      setEditRateWhatsapp(found.whatsapp !== undefined && found.whatsapp !== null ? found.whatsapp.toString() : '0.0075');
-      setEditRateTelegram(found.telegram !== undefined && found.telegram !== null ? found.telegram.toString() : '0.0035');
-      setEditRateSms(found.sms !== undefined && found.sms !== null ? found.sms.toString() : '');
+  const closeEditModal = () => {
+    setEditingRate(null);
+  };
+
+  useEffect(() => {
+    if (!editingRate) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        closeEditModal();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [editingRate]);
+
+  const handleBackdropMouseDown = (e) => {
+    backdropMouseDownRef.current = (e.target === e.currentTarget);
+  };
+
+  const handleBackdropMouseUp = (e) => {
+    if (backdropMouseDownRef.current && e.target === e.currentTarget) {
+      closeEditModal();
+    }
+    backdropMouseDownRef.current = false;
+  };
+
+  const handleFormSubmit = async (e) => {
+    e.preventDefault();
+    if (handleSaveRate) {
+      await handleSaveRate();
+      closeEditModal();
     }
   };
 
@@ -65,136 +84,12 @@ function RatesView({
     );
   });
 
-  const currentCountry = activeRatesList.find(r => r.code === editCountryCode) || activeRatesList[0];
+  const commonWhatsappRate = activeRatesList[0]?.whatsapp ?? 0.0075;
+  const commonTelegramRate = activeRatesList[0]?.telegram ?? 0.0035;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
       
-      {/* ADMIN RATE SETTING CONTROL CARD */}
-      {session && session.role === 'ADMIN' && (
-        <div style={{ background: '#FFFFFF', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '14px', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #10B981, #06B6D4, #8B5CF6)' }} />
-          
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>⚙️</span>
-                <span>ADMIN: CONFIGURE OTP PRICING & DESTINATION RATES</span>
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Set dynamic per-message billing rates deducted automatically from user account balances.
-              </div>
-            </div>
-
-            {/* Quick Country Preset Chips */}
-            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-              {['MY', 'SG', 'ID', 'TH', 'VN', 'PH', 'US', 'GB'].map((cCode) => {
-                const cItem = activeRatesList.find(r => r.code === cCode);
-                return (
-                  <button
-                    key={cCode}
-                    type="button"
-                    className={`sheets-btn ${editCountryCode === cCode ? 'sheets-btn-primary' : ''}`}
-                    onClick={() => selectCountryToEdit(cCode)}
-                    style={{ fontSize: '10px', padding: '2px 8px' }}
-                  >
-                    {cItem?.flag || ''} {cCode}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <form onSubmit={(e) => { e.preventDefault(); handleSaveRate(); }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', alignItems: 'flex-end' }}>
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-                  Destination Country
-                </label>
-                <select
-                  className="sheets-input"
-                  value={editCountryCode}
-                  onChange={(e) => selectCountryToEdit(e.target.value)}
-                  style={{ width: '100%', fontWeight: '700' }}
-                >
-                  {activeRatesList.map((r) => (
-                    <option key={r.code} value={r.code}>
-                      {r.flag || '🌐'} {r.country} ({r.dialCode} / {r.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: '700', color: '#059669', display: 'block', marginBottom: '4px' }}>
-                  WhatsApp Rate ($ USD / OTP)
-                </label>
-                <input
-                  type="number"
-                  step="0.0001"
-                  min="0.0001"
-                  className="sheets-input sheets-input-code"
-                  value={editRateWhatsapp}
-                  onChange={(e) => setEditRateWhatsapp(e.target.value)}
-                  placeholder="0.0075"
-                  required
-                  style={{ width: '100%', fontWeight: '700', color: '#059669' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: '700', color: '#0284C7', display: 'block', marginBottom: '4px' }}>
-                  Telegram Rate ($ USD / OTP)
-                </label>
-                <input
-                  type="number"
-                  step="0.0001"
-                  min="0.0001"
-                  className="sheets-input sheets-input-code"
-                  value={editRateTelegram}
-                  onChange={(e) => setEditRateTelegram(e.target.value)}
-                  placeholder="0.0035"
-                  required
-                  style={{ width: '100%', fontWeight: '700', color: '#0284C7' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: '700', color: '#D97706', display: 'block', marginBottom: '4px' }}>
-                  SMS Rate ($ USD / OTP)
-                </label>
-                <input
-                  type="number"
-                  step="0.0001"
-                  min="0"
-                  className="sheets-input sheets-input-code"
-                  value={editRateSms}
-                  onChange={(e) => setEditRateSms(e.target.value)}
-                  placeholder={editCountryCode === 'MY' ? '0.0210' : '0.0210'}
-                  style={{ width: '100%', fontWeight: '700', color: '#D97706' }}
-                />
-              </div>
-
-              <div>
-                <button
-                  type="submit"
-                  className="sheets-btn sheets-btn-primary"
-                  style={{ width: '100%', padding: '7px 16px', background: '#059669', fontWeight: '700' }}
-                  disabled={loading}
-                >
-                  {loading ? 'Saving Rates...' : `Save Price for ${currentCountry?.country || editCountryCode}`}
-                </button>
-              </div>
-            </div>
-          </form>
-
-          <div style={{ marginTop: '10px', fontSize: '11px', color: 'var(--text-secondary)', background: '#F8FAFC', padding: '6px 10px', borderRadius: '4px', border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>Editing: <strong>{currentCountry?.flag} {currentCountry?.country} ({currentCountry?.dialCode})</strong></span>
-            <span>Live MongoDB Sync: <strong style={{ color: '#059669' }}>● Active</strong></span>
-          </div>
-        </div>
-      )}
-
       {/* RATES TABLE */}
       <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden', background: '#FFFFFF' }}>
         <div style={{ background: '#F8FAFC', padding: '8px 12px', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
@@ -222,67 +117,207 @@ function RatesView({
               <th style={{ width: '50px' }}>ISO</th>
               <th>{t.country || 'Country / Region'}</th>
               <th>Dial Code</th>
-              <th>WhatsApp ($)</th>
-              <th>Telegram ($)</th>
+              <th style={{ textAlign: 'center', minWidth: '130px' }}>WhatsApp ($)</th>
+              <th style={{ textAlign: 'center', minWidth: '130px' }}>Telegram ($)</th>
               <th>SMS ($)</th>
               <th>Status</th>
-              {session?.role === 'ADMIN' && <th>Quick Action</th>}
+              {session?.role === 'ADMIN' && <th style={{ width: '90px' }}>Action</th>}
             </tr>
           </thead>
           <tbody>
-            {filteredRates.map((rate) => {
-              const isSelected = rate.code === editCountryCode;
-              return (
-                <tr
-                  key={rate.code}
-                  style={{ background: isSelected ? 'rgba(16, 185, 129, 0.06)' : 'transparent', cursor: 'pointer' }}
-                  onClick={() => selectCountryToEdit(rate.code)}
-                >
-                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '800' }}>{rate.code}</td>
-                  <td>
-                    <span style={{ marginRight: '6px', fontSize: '14px' }}>{rate.flag || '🌐'}</span>
-                    <strong>{rate.country}</strong>
-                  </td>
-                  <td style={{ fontFamily: 'var(--font-code)', color: 'var(--text-muted)', fontWeight: '600' }}>
-                    {rate.dialCode}
-                  </td>
-                  <td style={{ fontFamily: 'var(--font-code)', color: '#059669', fontWeight: '800' }}>
-                    ${(rate.whatsapp ?? 0.0075).toFixed(4)}
-                  </td>
-                  <td style={{ fontFamily: 'var(--font-code)', color: '#0284C7', fontWeight: '800' }}>
-                    ${(rate.telegram ?? 0.0035).toFixed(4)}
-                  </td>
-                  <td style={{ fontFamily: 'var(--font-code)' }}>
-                    {rate.sms !== null && rate.sms !== undefined ? (
-                      <span style={{ fontWeight: '800', color: '#D97706' }}>${Number(rate.sms).toFixed(4)}</span>
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>—</span>
-                    )}
-                  </td>
-                  <td>
-                    <span className="sheets-badge sheets-badge-emerald">Active</span>
-                  </td>
-                  {session?.role === 'ADMIN' && (
+            {filteredRates.length === 0 ? (
+              <tr>
+                <td colSpan={session?.role === 'ADMIN' ? 8 : 7} style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
+                  No rates match search criteria.
+                </td>
+              </tr>
+            ) : (
+              filteredRates.map((rate, idx) => {
+                return (
+                  <tr key={rate.code}>
+                    <td style={{ fontFamily: 'var(--font-code)', fontWeight: '800' }}>{rate.code}</td>
                     <td>
-                      <button
-                        type="button"
-                        className={`sheets-btn ${isSelected ? 'sheets-btn-primary' : ''}`}
-                        style={{ fontSize: '10px', padding: '2px 8px' }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          selectCountryToEdit(rate.code);
+                      <span style={{ marginRight: '6px', fontSize: '14px' }}>{rate.flag || '🌐'}</span>
+                      <strong>{rate.country}</strong>
+                    </td>
+                    <td style={{ fontFamily: 'var(--font-code)', color: 'var(--text-muted)', fontWeight: '600' }}>
+                      {rate.dialCode}
+                    </td>
+
+                    {/* Merged WhatsApp Cell Across All Rows */}
+                    {idx === 0 && (
+                      <td
+                        rowSpan={filteredRates.length}
+                        style={{
+                          textAlign: 'center',
+                          verticalAlign: 'middle',
+                          background: 'rgba(16, 185, 129, 0.04)',
+                          borderLeft: '1px solid var(--border-subtle)',
+                          borderRight: '1px solid var(--border-subtle)'
                         }}
                       >
-                        {isSelected ? 'Editing' : 'Edit Rate'}
-                      </button>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                          <span style={{ fontFamily: 'var(--font-code)', color: '#059669', fontWeight: '800', fontSize: '13px' }}>
+                            ${Number(commonWhatsappRate).toFixed(4)}
+                          </span>
+                          <span style={{ fontSize: '9px', fontWeight: '700', padding: '1px 5px', borderRadius: '3px', background: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0' }}>
+                            ALL COUNTRIES
+                          </span>
+                        </div>
+                      </td>
+                    )}
+
+                    {/* Merged Telegram Cell Across All Rows */}
+                    {idx === 0 && (
+                      <td
+                        rowSpan={filteredRates.length}
+                        style={{
+                          textAlign: 'center',
+                          verticalAlign: 'middle',
+                          background: 'rgba(2, 132, 199, 0.04)',
+                          borderRight: '1px solid var(--border-subtle)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                          <span style={{ fontFamily: 'var(--font-code)', color: '#0284C7', fontWeight: '800', fontSize: '13px' }}>
+                            ${Number(commonTelegramRate).toFixed(4)}
+                          </span>
+                          <span style={{ fontSize: '9px', fontWeight: '700', padding: '1px 5px', borderRadius: '3px', background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE' }}>
+                            ALL COUNTRIES
+                          </span>
+                        </div>
+                      </td>
+                    )}
+
+                    <td style={{ fontFamily: 'var(--font-code)' }}>
+                      {rate.sms !== null && rate.sms !== undefined ? (
+                        <span style={{ fontWeight: '800', color: '#D97706' }}>${Number(rate.sms).toFixed(4)}</span>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>—</span>
+                      )}
                     </td>
-                  )}
-                </tr>
-              );
-            })}
+                    <td>
+                      <span className="sheets-badge sheets-badge-emerald">Active</span>
+                    </td>
+                    {session?.role === 'ADMIN' && (
+                      <td>
+                        <button
+                          type="button"
+                          className="sheets-btn sheets-btn-primary"
+                          style={{ fontSize: '11px', padding: '3px 10px', fontWeight: '600' }}
+                          onClick={() => openEditModal(rate)}
+                        >
+                          Edit
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
+
+      {/* EDIT RATE MODAL DIALOG */}
+      {editingRate && (
+        <div
+          className="sheets-modal-backdrop"
+          onMouseDown={handleBackdropMouseDown}
+          onMouseUp={handleBackdropMouseUp}
+        >
+          <div className="sheets-modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px', width: '100%' }}>
+            <div className="sheets-modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '16px' }}>{editingRate.flag}</span>
+                <span style={{ fontWeight: '800' }}>Edit Rates — {editingRate.country} ({editingRate.dialCode})</span>
+              </div>
+              <button
+                type="button"
+                onClick={closeEditModal}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '16px', color: 'var(--text-muted)' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleFormSubmit}>
+              <div className="sheets-modal-body" style={{ gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#059669', display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span>WhatsApp Rate ($ USD / OTP)</span>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>All Countries</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    min="0.0001"
+                    className="sheets-input sheets-input-code"
+                    value={editRateWhatsapp}
+                    onChange={(e) => setEditRateWhatsapp(e.target.value)}
+                    required
+                    style={{ width: '100%', fontWeight: '700', color: '#059669' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#0284C7', display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span>Telegram Rate ($ USD / OTP)</span>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>All Countries</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    min="0.0001"
+                    className="sheets-input sheets-input-code"
+                    value={editRateTelegram}
+                    onChange={(e) => setEditRateTelegram(e.target.value)}
+                    required
+                    style={{ width: '100%', fontWeight: '700', color: '#0284C7' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#D97706', display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span>SMS Rate ($ USD / OTP)</span>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{editingRate.country}</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    min="0"
+                    className="sheets-input sheets-input-code"
+                    value={editRateSms}
+                    onChange={(e) => setEditRateSms(e.target.value)}
+                    placeholder={editingRate.code === 'MY' ? '0.0210' : 'Leave empty if unsupported'}
+                    style={{ width: '100%', fontWeight: '700', color: '#D97706' }}
+                  />
+                </div>
+              </div>
+
+              <div className="sheets-modal-footer">
+                <button
+                  type="button"
+                  className="sheets-btn"
+                  onClick={closeEditModal}
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="sheets-btn sheets-btn-primary"
+                  disabled={loading}
+                  style={{ background: '#059669', fontWeight: '700' }}
+                >
+                  {loading ? 'Saving...' : 'Save Rate'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -292,4 +327,3 @@ if (typeof window !== 'undefined') {
 }
 
 export default RatesView;
-

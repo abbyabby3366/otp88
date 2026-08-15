@@ -11,11 +11,15 @@ function LogsView({ t, logs }) {
   // Filter logs
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
-      const matchPlatform = platformFilter === 'ALL' || (log.channel && log.channel.toUpperCase().includes(platformFilter));
-      const matchStatus = statusFilter === 'ALL' || (log.status && log.status.toUpperCase() === statusFilter);
+      const channelUpper = (log.channel || '').toUpperCase();
+      const matchPlatform = platformFilter === 'ALL' || 
+        channelUpper.includes(platformFilter) ||
+        (platformFilter === 'SMS' && (channelUpper.includes('SMS') || channelUpper.includes('BULK360') || channelUpper.includes('TELCO')));
+      const matchStatus = statusFilter === 'ALL' || ((log.status || '').toUpperCase() === statusFilter);
       const matchSearch = !searchTerm || 
         (log.to && log.to.includes(searchTerm)) || 
-        (log.id && log.id.toLowerCase().includes(searchTerm.toLowerCase()));
+        (log.id && log.id.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (log.message && log.message.toLowerCase().includes(searchTerm.toLowerCase()));
       return matchPlatform && matchStatus && matchSearch;
     });
   }, [logs, platformFilter, statusFilter, searchTerm]);
@@ -39,21 +43,23 @@ function LogsView({ t, logs }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FFFFFF', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '6px 10px', gap: '8px', flexWrap: 'wrap' }}>
         
         {/* Platform Buttons */}
-        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', marginRight: '4px' }}>Channel:</span>
           {[
             { id: 'ALL', label: 'All Channels' },
             { id: 'WHATSAPP', label: 'WhatsApp' },
             { id: 'TELEGRAM', label: 'Telegram' },
             { id: 'SMS', label: 'SMS' },
-            { id: 'VOICE', label: 'Voice' }
+            { id: 'VOICE', label: 'Voice' },
+            { id: 'RCS', label: 'RCS' },
+            { id: 'EMAIL', label: 'Email' }
           ].map(p => (
             <button
               key={p.id}
               type="button"
               className={`sheets-btn ${platformFilter === p.id ? 'sheets-btn-primary' : ''}`}
               onClick={() => handlePlatformChange(p.id)}
-              style={{ padding: '3px 8px', fontSize: '11px' }}
+              style={{ padding: '2px 8px', fontSize: '11px', whiteSpace: 'nowrap' }}
             >
               {p.label}
             </button>
@@ -118,9 +124,12 @@ function LogsView({ t, logs }) {
                   <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>{log.to}</td>
                   <td>
                     <span className={`sheets-badge ${
-                      log.channel && log.channel.includes('WHATSAPP') ? 'sheets-badge-emerald' :
-                      log.channel && log.channel.includes('TELEGRAM') ? 'sheets-badge-blue' :
-                      log.channel && log.channel.includes('VOICE') ? 'sheets-badge-purple' : 'sheets-badge-amber'
+                      (log.channel || '').toUpperCase().includes('WHATSAPP') ? 'sheets-badge-emerald' :
+                      (log.channel || '').toUpperCase().includes('TELEGRAM') ? 'sheets-badge-blue' :
+                      (log.channel || '').toUpperCase().includes('VOICE') ? 'sheets-badge-purple' :
+                      (log.channel || '').toUpperCase().includes('RCS') ? 'sheets-badge-indigo' :
+                      (log.channel || '').toUpperCase().includes('EMAIL') ? 'sheets-badge-cyan' :
+                      'sheets-badge-amber'
                     }`}>
                       {log.channel}
                     </span>

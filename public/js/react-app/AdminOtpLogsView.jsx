@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import SearchableSelect from './SearchableSelect.jsx';
 
 // Admin All-Users OTP Logs & Audit View
 function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
@@ -30,13 +31,17 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
   // Filter logs
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
-      const matchPlatform = platformFilter === 'ALL' || (log.channel && log.channel.toUpperCase().includes(platformFilter));
-      const matchStatus = statusFilter === 'ALL' || (log.status && log.status.toUpperCase() === statusFilter);
-      const matchUser = userFilter === 'ALL' || log.userId === userFilter || (log.userName && log.userName.toLowerCase().includes(userFilter.toLowerCase()));
+      const channelUpper = (log.channel || '').toUpperCase();
+      const matchPlatform = platformFilter === 'ALL' || 
+        channelUpper.includes(platformFilter) ||
+        (platformFilter === 'SMS' && (channelUpper.includes('SMS') || channelUpper.includes('BULK360') || channelUpper.includes('TELCO')));
+      const matchStatus = statusFilter === 'ALL' || ((log.status || '').toUpperCase() === statusFilter);
+      const matchUser = userFilter === 'ALL' || log.userId === userFilter || ((log.userName || '').toLowerCase().includes(userFilter.toLowerCase()));
       const matchSearch = !searchTerm || 
         (log.to && log.to.includes(searchTerm)) || 
         (log.id && log.id.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (log.userName && log.userName.toLowerCase().includes(searchTerm.toLowerCase()));
+        (log.userName && log.userName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (log.message && log.message.toLowerCase().includes(searchTerm.toLowerCase()));
       return matchPlatform && matchStatus && matchUser && matchSearch;
     });
   }, [logs, platformFilter, statusFilter, userFilter, searchTerm]);
@@ -57,17 +62,18 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
         {/* User and Channel Selectors */}
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)' }}>User:</span>
-          <select
-            className="sheets-input"
+          <SearchableSelect
+            options={usersList}
             value={userFilter}
-            onChange={(e) => { setUserFilter(e.target.value); setCurrentPage(1); }}
-            style={{ padding: '3px 6px', fontSize: '11px', maxWidth: '160px' }}
-          >
-            <option value="ALL">All Users</option>
-            {usersList.map(u => (
-              <option key={u._id} value={u._id}>{u.name || u.email}</option>
-            ))}
-          </select>
+            onChange={(val) => { setUserFilter(val); setCurrentPage(1); }}
+            includeAllOption={true}
+            allLabel="All Users"
+            allValue="ALL"
+            placeholder="All Users"
+            searchPlaceholder="Search user name or email..."
+            buttonStyle={{ minWidth: '140px', maxWidth: '180px' }}
+            dropdownWidth="260px"
+          />
 
           <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', marginLeft: '4px' }}>Channel:</span>
           {[
@@ -75,14 +81,16 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
             { id: 'WHATSAPP', label: 'WhatsApp' },
             { id: 'TELEGRAM', label: 'Telegram' },
             { id: 'SMS', label: 'SMS' },
-            { id: 'VOICE', label: 'Voice' }
+            { id: 'VOICE', label: 'Voice' },
+            { id: 'RCS', label: 'RCS' },
+            { id: 'EMAIL', label: 'Email' }
           ].map(p => (
             <button
               key={p.id}
               type="button"
               className={`sheets-btn ${platformFilter === p.id ? 'sheets-btn-primary' : ''}`}
               onClick={() => { setPlatformFilter(p.id); setCurrentPage(1); }}
-              style={{ padding: '2px 7px', fontSize: '11px' }}
+              style={{ padding: '2px 7px', fontSize: '11px', whiteSpace: 'nowrap' }}
             >
               {p.label}
             </button>
@@ -164,9 +172,12 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
                   <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>{log.to}</td>
                   <td>
                     <span className={`sheets-badge ${
-                      log.channel && log.channel.includes('WHATSAPP') ? 'sheets-badge-emerald' :
-                      log.channel && log.channel.includes('TELEGRAM') ? 'sheets-badge-blue' :
-                      log.channel && log.channel.includes('VOICE') ? 'sheets-badge-purple' : 'sheets-badge-amber'
+                      (log.channel || '').toUpperCase().includes('WHATSAPP') ? 'sheets-badge-emerald' :
+                      (log.channel || '').toUpperCase().includes('TELEGRAM') ? 'sheets-badge-blue' :
+                      (log.channel || '').toUpperCase().includes('VOICE') ? 'sheets-badge-purple' :
+                      (log.channel || '').toUpperCase().includes('RCS') ? 'sheets-badge-indigo' :
+                      (log.channel || '').toUpperCase().includes('EMAIL') ? 'sheets-badge-cyan' :
+                      'sheets-badge-amber'
                     }`}>
                       {log.channel}
                     </span>

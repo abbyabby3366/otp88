@@ -201,10 +201,21 @@ export default function App() {
   };
 
   const fetchAdminMetrics = () => {
-    if (session && session.role === 'ADMIN' && jwtToken) {
-      fetch('/api/admin/metrics', { headers: { 'Authorization': `Bearer ${jwtToken}` } })
+    if (session && jwtToken) {
+      fetch('/api/metrics', { headers: { 'Authorization': `Bearer ${jwtToken}` } })
         .then(res => res.json())
-        .then(data => { if (data.success && data.metrics) setAdminMetrics(data.metrics); })
+        .then(data => {
+          if (data.success && data.metrics) {
+            setAdminMetrics(data.metrics);
+            if (data.metrics.balanceUsd !== undefined && session.balanceUsd !== data.metrics.balanceUsd) {
+              setSession(prev => {
+                const updated = { ...prev, balanceUsd: data.metrics.balanceUsd };
+                localStorage.setItem('otp88_session', JSON.stringify(updated));
+                return updated;
+              });
+            }
+          }
+        })
         .catch(() => {});
     }
   };

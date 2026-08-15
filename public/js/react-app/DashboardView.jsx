@@ -40,24 +40,32 @@ function DashboardView({ t, session, adminMetrics, ratesList, setActiveTab }) {
         <div className="sheets-kpi-cell">
           <div className="sheets-kpi-label">{t.availBalance || 'AVAILABLE BALANCE'}</div>
           <div className="sheets-kpi-value" style={{ color: '#059669' }}>
-            ${(session?.balanceUsd || 50).toFixed(2)}
+            ${(session?.balanceUsd !== undefined ? session.balanceUsd : 50).toFixed(2)}
           </div>
           <div className="sheets-kpi-sub">{t.autoReload || '● Active'}</div>
         </div>
         <div className="sheets-kpi-cell">
           <div className="sheets-kpi-label">{t.deliverySla || 'DELIVERY RATE'}</div>
-          <div className="sheets-kpi-value" style={{ color: '#0284C7' }}>99.98%</div>
+          <div className="sheets-kpi-value" style={{ color: '#0284C7' }}>
+            {adminMetrics?.carrierSuccessRate || adminMetrics?.deliveryRate || '100.0%'}
+          </div>
           <div className="sheets-kpi-sub">{t.allGreen || '● Systems Operational'}</div>
         </div>
         <div className="sheets-kpi-cell">
           <div className="sheets-kpi-label">{t.avgLatency || 'AVG LATENCY'}</div>
-          <div className="sheets-kpi-value" style={{ color: '#7C3AED' }}>0.82s</div>
+          <div className="sheets-kpi-value" style={{ color: '#7C3AED' }}>
+            {adminMetrics?.avgLatency || myRate?.avgLatency || '0.55s'}
+          </div>
           <div className="sheets-kpi-sub">{t.singaporePipe || 'Region: Malaysia'}</div>
         </div>
         <div className="sheets-kpi-cell">
-          <div className="sheets-kpi-label">{t.monthlyVolume || 'MONTHLY VOLUME'}</div>
-          <div className="sheets-kpi-value">{adminMetrics?.totalMonthlyOtps || '14.8M'}</div>
-          <div className="sheets-kpi-sub">{t.growthRate || '+18.4% this month'}</div>
+          <div className="sheets-kpi-label">{t.monthlyVolume || 'TOTAL OTP SENT'}</div>
+          <div className="sheets-kpi-value">
+            {adminMetrics?.totalMonthlyOtps || adminMetrics?.totalOtps !== undefined ? String(adminMetrics.totalOtps ?? adminMetrics.totalMonthlyOtps) : '0'}
+          </div>
+          <div className="sheets-kpi-sub">
+            {adminMetrics?.totalSpentUsd ? `$${adminMetrics.totalSpentUsd} total spent` : '● Live Usage Sync'}
+          </div>
         </div>
       </div>
 

@@ -407,6 +407,19 @@ body.theme-light::before {
   border: 1px solid #E9D5FF;
 }
 
+.sheets-badge-indigo {
+  background: #EEF2FF;
+  color: #4F46E5;
+  border: 1px solid #C7D2FE;
+}
+
+.sheets-badge-cyan {
+  background: #ECFEFF;
+  color: #0891B2;
+  border: 1px solid #A5F3FC;
+}
+
+
 /* Status Bar */
 .sheets-status-bar {
   display: flex;
@@ -489,5 +502,16 @@ body.theme-light::before {
 .sheets-select:focus {
   border-color: var(--border-focus);
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+}
+
+@keyframes fadeInMenu {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 

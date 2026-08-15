@@ -1,151 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 
-function getAdminCodeSnippet({ origin, apiKey, channel, lang, action, phone = '+60123456789' }) {
-  const isVerify = action === 'verify';
-  const url = isVerify ? `${origin}/v1/otp/verify` : `${origin}/v1/otp/send`;
-
-  let payloadObj = {};
-  if (isVerify) {
-    payloadObj = {
-      transaction_id: 'tx_live_8820a9bc4',
-      code: '882910'
-    };
-  } else {
-    if (channel === 'whatsapp') {
-      payloadObj = {
-        phoneNumber: phone,
-        channel: 'whatsapp',
-        otp: '882910'
-      };
-    } else if (channel === 'telegram') {
-      payloadObj = {
-        phoneNumber: phone,
-        channel: 'telegram',
-        senderName: 'Alibaba',
-        otp: '882910',
-        expiryMinutes: 5
-      };
-    } else {
-      payloadObj = {
-        phoneNumber: phone,
-        channel: 'sms',
-        senderName: 'Alibaba',
-        otp: '882910',
-        expiryMinutes: 5
-      };
-    }
-  }
-
-  const jsonStr = JSON.stringify(payloadObj, null, 2);
-
-  if (lang === 'curl') {
-    return `curl -X POST ${url} \\
-  -H "Authorization: Bearer ${apiKey}" \\
-  -H "Content-Type: application/json" \\
-  -d '${JSON.stringify(payloadObj)}'`;
-  }
-
-  if (lang === 'node') {
-    return `// Node.js
-async function sendOtp() {
-  const res = await fetch('${url}', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer ${apiKey}',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(${jsonStr})
-  });
-  const data = await res.json();
-  console.log('Response:', data);
-}
-sendOtp();`;
-  }
-
-  if (lang === 'python') {
-    const pyPayload = JSON.stringify(payloadObj, null, 4)
-      .replace(/: true/g, ': True')
-      .replace(/: false/g, ': False');
-    return `# Python 3 (requests)
-import requests
-
-url = "${url}"
-headers = {
-    "Authorization": "Bearer ${apiKey}",
-    "Content-Type": "application/json"
-}
-payload = ${pyPayload}
-
-response = requests.post(url, json=payload, headers=headers)
-print("Status:", response.status_code)
-print("Response:", response.json())`;
-  }
-
-  if (lang === 'php') {
-    return `<?php
-$ch = curl_init('${url}');
-$payload = json_encode(${JSON.stringify(payloadObj, null, 4)});
-curl_setopt_array($ch, [
-    CURLOPT_POST => true,
-    CURLOPT_POSTFIELDS => $payload,
-    CURLOPT_HTTPHEADER => [
-        'Authorization: Bearer ${apiKey}',
-        'Content-Type: application/json'
-    ],
-    CURLOPT_RETURNTRANSFER => true
-]);
-$response = curl_exec($ch);
-curl_close($ch);
-echo $response;
-?>`;
-  }
-
-  if (lang === 'go') {
-    return `// Go
-package main
-
-import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-)
-
-func main() {
-	payload := map[string]interface{}{
-${Object.entries(payloadObj).map(([k, v]) => `\t\t"${k}": ${Array.isArray(v) ? `[]string{${v.map(x => `"${x}"`).join(', ')}}` : typeof v === 'string' ? `"${v}"` : v},`).join('\n')}
-	}
-	body, _ := json.Marshal(payload)
-	req, _ := http.NewRequest("POST", "${url}", bytes.NewBuffer(body))
-	req.Header.Set("Authorization", "Bearer ${apiKey}")
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, _ := client.Do(req)
-	defer resp.Body.Close()
-	respBody, _ := io.ReadAll(resp.Body)
-	fmt.Println("Response:", string(respBody))
-}`;
-  }
-
-  return '';
-}
-
-// Admin Multi-Tenant API Keys & Credentials Management View
+// Admin Multi-Tenant API Keys & Credentials Directory View
 function AdminApiView({ t, usersList = [], session, copyToClipboard, showToast }) {
-  const currentOrigin = typeof window !== 'undefined' && window.location.origin
-    ? window.location.origin
-    : 'http://localhost:8884';
-
-  const [selectedApiKey, setSelectedApiKey] = useState(() => {
-    const raw = usersList[0]?.apiKeyLive || session?.apiKeyLive || 'otp88_api_88a90184bcedf41';
-    return raw.startsWith('otp_live_') ? 'otp88_api_' + raw.slice(9) : raw;
-  });
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedChannel, setSelectedChannel] = useState('whatsapp');
-  const [selectedLang, setSelectedLang] = useState('curl');
-  const [selectedAction, setSelectedAction] = useState('send');
 
   const filteredUsers = usersList.filter(u => {
     if (!searchTerm) return true;
@@ -156,16 +13,6 @@ function AdminApiView({ t, usersList = [], session, copyToClipboard, showToast }
       (u.apiKeyLive && u.apiKeyLive.toLowerCase().includes(term))
     );
   });
-
-  const activeSnippet = useMemo(() => {
-    return getAdminCodeSnippet({
-      origin: currentOrigin,
-      apiKey: selectedApiKey,
-      channel: selectedChannel,
-      lang: selectedLang,
-      action: selectedAction
-    });
-  }, [currentOrigin, selectedApiKey, selectedChannel, selectedLang, selectedAction]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -209,9 +56,8 @@ function AdminApiView({ t, usersList = [], session, copyToClipboard, showToast }
               filteredUsers.map((usr, idx) => {
                 let keyVal = usr.apiKeyLive || 'otp88_api_88a90184bcedf41';
                 if (keyVal.startsWith('otp_live_')) keyVal = 'otp88_api_' + keyVal.slice(9);
-                const isSelected = selectedApiKey === keyVal;
                 return (
-                  <tr key={usr._id || idx} style={{ background: isSelected ? 'rgba(16, 185, 129, 0.04)' : undefined }}>
+                  <tr key={usr._id || idx}>
                     <td style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-code)', fontSize: '10px' }}>{idx + 1}</td>
                     <td><strong>{usr.name || usr.email}</strong></td>
                     <td style={{ color: 'var(--text-secondary)' }}>{usr.email}</td>
@@ -237,21 +83,11 @@ function AdminApiView({ t, usersList = [], session, copyToClipboard, showToast }
                       <div style={{ display: 'flex', gap: '4px' }}>
                         <button
                           className="sheets-btn"
-                          style={{ padding: '2px 6px', fontSize: '10px' }}
+                          style={{ padding: '2px 8px', fontSize: '10px', fontWeight: '600' }}
                           onClick={() => copyToClipboard(keyVal, `${usr.name || 'User'}'s API Key`)}
                           title="Copy API Key"
                         >
                           Copy Key
-                        </button>
-                        <button
-                          className={`sheets-btn ${isSelected ? 'sheets-btn-primary' : ''}`}
-                          style={{ padding: '2px 6px', fontSize: '10px' }}
-                          onClick={() => {
-                            setSelectedApiKey(keyVal);
-                            showToast(`Selected ${usr.name || usr.email} for cURL test`);
-                          }}
-                        >
-                          Test cURL
                         </button>
                       </div>
                     </td>
@@ -261,95 +97,6 @@ function AdminApiView({ t, usersList = [], session, copyToClipboard, showToast }
             )}
           </tbody>
         </table>
-      </div>
-
-      {/* Dynamic Code Example Box */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-        <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>
-            API DISPATCH CODE GENERATOR (Active Key: <code style={{ color: '#059669' }}>{selectedApiKey.slice(0, 18)}...</code>)
-          </div>
-          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-            <button
-              type="button"
-              className={`sheets-btn ${selectedAction === 'send' ? 'sheets-btn-primary' : ''}`}
-              style={{ fontSize: '10px', padding: '2px 8px' }}
-              onClick={() => setSelectedAction('send')}
-            >
-              Send OTP
-            </button>
-            <button
-              type="button"
-              className={`sheets-btn ${selectedAction === 'verify' ? 'sheets-btn-primary' : ''}`}
-              style={{ fontSize: '10px', padding: '2px 8px' }}
-              onClick={() => setSelectedAction('verify')}
-            >
-              Verify OTP
-            </button>
-          </div>
-        </div>
-
-        {/* Controls */}
-        <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '6px', background: '#FAFAFA' }}>
-          {selectedAction === 'send' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', width: '65px' }}>Channel:</span>
-              {[
-                { id: 'whatsapp', label: 'WhatsApp OTP' },
-                { id: 'sms', label: 'SMS OTP' },
-                { id: 'telegram', label: 'Telegram OTP' }
-              ].map(ch => (
-                <button
-                  key={ch.id}
-                  type="button"
-                  className={`sheets-btn ${selectedChannel === ch.id ? 'sheets-btn-primary' : ''}`}
-                  onClick={() => setSelectedChannel(ch.id)}
-                  style={{ fontSize: '10px', padding: '2px 7px' }}
-                >
-                  {ch.label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', width: '65px' }}>Language:</span>
-            {[
-              { id: 'curl', label: 'cURL' },
-              { id: 'node', label: 'Node.js' },
-              { id: 'python', label: 'Python' },
-              { id: 'php', label: 'PHP' },
-              { id: 'go', label: 'Go' }
-            ].map(lang => (
-              <button
-                key={lang.id}
-                type="button"
-                className={`sheets-btn ${selectedLang === lang.id ? 'sheets-btn-primary' : ''}`}
-                onClick={() => setSelectedLang(lang.id)}
-                style={{ fontSize: '10px', padding: '2px 7px' }}
-              >
-                {lang.label}
-              </button>
-            ))}
-
-            <div style={{ marginLeft: 'auto' }}>
-              <button
-                type="button"
-                className="sheets-btn"
-                onClick={() => copyToClipboard(activeSnippet, `${selectedChannel.toUpperCase()} ${selectedLang.toUpperCase()} example`)}
-                style={{ fontSize: '10px', padding: '2px 8px', fontWeight: '700' }}
-              >
-                Copy Code
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ padding: '12px', background: '#0F172A' }}>
-          <pre style={{ margin: 0, color: '#38BDF8', fontFamily: 'var(--font-code)', fontSize: '11px', lineHeight: 1.5, overflowX: 'auto' }}>
-            {activeSnippet}
-          </pre>
-        </div>
       </div>
 
     </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import SearchableSelect from './SearchableSelect.jsx';
 
 // Admin Billing, Multi-Tenant Balance Management & Platform Transaction Ledger
 function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers }) {
@@ -157,19 +158,16 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
             <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
               Target User
             </label>
-            <select
-              className="sheets-select"
+            <SearchableSelect
+              options={usersList}
               value={selectedUserId}
-              onChange={(e) => setSelectedUserId(e.target.value)}
-              required
+              onChange={(val) => setSelectedUserId(val)}
+              placeholder="Select target user..."
+              searchPlaceholder="Search name, email..."
               style={{ width: '100%' }}
-            >
-              {usersList.map(u => (
-                <option key={u._id} value={u._id}>
-                  {u.name || u.email} ({u.email}) - Current: ${(u.balanceUsd || 0).toFixed(2)}
-                </option>
-              ))}
-            </select>
+              buttonStyle={{ width: '100%', padding: '6px 10px', fontSize: '12px' }}
+              dropdownWidth="100%"
+            />
           </div>
 
           <div>
