@@ -53,18 +53,24 @@ function broadcastLiveReload() {
   });
 }
 
-// Watch dist/ bundle for changes and broadcast reload to browser
-const distBundlePath = path.join(__dirname, 'public', 'dist');
-if (fs.existsSync(distBundlePath)) {
-  let reloadTimer = null;
-  fs.watch(distBundlePath, (eventType, filename) => {
-    if (filename && filename.endsWith('.js')) {
-      if (reloadTimer) clearTimeout(reloadTimer);
-      reloadTimer = setTimeout(() => {
-        broadcastLiveReload();
-      }, 120);
+// Watch dist/ bundle for changes and broadcast reload to browser (Development only)
+if (process.env.NODE_ENV !== 'production') {
+  const distBundlePath = path.join(__dirname, 'public', 'dist');
+  if (fs.existsSync(distBundlePath)) {
+    try {
+      let reloadTimer = null;
+      fs.watch(distBundlePath, (eventType, filename) => {
+        if (filename && filename.endsWith('.js')) {
+          if (reloadTimer) clearTimeout(reloadTimer);
+          reloadTimer = setTimeout(() => {
+            broadcastLiveReload();
+          }, 120);
+        }
+      });
+    } catch (err) {
+      console.warn('Live-reload fs.watch disabled:', err.message);
     }
-  });
+  }
 }
 
 // --- MongoDB Atlas Connection & Schemas ---
