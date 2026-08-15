@@ -11,13 +11,11 @@ function getAdminCodeSnippet({ origin, apiKey, channel, lang, action, phone = '+
       code: '882910'
     };
   } else {
-    if (channel === 'sms') {
+    if (channel === 'whatsapp') {
       payloadObj = {
         phoneNumber: phone,
-        channel: 'sms',
-        senderName: 'Alibaba',
-        otp: '882910',
-        expiryMinutes: 5
+        channel: 'whatsapp',
+        otp: '882910'
       };
     } else if (channel === 'telegram') {
       payloadObj = {
@@ -27,27 +25,10 @@ function getAdminCodeSnippet({ origin, apiKey, channel, lang, action, phone = '+
         otp: '882910',
         expiryMinutes: 5
       };
-    } else if (channel === 'whatsapp') {
-      payloadObj = {
-        phoneNumber: phone,
-        channel: 'whatsapp',
-        senderName: 'Alibaba',
-        otp: '882910',
-        expiryMinutes: 5
-      };
-    } else if (channel === 'voice') {
-      payloadObj = {
-        phoneNumber: phone,
-        channel: 'voice',
-        senderName: 'Alibaba',
-        otp: '882910',
-        expiryMinutes: 5
-      };
     } else {
       payloadObj = {
         phoneNumber: phone,
-        channel: 'waterfall',
-        channels: ['whatsapp', 'telegram', 'sms'],
+        channel: 'sms',
         senderName: 'Alibaba',
         otp: '882910',
         expiryMinutes: 5
@@ -162,7 +143,7 @@ function AdminApiView({ t, usersList = [], session, copyToClipboard, showToast }
     return raw.startsWith('otp_live_') ? 'otp88_api_' + raw.slice(9) : raw;
   });
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedChannel, setSelectedChannel] = useState('sms');
+  const [selectedChannel, setSelectedChannel] = useState('whatsapp');
   const [selectedLang, setSelectedLang] = useState('curl');
   const [selectedAction, setSelectedAction] = useState('send');
 
@@ -314,11 +295,9 @@ function AdminApiView({ t, usersList = [], session, copyToClipboard, showToast }
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', width: '65px' }}>Channel:</span>
               {[
-                { id: 'sms', label: 'SMS OTP' },
-                { id: 'telegram', label: 'Telegram OTP' },
                 { id: 'whatsapp', label: 'WhatsApp OTP' },
-                { id: 'voice', label: 'Voice OTP' },
-                { id: 'waterfall', label: 'Waterfall (Multi-Channel)' }
+                { id: 'sms', label: 'SMS OTP' },
+                { id: 'telegram', label: 'Telegram OTP' }
               ].map(ch => (
                 <button
                   key={ch.id}

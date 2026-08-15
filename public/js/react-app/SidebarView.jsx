@@ -103,6 +103,10 @@ function SidebarView({
                 <span>{t.navAdminOtpLogs || 'OTP Logs'}</span>
               </button>
 
+              <button className={`sheets-nav-item ${activeTab === 'admin-rates' || activeTab === 'rates' ? 'active' : ''}`} onClick={() => setActiveTab('admin-rates')}>
+                <span>{t.navAdminRates || 'OTP Pricing'}</span>
+              </button>
+
               <button className={`sheets-nav-item ${activeTab === 'admin-api' ? 'active' : ''}`} onClick={() => setActiveTab('admin-api')}>
                 <span>{t.navAdminApi || t.navApi || 'API & Keys'}</span>
               </button>

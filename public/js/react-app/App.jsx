@@ -54,7 +54,7 @@ export default function App() {
     if (clean === '/billing' || clean === '/topup' || clean === '/invoices') return 'billing';
     if (clean === '/admin/users' || clean === '/users' || clean === '/tenants') return 'users';
     if (clean === '/services' || clean === '/channels' || clean === '/routing') return 'services';
-    if (clean === '/rates' || clean === '/pricing' || clean === '/carrier-rates') return 'rates';
+    if (clean === '/admin/rates' || clean === '/admin-rates' || clean === '/rates' || clean === '/pricing' || clean === '/carrier-rates') return 'rates';
     if (clean === '/admin/sms360' || clean === '/sms360' || clean === '/admin-sms360' || clean === '/admin/sms-otp' || clean === '/sms-otp') return 'sms360';
     if (clean === '/admin/whatsapp-otp' || clean === '/whatsapp-otp' || clean === '/admin-whatsapp-otp') return 'whatsapp-otp';
     return 'dashboard';
@@ -72,10 +72,11 @@ export default function App() {
       case 'sms360': return '/admin/sms360';
       case 'whatsapp-otp': return '/admin/whatsapp-otp';
       case 'services': return '/services';
-      case 'rates': return '/rates';
+      case 'rates': return role === 'ADMIN' ? '/admin/rates' : '/rates';
+      case 'admin-rates': return '/admin/rates';
       case 'dashboard':
       default:
-        return role === 'ADMIN' ? '/admin' : '/dashboard';
+        return role === 'ADMIN' ? '/admin/dashboard' : '/dashboard';
     }
   };
 
@@ -301,7 +302,7 @@ export default function App() {
         const initialTab = getTabFromPath(window.location.pathname);
         _setActiveTab(initialTab);
         if (window.location.pathname === '/' || window.location.pathname.includes('login')) {
-          const defaultPath = parsedUser && parsedUser.role === 'ADMIN' ? '/admin' : '/dashboard';
+          const defaultPath = parsedUser && parsedUser.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard';
           window.history.replaceState({ tab: 'dashboard' }, '', defaultPath);
         }
       } catch (e) {
@@ -366,7 +367,7 @@ export default function App() {
         localStorage.setItem('otp88_console_theme', 'light');
         const targetTab = getTabFromPath(window.location.pathname);
         _setActiveTab(targetTab);
-        const destinationPath = targetTab !== 'dashboard' ? getPathFromTab(targetTab, data.user.role) : (data.user.role === 'ADMIN' ? '/admin' : '/dashboard');
+        const destinationPath = targetTab !== 'dashboard' ? getPathFromTab(targetTab, data.user.role) : (data.user.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard');
         window.history.pushState({ tab: targetTab }, '', destinationPath);
         showToast(`${lang === 'zh' ? '欢迎回来' : 'Welcome'}, ${data.user.name || data.user.email}!`);
       } else {
@@ -409,7 +410,7 @@ export default function App() {
         localStorage.setItem('otp88_console_theme', 'light');
         const targetTab = getTabFromPath(window.location.pathname);
         _setActiveTab(targetTab);
-        const destinationPath = targetTab !== 'dashboard' ? getPathFromTab(targetTab, data.user.role) : (data.user.role === 'ADMIN' ? '/admin' : '/dashboard');
+        const destinationPath = targetTab !== 'dashboard' ? getPathFromTab(targetTab, data.user.role) : (data.user.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard');
         window.history.pushState({ tab: targetTab }, '', destinationPath);
         showToast(lang === 'zh' ? `注册成功！欢迎加入 OTP88, ${data.user.name}` : `Welcome to OTP88, ${data.user.name}!`);
       } else {
@@ -846,7 +847,13 @@ export default function App() {
               
               {/* TAB 1: DASHBOARD */}
               {activeTab === 'dashboard' && (DashboardView || window.DashboardView) && (
-                <DashboardView t={t} session={session} adminMetrics={adminMetrics} logs={logs} />
+                <DashboardView
+                  t={t}
+                  session={session}
+                  adminMetrics={adminMetrics}
+                  ratesList={ratesList}
+                  setActiveTab={setActiveTab}
+                />
               )}
 
               {/* TAB 2: OTP LOGS (USER MODE) */}
@@ -868,8 +875,8 @@ export default function App() {
                 />
               )}
 
-              {/* TAB 4: CARRIER RATES */}
-              {activeTab === 'rates' && (RatesView || window.RatesView) && (
+              {/* TAB 4: CARRIER RATES & OTP PRICING */}
+              {(activeTab === 'rates' || activeTab === 'admin-rates') && (RatesView || window.RatesView) && (
                 <RatesView
                   t={t}
                   ratesList={ratesList}
