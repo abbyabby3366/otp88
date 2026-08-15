@@ -78,13 +78,10 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
 
           <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', marginLeft: '4px' }}>Channel:</span>
           {[
-            { id: 'ALL', label: 'All' },
+            { id: 'ALL', label: 'All Channels' },
             { id: 'WHATSAPP', label: 'WhatsApp' },
             { id: 'TELEGRAM', label: 'Telegram' },
-            { id: 'SMS', label: 'SMS' },
-            { id: 'VOICE', label: 'Voice' },
-            { id: 'RCS', label: 'RCS' },
-            { id: 'EMAIL', label: 'Email' }
+            { id: 'SMS', label: 'SMS' }
           ].map(p => (
             <button
               key={p.id}

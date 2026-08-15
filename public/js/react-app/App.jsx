@@ -211,24 +211,27 @@ export default function App() {
     }
   };
 
-  const fetchAdminMetrics = () => {
-    if (session && jwtToken) {
-      fetch('/api/metrics', { headers: { 'Authorization': `Bearer ${jwtToken}` } })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.metrics) {
-            setAdminMetrics(data.metrics);
-            if (data.metrics.balanceUsd !== undefined && session.balanceUsd !== data.metrics.balanceUsd) {
-              setSession(prev => {
+  const fetchAdminMetrics = (token = jwtToken) => {
+    if (!token) return;
+    fetch('/api/metrics', { headers: { 'Authorization': `Bearer ${token}` } })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.metrics) {
+          setAdminMetrics(data.metrics);
+          if (data.metrics.balanceUsd !== undefined) {
+            setSession(prev => {
+              if (!prev) return prev;
+              if (prev.balanceUsd !== data.metrics.balanceUsd) {
                 const updated = { ...prev, balanceUsd: data.metrics.balanceUsd };
                 localStorage.setItem('otp88_session', JSON.stringify(updated));
                 return updated;
-              });
-            }
+              }
+              return prev;
+            });
           }
-        })
-        .catch(() => {});
-    }
+        }
+      })
+      .catch(() => {});
   };
 
   // DOM Theme Sync
@@ -335,17 +338,25 @@ export default function App() {
     setInitialBooting(false);
   }, []);
 
-  // Fetch live logs and admin telemetry whenever session/jwtToken changes
+  // Fetch live logs and telemetry whenever session/jwtToken changes & live interval
   useEffect(() => {
     if (jwtToken) {
       fetchLogs();
       fetchUserProfile(jwtToken);
+      fetchAdminMetrics(jwtToken);
       if (session && session.role === 'ADMIN') {
         fetchAdminUsers();
-        fetchAdminMetrics();
       }
+
+      // Live dynamic refresh interval (every 3.5s) to update stats in real-time
+      const liveTimer = setInterval(() => {
+        fetchAdminMetrics(jwtToken);
+        fetchLogs();
+      }, 3500);
+
+      return () => clearInterval(liveTimer);
     }
-  }, [jwtToken]);
+  }, [jwtToken, session?.role, activeTab]);
 
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
@@ -660,6 +671,8 @@ export default function App() {
       if (data.success) {
         showToast(`${t.dispatched || 'Dispatched'} ${data.otpCode} (${data.latency})`);
         fetchLogs();
+        fetchAdminMetrics();
+        fetchUserProfile();
       }
     } catch (e) {
       showToast('Dispatch error', 'error');

@@ -2123,12 +2123,23 @@ app.get(['/api/metrics', '/api/admin/metrics'], verifyJwtMiddleware, async (req,
     let txQuery = { type: 'USAGE_OTP' };
 
     if (req.user && req.user.role !== 'ADMIN') {
-      logQuery = { $or: [{ userId: req.user.id }, { userId: null }] };
+      logQuery = { $or: [{ userId: req.user.id }, { userId: req.user.id?.toString() }] };
       txQuery.userId = req.user.id;
     }
 
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthlyLogQuery = {
+      ...logQuery,
+      $or: [
+        { createdAt: { $gte: startOfMonth } },
+        { createdAt: { $exists: false } }
+      ]
+    };
+
     const userCount = await UserModel.countDocuments();
     const logCount = await OtpLogModel.countDocuments(logQuery);
+    const monthlyLogCount = await OtpLogModel.countDocuments(monthlyLogQuery);
     const deliveredCount = await OtpLogModel.countDocuments({ ...logQuery, status: { $in: ['DELIVERED', 'SENT'] } });
     const successRate = logCount > 0 ? ((deliveredCount / logCount) * 100).toFixed(2) + '%' : '100.0%';
 
@@ -2144,12 +2155,24 @@ app.get(['/api/metrics', '/api/admin/metrics'], verifyJwtMiddleware, async (req,
       avgLatency = (sum / latencies.length).toFixed(2) + 's';
     }
 
-    // Calculate actual spent total from Transaction Ledger
+    // Calculate actual spent total from Transaction Ledger or OTP Log costs
     const spentResult = await TransactionModel.aggregate([
       { $match: txQuery },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
-    const totalSpent = spentResult.length > 0 ? Math.abs(spentResult[0].total) : 0;
+    let totalSpent = spentResult.length > 0 ? Math.abs(spentResult[0].total) : 0;
+
+    // Fallback: If transaction total is 0 but we have OTP logs, sum the log costs
+    if (totalSpent === 0 && logCount > 0) {
+      const logsWithCost = await OtpLogModel.find(logQuery).lean();
+      const calculatedSpent = logsWithCost.reduce((sum, l) => {
+        const costVal = typeof l.cost === 'string' ? parseFloat(l.cost.replace('$', '')) : (parseFloat(l.cost) || 0);
+        return sum + (isNaN(costVal) ? 0 : costVal);
+      }, 0);
+      if (calculatedSpent > 0) {
+        totalSpent = calculatedSpent;
+      }
+    }
 
     // Get live user balance
     let liveBalance = 50.00;
@@ -2177,7 +2200,8 @@ app.get(['/api/metrics', '/api/admin/metrics'], verifyJwtMiddleware, async (req,
     res.json({
       success: true,
       metrics: {
-        totalMonthlyOtps: logCount.toLocaleString(),
+        totalMonthlyOtps: monthlyLogCount,
+        monthlyOtps: monthlyLogCount,
         totalOtps: logCount,
         totalTenants: userCount,
         balanceUsd: liveBalance,

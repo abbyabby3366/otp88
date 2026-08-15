@@ -50,10 +50,7 @@ function LogsView({ t, logs = [], loading = false }) {
             { id: 'ALL', label: 'All Channels' },
             { id: 'WHATSAPP', label: 'WhatsApp' },
             { id: 'TELEGRAM', label: 'Telegram' },
-            { id: 'SMS', label: 'SMS' },
-            { id: 'VOICE', label: 'Voice' },
-            { id: 'RCS', label: 'RCS' },
-            { id: 'EMAIL', label: 'Email' }
+            { id: 'SMS', label: 'SMS' }
           ].map(p => (
             <button
               key={p.id}

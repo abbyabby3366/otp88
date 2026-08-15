@@ -2,11 +2,41 @@ import React from 'react';
 import { TableLoader } from './TableLoader.jsx';
 
 // Tidy & Useful Overview Dashboard Component
-function DashboardView({ t, session, adminMetrics, setActiveTab, logs = [], usersList = [], loading = false }) {
+function DashboardView({ t, session, adminMetrics, setActiveTab, logs = [], usersList = [], ratesList = [], loading = false }) {
   const isAdmin = session?.role === 'ADMIN';
+
+  // Calculate dynamic rates from actual rates configuration
+  const activeRates = (ratesList && ratesList.length > 0) ? ratesList : [
+    { country: 'Malaysia', code: 'MY', whatsapp: 0.0075, telegram: 0.0035, sms: 0.0210 }
+  ];
+
+  const formatRateRange = (channelProp, defaultVal) => {
+    const vals = activeRates
+      .map(r => r[channelProp])
+      .filter(v => typeof v === 'number' && !isNaN(v) && v > 0);
+
+    if (vals.length === 0) {
+      return `$${Number(defaultVal).toFixed(4)} / OTP`;
+    }
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    if (min === max) {
+      return `$${min.toFixed(4)} / OTP`;
+    }
+    return `$${min.toFixed(4)} - $${max.toFixed(4)} / OTP`;
+  };
+
+  const whatsappRateText = formatRateRange('whatsapp', 0.0075);
+  const telegramRateText = formatRateRange('telegram', 0.0035);
+  const smsRateText = formatRateRange('sms', 0.0210);
 
   // Metrics extraction
   const totalOtps = adminMetrics?.totalOtps !== undefined ? adminMetrics.totalOtps : (logs.length || 0);
+  const monthlyOtps = adminMetrics?.monthlyOtps !== undefined
+    ? adminMetrics.monthlyOtps
+    : (adminMetrics?.totalMonthlyOtps !== undefined
+      ? adminMetrics.totalMonthlyOtps
+      : totalOtps);
   const successRate = adminMetrics?.carrierSuccessRate || adminMetrics?.deliveryRate || '99.98%';
   const avgLatency = adminMetrics?.avgLatency || '0.55s';
   const balance = (session?.balanceUsd !== undefined ? session.balanceUsd : (adminMetrics?.balanceUsd ?? 50.00)).toFixed(4);
@@ -22,13 +52,13 @@ function DashboardView({ t, session, adminMetrics, setActiveTab, logs = [], user
       {/* 1. Core Summary Stats Ribbon Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: isAdmin ? 'repeat(auto-fit, minmax(190px, 1fr))' : 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px' }}>
         
-        {/* Stat 1: Total OTP Sent */}
+        {/* Stat 1: Monthly OTP Sent */}
         <div style={{ background: '#FFFFFF', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
           <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-            {t.monthlyVolume || 'Total OTPs Dispatched'}
+            {t.monthlyVolume || 'Monthly Volume'}
           </div>
           <div style={{ fontSize: '24px', fontWeight: '900', color: 'var(--text-primary)', fontFamily: 'var(--font-code)', lineHeight: 1.1 }}>
-            {totalOtps.toLocaleString()}
+            {typeof monthlyOtps === 'number' ? monthlyOtps.toLocaleString() : (monthlyOtps || '0')}
           </div>
           <div style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <span style={{ color: '#059669', fontWeight: '700' }}>● Live</span>
@@ -43,9 +73,6 @@ function DashboardView({ t, session, adminMetrics, setActiveTab, logs = [], user
           </div>
           <div style={{ fontSize: '24px', fontWeight: '900', color: '#059669', fontFamily: 'var(--font-code)', lineHeight: 1.1 }}>
             {successRate}
-          </div>
-          <div style={{ fontSize: '10px', color: '#059669', fontWeight: '600' }}>
-            ● 99.98% SLA Guaranteed
           </div>
         </div>
 
@@ -111,143 +138,34 @@ function DashboardView({ t, session, adminMetrics, setActiveTab, logs = [], user
         )}
       </div>
 
-      {/* 2. Useful Overview Grid: Gateway Health & Fast Channel Traffic */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '10px' }}>
+      {/* 2. Overview Grid (2 Columns) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '10px' }}>
         
-        {/* Card A: Live Gateway Status */}
+        {/* Card: Quick Platform Channel Routing Summary */}
         <div style={{ background: '#FFFFFF', border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden' }}>
           <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>⚡ DISPATCH GATEWAYS OPERATIONAL STATUS</span>
-            <span style={{ fontSize: '10px', color: '#059669', fontWeight: '700' }}>● All 100% Operational</span>
-          </div>
-          <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '11px' }}>
-            {[
-              { name: 'WhatsApp Business (Meta & VerifyWay API)', status: 'Operational', latency: '0.6s', color: '#10B981', badge: 'sheets-badge-emerald' },
-              { name: 'Telegram Bot Gateway (Instant Dispatch)', status: 'Operational', latency: '0.5s', color: '#0284C7', badge: 'sheets-badge-blue' },
-              { name: 'Direct Telco SMS (SMS360 / Celcom / Digi / Maxis)', status: 'Operational', latency: '1.4s', color: '#D97706', badge: 'sheets-badge-amber' },
-              { name: 'Voice Flash Call OTP (Automated TTS Fallback)', status: 'Operational', latency: '1.9s', color: '#7C3AED', badge: 'sheets-badge-purple' }
-            ].map((gw, idx) => (
-              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: idx < 3 ? '6px' : '0', borderBottom: idx < 3 ? '1px solid #F1F5F9' : 'none' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: gw.color, display: 'inline-block' }} />
-                  <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{gw.name}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontFamily: 'var(--font-code)', fontSize: '10px', color: 'var(--text-muted)' }}>{gw.latency}</span>
-                  <span className={`sheets-badge ${gw.badge}`} style={{ fontSize: '9px', padding: '1px 5px' }}>
-                    {gw.status}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Card B: Quick Platform Channel Routing Summary */}
-        <div style={{ background: '#FFFFFF', border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden' }}>
-          <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>📊 SUPPORTED MESSAGING PLATFORMS</span>
-            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>6 Active Regions</span>
+            <span>SUPPORTED MESSAGING PLATFORMS</span>
+            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Multi-Channel Coverage</span>
           </div>
           <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '11px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--text-secondary)' }}>WhatsApp OTP (All 6 Destinations)</span>
-              <strong style={{ color: '#059669', fontFamily: 'var(--font-code)' }}>$0.0075 / OTP</strong>
+              <span style={{ color: 'var(--text-secondary)' }}>WhatsApp OTP</span>
+              <strong style={{ color: '#059669', fontFamily: 'var(--font-code)' }}>{whatsappRateText}</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--text-secondary)' }}>Telegram OTP (All 6 Destinations)</span>
-              <strong style={{ color: '#0284C7', fontFamily: 'var(--font-code)' }}>$0.0035 / OTP</strong>
+              <span style={{ color: 'var(--text-secondary)' }}>Telegram OTP</span>
+              <strong style={{ color: '#0284C7', fontFamily: 'var(--font-code)' }}>{telegramRateText}</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--text-secondary)' }}>Direct Telco SMS (🇲🇾 Malaysia Route)</span>
-              <strong style={{ color: '#D97706', fontFamily: 'var(--font-code)' }}>$0.0210 / OTP</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--text-secondary)' }}>Voice Flash Call OTP (Automated)</span>
-              <strong style={{ color: '#7C3AED', fontFamily: 'var(--font-code)' }}>$0.0240 / OTP</strong>
+              <span style={{ color: 'var(--text-secondary)' }}>Direct Telco SMS</span>
+              <strong style={{ color: '#D97706', fontFamily: 'var(--font-code)' }}>{smsRateText}</strong>
             </div>
           </div>
         </div>
 
-      </div>
+        {/* Slot 2: Ready for second widget */}
+        <div style={{ minHeight: '120px' }} />
 
-      {/* 3. Recent OTP Dispatches Activity Grid */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden', background: '#FFFFFF' }}>
-        <div style={{ background: '#F8FAFC', padding: '8px 12px', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>RECENT OTP DISPATCH ACTIVITY</span>
-          {setActiveTab && (
-            <button
-              type="button"
-              className="sheets-btn"
-              style={{ fontSize: '10px', padding: '2px 8px', fontWeight: '700' }}
-              onClick={() => setActiveTab(isAdmin ? 'admin-logs' : 'logs')}
-            >
-              View Full Logs ({totalOtps}) →
-            </button>
-          )}
-        </div>
-
-        <table className="sheets-table">
-          <thead>
-            <tr>
-              <th style={{ width: '35px' }}>#</th>
-              <th>Transaction ID</th>
-              {isAdmin && <th>User</th>}
-              <th>Recipient</th>
-              <th>Channel</th>
-              <th>Latency</th>
-              <th>Cost</th>
-              <th>Status</th>
-              <th>Time</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && recentLogs.length === 0 ? (
-              <TableLoader colSpan={isAdmin ? 9 : 8} message="Loading recent OTP activity..." />
-            ) : recentLogs.length === 0 ? (
-              <tr>
-                <td colSpan={isAdmin ? 9 : 8} style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
-                  No recent dispatches. Send an OTP to see live real-time entries here.
-                </td>
-              </tr>
-            ) : (
-              recentLogs.map((log, idx) => (
-                <tr key={log.id || idx}>
-                  <td style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-code)', fontSize: '10px' }}>{idx + 1}</td>
-                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '600' }}>{log.id}</td>
-                  {isAdmin && (
-                    <td>
-                      <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
-                        {log.userName || 'System / Direct API'}
-                      </span>
-                    </td>
-                  )}
-                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>{log.to}</td>
-                  <td>
-                    <span className={`sheets-badge ${
-                      (log.channel || '').toUpperCase().includes('WHATSAPP') ? 'sheets-badge-emerald' :
-                      (log.channel || '').toUpperCase().includes('TELEGRAM') ? 'sheets-badge-blue' :
-                      (log.channel || '').toUpperCase().includes('VOICE') ? 'sheets-badge-purple' :
-                      (log.channel || '').toUpperCase().includes('RCS') ? 'sheets-badge-indigo' :
-                      (log.channel || '').toUpperCase().includes('EMAIL') ? 'sheets-badge-cyan' :
-                      'sheets-badge-amber'
-                    }`}>
-                      {log.channel}
-                    </span>
-                  </td>
-                  <td style={{ fontFamily: 'var(--font-code)', color: '#059669', fontWeight: '700' }}>{log.latency || '0.6s'}</td>
-                  <td style={{ fontFamily: 'var(--font-code)' }}>{log.cost || '$0.0075'}</td>
-                  <td>
-                    <span style={{ color: log.status === 'FAILED' ? '#DC2626' : '#059669', fontWeight: '700', fontSize: '11px' }}>
-                      {log.status === 'FAILED' ? 'FAILED' : (log.status || 'DELIVERED')}
-                    </span>
-                  </td>
-                  <td style={{ fontFamily: 'var(--font-code)', color: 'var(--text-muted)', fontSize: '11px' }}>{log.time}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
       </div>
 
     </div>

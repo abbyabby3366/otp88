@@ -22,7 +22,7 @@ function OverviewView({ t, session, adminMetrics }) {
         </div>
         <div className="sheets-kpi-cell">
           <div className="sheets-kpi-label">{t.monthlyVolume}</div>
-          <div className="sheets-kpi-value">{adminMetrics?.totalMonthlyOtps || '14.8M'}</div>
+          <div className="sheets-kpi-value">{typeof (adminMetrics?.monthlyOtps ?? adminMetrics?.totalMonthlyOtps ?? adminMetrics?.totalOtps) === 'number' ? (adminMetrics?.monthlyOtps ?? adminMetrics?.totalMonthlyOtps ?? adminMetrics?.totalOtps).toLocaleString() : (adminMetrics?.monthlyOtps || adminMetrics?.totalMonthlyOtps || adminMetrics?.totalOtps || '0')}</div>
           <div className="sheets-kpi-sub">{t.growthRate}</div>
         </div>
       </div>
@@ -61,13 +61,6 @@ function OverviewView({ t, session, adminMetrics }) {
               <td><span className="sheets-badge sheets-badge-amber">21% Secondary</span></td>
               <td style={{ fontFamily: 'var(--font-code)' }}>1.4s</td>
               <td style={{ fontFamily: 'var(--font-code)' }}>$0.0210</td>
-              <td><span style={{ color: '#059669', fontWeight: '700' }}>● Active</span></td>
-            </tr>
-            <tr>
-              <td><strong>Voice Call</strong></td>
-              <td><span className="sheets-badge sheets-badge-purple">3% Fallback</span></td>
-              <td style={{ fontFamily: 'var(--font-code)' }}>2.1s</td>
-              <td style={{ fontFamily: 'var(--font-code)' }}>$0.0240</td>
               <td><span style={{ color: '#059669', fontWeight: '700' }}>● Active</span></td>
             </tr>
           </tbody>
