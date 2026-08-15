@@ -211,9 +211,24 @@ export default function App() {
     }
   };
 
-  const fetchAdminMetrics = (token = jwtToken) => {
+  const [metricFromDate, setMetricFromDate] = useState(() => {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    return `${yyyy}-${mm}-01`;
+  });
+  const [metricToDate, setMetricToDate] = useState(() => {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
+
+  const fetchAdminMetrics = (token = jwtToken, fromD = metricFromDate, toD = metricToDate) => {
     if (!token) return;
-    fetch('/api/metrics', { headers: { 'Authorization': `Bearer ${token}` } })
+    const url = `/api/metrics?fromDate=${encodeURIComponent(fromD || '')}&toDate=${encodeURIComponent(toD || '')}`;
+    fetch(url, { headers: { 'Authorization': `Bearer ${token}` } })
       .then(res => res.json())
       .then(data => {
         if (data.success && data.metrics) {
@@ -232,6 +247,12 @@ export default function App() {
         }
       })
       .catch(() => {});
+  };
+
+  const handleDateRangeChange = (fromD, toD) => {
+    setMetricFromDate(fromD);
+    setMetricToDate(toD);
+    fetchAdminMetrics(jwtToken, fromD, toD);
   };
 
   // DOM Theme Sync
@@ -527,6 +548,8 @@ export default function App() {
     localStorage.removeItem('otp88_jwt');
     setSession(null);
     setJwtToken('');
+    setLogs([]);
+    setAdminMetrics(null);
     setTheme('dark');
     window.history.pushState(null, '', '/login');
     showToast(lang === 'zh' ? '已成功退出登录。' : 'Signed out.');
@@ -898,6 +921,9 @@ export default function App() {
                   logs={logs}
                   usersList={usersList}
                   loading={loadingLogs}
+                  fromDate={metricFromDate}
+                  toDate={metricToDate}
+                  onDateRangeChange={handleDateRangeChange}
                 />
               )}
 

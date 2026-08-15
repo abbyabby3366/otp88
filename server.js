@@ -996,7 +996,9 @@ app.get(['/api/logs', '/api/otp-logs', '/api/admin/logs'], verifyJwtMiddleware, 
   try {
     let query = {};
     if (req.user && req.user.role !== 'ADMIN') {
-      query = { $or: [{ userId: req.user.id }, { userId: null }] };
+      query = { userId: req.user.id };
+    } else if (req.query.userId && req.query.userId !== 'ALL') {
+      query = { userId: req.query.userId };
     }
     const rawLogs = await OtpLogModel.find(query).sort({ createdAt: -1 }).limit(150).lean();
     
@@ -2116,23 +2118,51 @@ app.all(['/api/webhooks/whatsapp/dlr', '/api/webhooks/whatsapp', '/v1/webhooks/w
   }
 });
 
-// Unified Live Metrics Endpoint (Calculated dynamically from MongoDB)
+// Unified Live Metrics Endpoint (Calculated dynamically from MongoDB with Date Range support)
 app.get(['/api/metrics', '/api/admin/metrics'], verifyJwtMiddleware, async (req, res) => {
   try {
+    const { fromDate, toDate } = req.query;
     let logQuery = {};
     let txQuery = { type: 'USAGE_OTP' };
 
     if (req.user && req.user.role !== 'ADMIN') {
-      logQuery = { $or: [{ userId: req.user.id }, { userId: req.user.id?.toString() }] };
+      logQuery = { userId: req.user.id };
       txQuery.userId = req.user.id;
     }
 
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const defaultStartOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    defaultStartOfMonth.setHours(0, 0, 0, 0);
+
+    let rangeStart = defaultStartOfMonth;
+    let rangeEnd = new Date();
+    rangeEnd.setHours(23, 59, 59, 999);
+
+    if (fromDate) {
+      const pFrom = new Date(fromDate);
+      if (!isNaN(pFrom.getTime())) {
+        pFrom.setHours(0, 0, 0, 0);
+        rangeStart = pFrom;
+      }
+    }
+
+    if (toDate) {
+      const pTo = new Date(toDate);
+      if (!isNaN(pTo.getTime())) {
+        pTo.setHours(23, 59, 59, 999);
+        rangeEnd = pTo;
+      }
+    }
+
+    const dateFilter = {
+      $gte: rangeStart,
+      $lte: rangeEnd
+    };
+
     const monthlyLogQuery = {
       ...logQuery,
       $or: [
-        { createdAt: { $gte: startOfMonth } },
+        { createdAt: dateFilter },
         { createdAt: { $exists: false } }
       ]
     };
@@ -2155,16 +2185,20 @@ app.get(['/api/metrics', '/api/admin/metrics'], verifyJwtMiddleware, async (req,
       avgLatency = (sum / latencies.length).toFixed(2) + 's';
     }
 
-    // Calculate actual spent total from Transaction Ledger or OTP Log costs
+    // Calculate actual spent total from Transaction Ledger or OTP Log costs for the selected date range
+    const txRangeQuery = {
+      ...txQuery,
+      createdAt: dateFilter
+    };
     const spentResult = await TransactionModel.aggregate([
-      { $match: txQuery },
+      { $match: txRangeQuery },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
     let totalSpent = spentResult.length > 0 ? Math.abs(spentResult[0].total) : 0;
 
-    // Fallback: If transaction total is 0 but we have OTP logs, sum the log costs
-    if (totalSpent === 0 && logCount > 0) {
-      const logsWithCost = await OtpLogModel.find(logQuery).lean();
+    // Fallback: If transaction total is 0 but we have OTP logs in date range, sum the log costs
+    if (totalSpent === 0 && monthlyLogCount > 0) {
+      const logsWithCost = await OtpLogModel.find(monthlyLogQuery).lean();
       const calculatedSpent = logsWithCost.reduce((sum, l) => {
         const costVal = typeof l.cost === 'string' ? parseFloat(l.cost.replace('$', '')) : (parseFloat(l.cost) || 0);
         return sum + (isNaN(costVal) ? 0 : costVal);
@@ -2197,12 +2231,21 @@ app.get(['/api/metrics', '/api/admin/metrics'], verifyJwtMiddleware, async (req,
       channelBreakdown = { whatsapp: '100%' };
     }
 
+    const fmtDate = (d) => {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
     res.json({
       success: true,
       metrics: {
         totalMonthlyOtps: monthlyLogCount,
         monthlyOtps: monthlyLogCount,
         totalOtps: logCount,
+        fromDate: fmtDate(rangeStart),
+        toDate: fmtDate(rangeEnd),
         totalTenants: userCount,
         balanceUsd: liveBalance,
         totalSpentUsd: totalSpent.toFixed(4),
@@ -2440,8 +2483,9 @@ app.get(['/api/billing/transactions', '/api/admin/transactions', '/api/admin/bil
 
     let txs = await TransactionModel.find(query).sort({ createdAt: -1 }).limit(200).lean();
 
-    // If transactions collection is empty, automatically generate initial history from recent OTP logs
-    if (txs.length === 0 && !type && !search) {
+    // If transactions collection is globally empty in MongoDB, automatically generate initial history from recent OTP logs
+    const totalTransactionsInDb = await TransactionModel.countDocuments();
+    if (totalTransactionsInDb === 0 && !type && !search) {
       try {
         const recentLogs = await OtpLogModel.find({}).sort({ createdAt: -1 }).limit(20).lean();
         const users = await UserModel.find({}).lean();
