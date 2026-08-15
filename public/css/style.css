@@ -295,18 +295,27 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .logo-brand {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 10px;
   font-family: var(--font-main);
   font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.03em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.logo-brand span {
+  white-space: nowrap;
+  display: inline;
 }
 
 .logo-icon-svg {
   width: 34px;
   height: 34px;
+  flex-shrink: 0;
 }
 
 .nav-links {

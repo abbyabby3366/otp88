@@ -91,7 +91,7 @@ const OTP88_I18N = {
     saveChanges: 'Save Changes',
     cancel: 'Cancel',
     statusLabel: 'Status',
-    passwordOptional: 'New Password (Optional, min 6 chars)',
+    passwordOptional: 'New Password (Optional)',
     totalUsers: 'Total Users',
     commitChanges: 'Save Rate Changes',
     
@@ -112,7 +112,8 @@ const OTP88_I18N = {
     signInLink: 'Sign in',
     region: 'AP-SOUTHEAST-1',
     latency: '0.8s',
-    copied: 'copied to clipboard!'
+    copied: 'copied to clipboard!',
+    backToHome: 'Back to Home'
   },
   zh: {
     brandSubtitle: '',
@@ -204,7 +205,7 @@ const OTP88_I18N = {
     saveChanges: '保存修改',
     cancel: '取消',
     statusLabel: '状态',
-    passwordOptional: '重置密码 (可选，至少6位)',
+    passwordOptional: '重置密码 (可选)',
     totalUsers: '用户总数',
     commitChanges: '保存费率修改',
     
@@ -227,6 +228,7 @@ const OTP88_I18N = {
     region: '亚太新加坡 (AP-SOUTHEAST-1)',
     latency: '0.8s',
     copied: '已复制到剪贴板！',
+    backToHome: '返回首页'
   }
 };
 

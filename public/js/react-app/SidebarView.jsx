@@ -43,8 +43,8 @@ function SidebarView({
             <circle cx="27" cy="18" r="1.5" fill="#38BDF8"/>
             <circle cx="17.5" cy="30.5" r="1.5" fill="#818CF8"/>
           </svg>
-          <div style={{ fontSize: '15px', fontWeight: '800', lineHeight: 1, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
-            OTP<span style={{ background: 'linear-gradient(135deg, #10B981, #06B6D4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>88</span>
+          <div style={{ fontSize: '15px', fontWeight: '800', lineHeight: 1, letterSpacing: '-0.02em', color: 'var(--text-primary)', whiteSpace: 'nowrap', display: 'inline-block' }}>
+            OTP<span style={{ background: 'linear-gradient(135deg, #10B981, #06B6D4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', whiteSpace: 'nowrap' }}>88</span>
           </div>
         </a>
 
@@ -113,10 +113,7 @@ function SidebarView({
         <div className="sheets-user-profile">
           <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, paddingRight: '4px' }}>
             <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {session.name || session.email}
-            </span>
-            <span style={{ fontSize: '10px', color: session.role === 'ADMIN' ? '#DC2626' : '#059669', fontWeight: '700' }}>
-              ● {session.role === 'ADMIN' ? t.adminLive : t.userLive}
+              {session.role === 'ADMIN' && session.name === 'System Administrator' ? (session.email || 'admin') : (session.name || session.email)}
             </span>
           </div>
           <button onClick={handleLogout} className="sheets-btn sheets-btn-danger" style={{ fontSize: '10px', padding: '3px 7px' }} title={t.signOut}>

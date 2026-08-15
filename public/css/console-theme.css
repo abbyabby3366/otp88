@@ -80,6 +80,13 @@ body.theme-light::before {
   background: var(--bg-ribbon);
   text-decoration: none;
   color: var(--text-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sheets-sidebar-brand span,
+.sheets-sidebar-brand div {
+  white-space: nowrap;
 }
 
 .sheets-nav-group {

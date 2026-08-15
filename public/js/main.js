@@ -178,7 +178,7 @@ async function initSystemStatus() {
     const res = await fetch('/api/status');
     const data = await res.json();
     if (data && data.uptime) {
-      statusElem.innerText = `${data.uptime} SLA (Operational)`;
+      statusElem.innerText = `${data.uptime} Operational`;
     }
   } catch (e) {
     // Keep fallback 99.98%

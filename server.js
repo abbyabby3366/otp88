@@ -420,7 +420,7 @@ app.post('/api/auth/login', async (req, res) => {
       user: {
         id: 'admin_root_01',
         email: ADMIN_USERNAME,
-        name: 'System Administrator',
+        name: ADMIN_USERNAME,
         role: 'ADMIN',
         permissions: ['MANAGE_GATEWAYS', 'MANAGE_RATES', 'PROVISION_CREDITS', 'SYSTEM_AUDIT']
       }
@@ -428,10 +428,6 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   // Standard Developer User Login
-  if (password.length < 6) {
-    return res.status(400).json({ success: false, error: 'Password must be at least 6 characters.' });
-  }
-
   let dbUser = null;
   if (isDbConnected) {
     try {
@@ -483,8 +479,8 @@ app.post('/api/auth/register', async (req, res) => {
   if (!userIdentifier) {
     return res.status(400).json({ success: false, error: 'Username or Email is required.' });
   }
-  if (!password || password.length < 6) {
-    return res.status(400).json({ success: false, error: 'Password must be at least 6 characters long.' });
+  if (!password) {
+    return res.status(400).json({ success: false, error: 'Password is required.' });
   }
   if (!phone) {
     return res.status(400).json({ success: false, error: 'Phone number is required.' });
@@ -662,10 +658,6 @@ app.post('/api/auth/reset-password/verify', async (req, res) => {
   if (!phoneNumber || !otpCode || !newPassword) {
     return res.status(400).json({ success: false, error: 'Phone number, OTP code, and new password are required.' });
   }
-  if (newPassword.length < 6) {
-    return res.status(400).json({ success: false, error: 'New password must be at least 6 characters long.' });
-  }
-
   const stored = loginOtpStore.get('reset_' + phoneNumber.trim());
   const isValid = (stored && stored.code === otpCode && stored.expiresAt > Date.now()) || otpCode === '882049' || otpCode === '123456';
 
@@ -829,7 +821,7 @@ app.put('/api/admin/users/:id', verifyJwtMiddleware, requireAdmin, async (req, r
     if (balanceUsd !== undefined) updateFields.balanceUsd = parseFloat(balanceUsd);
     if (status !== undefined) updateFields.status = status;
     if (phone !== undefined) updateFields.phone = phone.trim();
-    if (password && password.trim().length >= 6) {
+    if (password && password.trim().length > 0) {
       updateFields.password = password.trim();
     }
 
@@ -949,21 +941,27 @@ app.get('/api/status', (req, res) => {
   });
 });
 
-// Base route and all console routes serve the React Application
+// 1. Marketing & Landing Page Routes serve the high-converting Landing Page (index.html)
 app.get([
-  '/', '/login', '/login.html', '/register', '/forgot',
+  '/', '/index.html', '/home', '/landing', '/marketing'
+], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// 2. React Application & Auth/Console Routes serve the React Console (login.html)
+app.get([
+  '/login', '/login.html', '/register', '/forgot', '/reset',
   '/dashboard', '/logs', '/otp-logs', '/services', '/rates',
   '/api', '/keys', '/billing', '/users', '/admin',
-  '/admin/users', '/admin/logs', '/admin-logs', '/console',
-  '/home', '/landing', '/marketing'
+  '/admin/users', '/admin/logs', '/admin-logs', '/console'
 ], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-// Fallback for unknown HTML routes
+// Fallback for unknown HTML routes -> serve index.html
 app.get('*', (req, res, next) => {
   if (req.path.includes('.')) return next();
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 const startServer = (port) => {

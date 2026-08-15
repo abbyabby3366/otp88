@@ -97,7 +97,7 @@ function UsersView({
       status: editStatus,
       balanceUsd: parseFloat(editBalance) || 0
     };
-    if (editPassword && editPassword.trim().length >= 6) {
+    if (editPassword && editPassword.trim().length > 0) {
       payload.password = editPassword.trim();
     }
     const success = await handleUpdateUser(editingUser._id, payload);
@@ -297,7 +297,7 @@ function UsersView({
 
                 <div>
                   <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-                    {t.passwordOptional || 'New Password (optional, min 6 chars)'}
+                    {t.passwordOptional || 'New Password (Optional)'}
                   </label>
                   <input
                     type="password"

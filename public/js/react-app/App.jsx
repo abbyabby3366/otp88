@@ -80,9 +80,18 @@ export default function App() {
 
   // Auth Form State (Login, Registration, Password Reset)
   const [authMode, _setAuthMode] = useState(() => getAuthModeFromPath(typeof window !== 'undefined' ? window.location.pathname : '/login'));
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const setAuthMode = (mode) => {
     _setAuthMode(mode);
+    setUsername('');
+    setPassword('');
+    setPhoneNumber('');
+    setShowPassword(false);
+    setErrorMessage('');
     if (typeof window !== 'undefined') {
       const targetPath = mode === 'register' ? '/register' : mode === 'forgot' ? '/forgot' : '/login';
       if (window.location.pathname !== targetPath) {
@@ -90,11 +99,6 @@ export default function App() {
       }
     }
   };
-
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
 
   // Password Reset Flow State
   const [resetStep, setResetStep] = useState(1);
@@ -207,7 +211,12 @@ export default function App() {
     const savedToken = localStorage.getItem('otp88_jwt');
     if (savedUser && savedToken) {
       try {
-        setSession(JSON.parse(savedUser));
+        const parsedUser = JSON.parse(savedUser);
+        if (parsedUser && parsedUser.role === 'ADMIN' && parsedUser.name === 'System Administrator') {
+          parsedUser.name = parsedUser.email || 'admin';
+          localStorage.setItem('otp88_session', JSON.stringify(parsedUser));
+        }
+        setSession(parsedUser);
         setJwtToken(savedToken);
         setTheme(localStorage.getItem('otp88_console_theme') || 'light');
         const initialTab = getTabFromPath(window.location.pathname);
@@ -366,8 +375,8 @@ export default function App() {
   const handleResetPasswordVerify = async (e) => {
     e.preventDefault();
     setErrorMessage('');
-    if (!resetOtpCode.trim() || !newPassword || newPassword.length < 6) {
-      setErrorMessage(lang === 'zh' ? '请输入有效验证码及至少6位的新密码。' : 'Please enter valid OTP and new password (min 6 chars).');
+    if (!resetOtpCode.trim() || !newPassword) {
+      setErrorMessage(lang === 'zh' ? '请输入有效验证码及新密码。' : 'Please enter valid OTP and new password.');
       return;
     }
     setLoading(true);
@@ -565,6 +574,38 @@ export default function App() {
               </a>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <a
+                  href="/"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '5px 12px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: 'var(--text-secondary)',
+                    textDecoration: 'none',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'rgba(255,255,255,0.03)',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = '#fff';
+                    e.currentTarget.style.borderColor = 'var(--primary-emerald)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'var(--text-secondary)';
+                    e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                  }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                  </svg>
+                  {t.backToHome || (lang === 'zh' ? '返回首页' : 'Back to Home')}
+                </a>
+
                 <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.05)', padding: '3px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
                   <button
                     type="button"

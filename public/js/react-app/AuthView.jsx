@@ -33,7 +33,7 @@ export default function AuthView({
       
       {/* Brand Logo & Heading */}
       <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+        <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', marginBottom: '10px', textDecoration: 'none' }} title={t.backToHome || 'Back to Home'}>
           <svg width="36" height="36" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <linearGradient id="authCardBrandGrad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
@@ -59,10 +59,10 @@ export default function AuthView({
             <circle cx="27" cy="18" r="1.5" fill="#38BDF8"/>
             <circle cx="17.5" cy="30.5" r="1.5" fill="#818CF8"/>
           </svg>
-          <span style={{ fontSize: '24px', fontWeight: '800', color: '#fff', letterSpacing: '-0.02em' }}>
-            OTP<span className="text-gradient">88</span>
+          <span style={{ fontSize: '24px', fontWeight: '800', color: '#fff', letterSpacing: '-0.02em', whiteSpace: 'nowrap', display: 'inline-block' }}>
+            OTP<span className="text-gradient" style={{ whiteSpace: 'nowrap' }}>88</span>
           </span>
-        </div>
+        </a>
         <h1 style={{ fontSize: '18px', fontWeight: '700', margin: 0, color: 'var(--text-primary)' }}>
           {authMode === 'forgot'
             ? (lang === 'zh' ? '重置密码' : 'Reset Password')
@@ -70,11 +70,11 @@ export default function AuthView({
             ? (lang === 'zh' ? '创建账号' : 'Create Account')
             : (lang === 'zh' ? '登录账号' : 'Sign In')}
         </h1>
-        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', marginBottom: 0 }}>
-          {authMode === 'forgot'
-            ? (lang === 'zh' ? '通过手机验证码重置密码' : 'Reset your password via phone OTP verification')
-            : (lang === 'zh' ? 'OTP88 管理控制台' : 'OTP88 Management Portal')}
-        </p>
+        {authMode === 'forgot' && (
+          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', marginBottom: 0 }}>
+            {lang === 'zh' ? '通过手机验证码重置密码' : 'Reset your password via phone OTP verification'}
+          </p>
+        )}
       </div>
 
       {/* Mode Switch Tabs (Sign In / Register) */}
@@ -145,7 +145,7 @@ export default function AuthView({
 
               <div className="auth-input-group">
                 <label className="auth-label">
-                  {lang === 'zh' ? '新密码 (至少6位)' : 'New Password (min 6 chars)'}
+                  {lang === 'zh' ? '新密码' : 'New Password'}
                 </label>
                 <input
                   type="password"
@@ -180,7 +180,11 @@ export default function AuthView({
         </form>
       ) : (
         /* SIGN IN & REGISTER FORM */
-        <form onSubmit={authMode === 'login' ? handleLogin : handleRegister}>
+        <form
+          key={authMode}
+          onSubmit={authMode === 'login' ? handleLogin : handleRegister}
+          autoComplete={authMode === 'register' ? 'off' : 'on'}
+        >
           
           <div className="auth-input-group">
             <label className="auth-label">
@@ -188,11 +192,13 @@ export default function AuthView({
             </label>
             <input
               type="text"
+              name={authMode === 'register' ? 'reg_username' : 'username'}
+              id={authMode === 'register' ? 'reg-username' : 'login-username'}
               className="auth-input"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="user@example.com"
-              autoComplete="username"
+              placeholder={authMode === 'register' ? (lang === 'zh' ? '输入用户名或邮箱' : 'Enter username or email') : 'user@example.com'}
+              autoComplete={authMode === 'register' ? 'off' : 'username'}
               autoFocus
               required
             />
@@ -205,10 +211,13 @@ export default function AuthView({
               </label>
               <input
                 type="tel"
+                name="reg_phone"
+                id="reg-phone"
                 className="auth-input"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 placeholder="+60123456789"
+                autoComplete="off"
                 required
               />
             </div>
@@ -233,6 +242,8 @@ export default function AuthView({
             <div style={{ position: 'relative' }}>
               <input
                 type={showPassword ? 'text' : 'password'}
+                name={authMode === 'register' ? 'reg_password' : 'password'}
+                id={authMode === 'register' ? 'reg-password' : 'login-password'}
                 className="auth-input"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -305,6 +316,31 @@ export default function AuthView({
 
         </form>
       )}
+
+      {/* Return to Home Landing Page */}
+      <div style={{ marginTop: '22px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
+        <a
+          href="/"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            color: 'var(--text-secondary)',
+            fontSize: '13px',
+            fontWeight: '600',
+            textDecoration: 'none',
+            transition: 'color 0.2s ease'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.color = '#10B981'}
+          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+          {t.backToHome || (lang === 'zh' ? '返回首页' : 'Back to Home')}
+        </a>
+      </div>
 
     </div>
   );
