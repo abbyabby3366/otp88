@@ -145,16 +145,19 @@ h1, h2, h3, h4, h5, h6 {
 .badge-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 6px 14px;
+  padding: 6px 16px;
   background: rgba(16, 185, 129, 0.1);
   border: 1px solid rgba(16, 185, 129, 0.3);
   border-radius: 999px;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12.5px;
+  font-weight: 700;
   color: var(--text-emerald);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+  width: fit-content;
+  align-self: center;
 }
 
 .badge-cyan {
@@ -617,17 +620,46 @@ h1, h2, h3, h4, h5, h6 {
   padding: 16px;
   margin-top: 16px;
   backdrop-filter: blur(12px);
-  width: 320px;
+  width: 100%;
+  max-width: 320px;
+  box-sizing: border-box;
+}
+
+.sim-controls-card input {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  font-size: 14px;
+  margin-bottom: 8px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.sim-controls-card input:focus {
+  border-color: var(--primary-emerald);
 }
 
 .sim-btn-group {
-  display: flex;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
   margin-top: 10px;
+  width: 100%;
 }
 
 .sim-btn-group button {
-  flex: 1;
+  padding: 8px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+  justify-content: center;
+  white-space: nowrap;
 }
 
 /* ==========================================================================
@@ -644,7 +676,8 @@ h1, h2, h3, h4, h5, h6 {
   margin: 0 auto 56px auto;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  align-items: center;
+  gap: 16px;
 }
 
 .section-title {
@@ -680,12 +713,60 @@ h1, h2, h3, h4, h5, h6 {
   background-image: var(--grad-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: 32px;
+  padding: 28px 24px;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.glass-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.5), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.glass-card:hover::before {
+  opacity: 1;
+}
+
+.glass-card.card-cyan::before {
+  background: linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.5), transparent);
+}
+
+.glass-card.card-purple::before {
+  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.5), transparent);
+}
+
+.card-meta-row {
+  margin-top: auto;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-family: var(--font-code);
+}
+
+.card-tag-pill {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  font-family: var(--font-main);
+  font-weight: 600;
 }
 
 .glass-card:hover {
