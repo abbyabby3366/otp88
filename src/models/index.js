@@ -7,6 +7,7 @@ const TransactionModel = require('./Transaction');
 const OtpAuditLogModel = require('./OtpAuditLog');
 const Sms360ConfigModel = require('./Sms360Config');
 const WhatsAppConfigModel = require('./WhatsAppConfig');
+const WebhookLogModel = require('./WebhookLog');
 
 module.exports = {
   RateModel,
@@ -17,5 +18,6 @@ module.exports = {
   TransactionModel,
   OtpAuditLogModel,
   Sms360ConfigModel,
-  WhatsAppConfigModel
+  WhatsAppConfigModel,
+  WebhookLogModel
 };

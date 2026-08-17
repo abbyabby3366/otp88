@@ -80,10 +80,15 @@ function SidebarView({
 
               {/* 3. API */}
               <button className={`sheets-nav-item ${activeTab === 'api' ? 'active' : ''}`} onClick={() => setActiveTab('api')}>
-                <span>{t.navApi}</span>
+                <span>{t.navApi || 'API & Keys'}</span>
               </button>
 
-              {/* 4. Billing */}
+              {/* 4. Webhooks */}
+              <button className={`sheets-nav-item ${activeTab === 'webhooks' ? 'active' : ''}`} onClick={() => setActiveTab('webhooks')}>
+                <span>{t.navWebhooks || 'Webhooks'}</span>
+              </button>
+
+              {/* 5. Billing */}
               <button className={`sheets-nav-item ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => setActiveTab('billing')}>
                 <span>{t.navBilling}</span>
               </button>
@@ -109,6 +114,10 @@ function SidebarView({
 
               <button className={`sheets-nav-item ${activeTab === 'admin-api' ? 'active' : ''}`} onClick={() => setActiveTab('admin-api')}>
                 <span>{t.navAdminApi || t.navApi || 'API & Keys'}</span>
+              </button>
+
+              <button className={`sheets-nav-item ${activeTab === 'admin-webhooks' || activeTab === 'webhooks' ? 'active' : ''}`} onClick={() => setActiveTab('admin-webhooks')}>
+                <span>{t.navAdminWebhooks || t.navWebhooks || 'Webhooks'}</span>
               </button>
 
               <button className={`sheets-nav-item ${activeTab === 'admin-billing' ? 'active' : ''}`} onClick={() => setActiveTab('admin-billing')}>

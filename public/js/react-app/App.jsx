@@ -3,6 +3,7 @@ import { OTP88_I18N } from './i18n.js';
 import DashboardView from './DashboardView.jsx';
 import ServicesView from './ServicesView.jsx';
 import ApiView from './ApiView.jsx';
+import WebhooksView from './WebhooksView.jsx';
 import BillingView from './BillingView.jsx';
 import UsersView from './UsersView.jsx';
 import RatesView from './RatesView.jsx';
@@ -51,6 +52,8 @@ export default function App() {
     if (clean === '/logs' || clean === '/otp-logs') return 'logs';
     if (clean === '/admin/api' || clean === '/admin/keys' || clean === '/admin/api-keys') return 'admin-api';
     if (clean === '/api' || clean === '/keys' || clean === '/developer' || clean === '/api-keys') return 'api';
+    if (clean === '/admin/webhooks' || clean === '/admin-webhooks') return 'admin-webhooks';
+    if (clean === '/webhooks' || clean === '/webhook') return 'webhooks';
     if (clean === '/admin/billing' || clean === '/admin/topup' || clean === '/admin/invoices') return 'admin-billing';
     if (clean === '/billing' || clean === '/topup' || clean === '/invoices') return 'billing';
     if (clean === '/admin/users' || clean === '/users' || clean === '/tenants') return 'users';
@@ -67,6 +70,8 @@ export default function App() {
       case 'admin-logs': return '/admin/logs';
       case 'api': return role === 'ADMIN' ? '/admin/api' : '/api';
       case 'admin-api': return '/admin/api';
+      case 'webhooks': return role === 'ADMIN' ? '/admin/webhooks' : '/webhooks';
+      case 'admin-webhooks': return '/admin/webhooks';
       case 'billing': return role === 'ADMIN' ? '/admin/billing' : '/billing';
       case 'admin-billing': return '/admin/billing';
       case 'users': return '/admin/users';
@@ -979,6 +984,18 @@ export default function App() {
                   jwtToken={jwtToken}
                   revealedApiKey={revealedApiKey}
                   setRevealedApiKey={setRevealedApiKey}
+                  copyToClipboard={copyToClipboard}
+                  showToast={showToast}
+                />
+              )}
+
+              {/* WEBHOOKS TAB (USER & ADMIN) */}
+              {(activeTab === 'webhooks' || activeTab === 'admin-webhooks') && (WebhooksView || window.WebhooksView) && (
+                <WebhooksView
+                  t={t}
+                  session={session}
+                  setSession={setSession}
+                  jwtToken={jwtToken}
                   copyToClipboard={copyToClipboard}
                   showToast={showToast}
                 />

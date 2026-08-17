@@ -165,7 +165,7 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
     referenceId: txId,
     channel: channel.toUpperCase(),
     recipient: phoneNumber,
-    status: 'DELIVERED'
+    status: 'SENT'
   });
 
   if (!balanceResult.success) {
@@ -191,7 +191,7 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
         messageText,
         senderId: isWhatsApp ? 'WhatsApp Business' : senderName,
         msgId: txId,
-        status: 'DELIVERED',
+        status: 'SENT',
         latency: `${(deliveryTimeMs / 1000).toFixed(1)}s`,
         cost: unitCost,
         remark: reqRemark || '',
@@ -216,7 +216,7 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
     deducted: unitCostNum,
     newBalance: balanceResult.balanceAfter,
     transaction: balanceResult.transaction || undefined,
-    status: 'DELIVERED',
+    status: 'SENT',
     gatewayResponse: upstreamResult || undefined,
     logId: createdLog ? createdLog._id : undefined
   });

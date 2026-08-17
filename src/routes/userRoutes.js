@@ -3,7 +3,7 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const { ADMIN_USERNAME } = require('../config/constants');
 const { getIsDbConnected } = require('../config/db');
-const { UserModel } = require('../models');
+const { UserModel, WebhookLogModel } = require('../models');
 const { verifyJwtMiddleware } = require('../middleware/auth');
 
 // Authenticated User Live Profile
@@ -95,6 +95,42 @@ router.post('/api/user/webhook', verifyJwtMiddleware, async (req, res) => {
   }
 });
 
+// Get User's Recent Webhook Delivery Logs
+router.get('/api/user/webhook/logs', verifyJwtMiddleware, async (req, res) => {
+  try {
+    const isDbConnected = getIsDbConnected();
+    if (!isDbConnected || !req.user?.id) {
+      return res.json({ success: true, logs: [] });
+    }
+
+    const query = req.user.role === 'ADMIN' && req.query.all === 'true'
+      ? {}
+      : { userId: req.user.id };
+
+    const logs = await WebhookLogModel.find(query).sort({ createdAt: -1 }).limit(20).lean();
+    res.json({
+      success: true,
+      logs: logs.map(l => ({
+        id: l._id.toString(),
+        msgId: l.msgId,
+        event: l.event,
+        channel: l.channel || 'whatsapp',
+        targetUrl: l.targetUrl,
+        httpStatus: l.httpStatus,
+        statusText: l.statusText,
+        attempts: l.attempts || 1,
+        success: l.success,
+        latencyMs: l.latencyMs || 0,
+        error: l.error,
+        payload: l.payload,
+        createdAt: l.createdAt
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message, logs: [] });
+  }
+});
+
 // Send Test Ping to User Webhook URL
 router.post('/api/user/webhook/test', verifyJwtMiddleware, async (req, res) => {
   try {
@@ -128,6 +164,8 @@ router.post('/api/user/webhook/test', verifyJwtMiddleware, async (req, res) => {
     let pingSuccess = false;
     let statusCode = null;
     let durationMs = 0;
+    let statusText = '';
+    let lastError = null;
 
     try {
       const startT = Date.now();
@@ -139,7 +177,7 @@ router.post('/api/user/webhook/test', verifyJwtMiddleware, async (req, res) => {
           'Content-Type': 'application/json',
           'User-Agent': 'OTP88-Webhook-Delivery/1.0',
           'X-OTP88-Event': testPayload.event,
-          'X-OTP88-Signature': 'sha256=mock_sig_' + Math.random().toString(36).substring(2, 14)
+          'X-OTP88-Delivery-Attempt': '1'
         },
         body: JSON.stringify(testPayload),
         signal: controller.signal
@@ -147,11 +185,41 @@ router.post('/api/user/webhook/test', verifyJwtMiddleware, async (req, res) => {
       clearTimeout(timer);
       durationMs = Date.now() - startT;
       statusCode = resp.status;
+      statusText = resp.statusText || (resp.ok ? 'OK' : `HTTP ${resp.status}`);
       pingSuccess = resp.ok;
+      if (!resp.ok) lastError = `HTTP ${resp.status} (${resp.statusText || 'Error'})`;
     } catch (netErr) {
+      durationMs = Date.now();
+      statusCode = netErr.name === 'AbortError' ? 408 : 503;
+      statusText = netErr.name === 'AbortError' ? 'Timeout' : 'Connection Refused';
+      lastError = netErr.message;
+    }
+
+    // Record test attempt into WebhookLogModel
+    if (isDbConnected && req.user?.id) {
+      try {
+        await WebhookLogModel.create({
+          userId: req.user.id,
+          msgId: testPayload.msgId,
+          event: testPayload.event,
+          channel: testPayload.channel,
+          targetUrl,
+          httpStatus: statusCode,
+          statusText,
+          payload: testPayload,
+          attempts: 1,
+          success: pingSuccess,
+          latencyMs: durationMs,
+          error: pingSuccess ? undefined : lastError
+        });
+      } catch (logErr) {}
+    }
+
+    if (!pingSuccess) {
       return res.json({
         success: false,
-        error: `Could not reach ${targetUrl}: ${netErr.message}`,
+        error: `Could not reach ${targetUrl}: ${lastError}`,
+        statusCode,
         payload: testPayload,
         targetUrl
       });
@@ -159,9 +227,7 @@ router.post('/api/user/webhook/test', verifyJwtMiddleware, async (req, res) => {
 
     res.json({
       success: true,
-      message: pingSuccess
-        ? `Test webhook delivered successfully (HTTP ${statusCode}) in ${durationMs}ms!`
-        : `Target server responded with HTTP ${statusCode}`,
+      message: `Test webhook delivered successfully (HTTP ${statusCode}) in ${durationMs}ms!`,
       statusCode,
       durationMs: `${durationMs}ms`,
       targetUrl,

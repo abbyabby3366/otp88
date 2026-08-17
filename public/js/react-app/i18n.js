@@ -10,6 +10,7 @@ const OTP88_I18N = {
     navServices: 'Services',
     navRates: 'Carrier Rates',
     navApi: 'API & Keys',
+    navWebhooks: 'Webhooks',
     navBilling: 'Billing & Top-up',
     
     // Admin only Navigation Tabs
@@ -17,6 +18,7 @@ const OTP88_I18N = {
     navAdminOtpLogs: 'OTP Logs',
     navAdminRates: 'OTP Pricing',
     navAdminApi: 'API & Keys',
+    navAdminWebhooks: 'Webhooks',
     navAdminBilling: 'Billing & Top-up',
     navServicesSection: 'SERVICES',
     navSmsOtp: 'SMS OTP',
@@ -152,6 +154,7 @@ const OTP88_I18N = {
     navServices: '通道服务',
     navRates: '费率表',
     navApi: 'API 密钥',
+    navWebhooks: 'Webhook 回调',
     navBilling: '账单与充值',
     
     // Admin only Navigation Tabs
@@ -159,6 +162,7 @@ const OTP88_I18N = {
     navAdminOtpLogs: 'OTP 日志',
     navAdminRates: 'OTP 费率设置',
     navAdminApi: 'API 密钥',
+    navAdminWebhooks: 'Webhook 回调',
     navAdminBilling: '账单与充值',
     navServicesSection: '服务通道',
     navSmsOtp: 'SMS OTP 短信通道',
