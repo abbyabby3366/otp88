@@ -2,7 +2,7 @@
    OTP88 Interactive Phone Simulator & Smart Waterfall Controller
    ========================================================================== */
 
-let currentChannel = 'waterfall';
+let currentChannel = 'whatsapp';
 let currentOtpCode = '882049';
 let isSimulating = false;
 

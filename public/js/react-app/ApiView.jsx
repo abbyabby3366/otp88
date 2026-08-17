@@ -16,8 +16,7 @@ function getCodeSnippet({ origin, apiKey, channel, lang, action, phone = '+60123
       payloadObj = {
         phoneNumber: phone,
         channel: 'whatsapp',
-        otp: '882910',
-        remark: 'Login verification #1024'
+        otp: '882910'
       };
     } else if (channel === 'telegram') {
       payloadObj = {
@@ -25,8 +24,7 @@ function getCodeSnippet({ origin, apiKey, channel, lang, action, phone = '+60123
         channel: 'telegram',
         senderName: 'Alibaba',
         otp: '882910',
-        expiryMinutes: 5,
-        remark: 'Login verification #1024'
+        expiryMinutes: 5
       };
     } else {
       payloadObj = {
@@ -34,8 +32,7 @@ function getCodeSnippet({ origin, apiKey, channel, lang, action, phone = '+60123
         channel: 'sms',
         senderName: 'Alibaba',
         otp: '882910',
-        expiryMinutes: 5,
-        remark: 'Login verification #1024'
+        expiryMinutes: 5
       };
     }
   }
@@ -150,7 +147,7 @@ ${Object.entries(payloadObj).map(([k, v]) => `\t\t"${k}": ${Array.isArray(v) ? `
 
 // Generate sample webhook payload object across all status events
 function getWebhookSamplePayload({ channel = 'whatsapp', event = 'otp.delivered' }) {
-  const costMap = { sms: '0.0210', telegram: '0.0035', whatsapp: '0.0075' };
+  const costMap = { sms: '0.0210', telegram: '0.0035', whatsapp: '0.0500' };
 
   let status = 'DELIVERED';
   let errorCode = '0';
@@ -195,7 +192,7 @@ function getWebhookSamplePayload({ channel = 'whatsapp', event = 'otp.delivered'
     errorCode,
     remark: 'Login verification #1024',
     errorDescription,
-    cost: costMap[channel] || '0.0075',
+    cost: costMap[channel] || '0.0500',
     currency: 'USD',
     latency,
     timestamp: new Date().toISOString()

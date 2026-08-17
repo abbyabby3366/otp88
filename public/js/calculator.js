@@ -156,7 +156,7 @@ function renderRateTable(rates) {
       <td><span class="price-tag">$${(r.whatsapp ?? 0.0075).toFixed(4)}</span></td>
       <td><span class="price-tag" style="color:var(--text-cyan);">$${(r.telegram ?? 0.0035).toFixed(4)}</span></td>
       <td>
-        ${r.code === 'MY' && r.sms !== null && r.sms !== undefined ? `
+        ${r.sms !== null && r.sms !== undefined && r.sms !== '' ? `
           <span class="price-tag">$${Number(r.sms).toFixed(4)}</span>
         ` : `
           <span style="color:var(--text-muted);font-size:12px;">—</span>

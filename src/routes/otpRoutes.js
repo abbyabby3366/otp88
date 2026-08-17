@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const { JWT_SECRET, getSms360Config, getWhatsAppConfig } = require('../config/constants');
+const { JWT_SECRET } = require('../config/constants');
 const { getIsDbConnected } = require('../config/db');
 const { UserModel, OtpLogModel, Sms360ConfigModel, WhatsAppConfigModel } = require('../models');
 const { detectCountryCode } = require('../utils/format');
@@ -55,15 +55,20 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
   let authUserId = null;
   const authHeader = req.headers['authorization'] || req.headers['x-api-key'];
   const isDbConnected = getIsDbConnected();
-  const sms360Config = getSms360Config();
-  const whatsAppConfig = getWhatsAppConfig();
 
   if (authHeader) {
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
     if (token.startsWith('otp88_api_') || token.startsWith('otp_live_') || token.startsWith('api_')) {
       if (isDbConnected) {
         try {
-          const user = await UserModel.findOne({ apiKeyLive: token }).lean();
+          const user = await UserModel.findOne({
+            $or: [
+              { apiKeyLive: token },
+              { apiKeyLive: token.replace('otp88_api_', 'otp_live_') },
+              { apiKeyLive: token.replace('otp_live_', 'otp88_api_') },
+              { apiKeyLive: token.replace(/^otp88_api_|^otp_live_|^api_/, '') }
+            ]
+          }).lean();
           if (user) authUserId = user._id.toString();
         } catch (e) {}
       }
@@ -85,24 +90,26 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
       if (isDbConnected) {
         try { dbSmsConfig = await Sms360ConfigModel.findOne({ key: 'sms360_primary' }).lean(); } catch (e) {}
       }
-      const user = dbSmsConfig?.appKey || sms360Config.appKey || 'KGRb4qxdBL';
-      const pass = dbSmsConfig?.appSecret || sms360Config.appSecret || 'NE4Ui9KcgxJJl8Y9NbJKhgCohsk6l71GzzBC1gya';
+      const user = dbSmsConfig?.appKey;
+      const pass = dbSmsConfig?.appSecret;
       const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
-      const apiUrl = dbSmsConfig?.apiUrl || sms360Config.apiUrl || 'https://sms.360.my/gw/bulk360/v3_0/send.php';
-      const sendUrl = `${apiUrl}?user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}&from=${encodeURIComponent(senderName)}&to=${encodeURIComponent(cleanPhone)}&text=${encodeURIComponent(messageText)}&detail=1`;
+      const apiUrl = dbSmsConfig?.apiUrl || 'https://sms.360.my/gw/bulk360/v3_0/send.php';
+      if (user && pass) {
+        const sendUrl = `${apiUrl}?user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}&from=${encodeURIComponent(senderName)}&to=${encodeURIComponent(cleanPhone)}&text=${encodeURIComponent(messageText)}&detail=1`;
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-      const resp = await fetch(sendUrl, { signal: controller.signal });
-      clearTimeout(timeout);
-      const rawText = await resp.text();
-      try {
-        upstreamResult = JSON.parse(rawText);
-        if (upstreamResult && (upstreamResult.ref || upstreamResult.code === 200 || upstreamResult.code === '200')) {
-          upstreamRef = upstreamResult.ref;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+        const resp = await fetch(sendUrl, { signal: controller.signal });
+        clearTimeout(timeout);
+        const rawText = await resp.text();
+        try {
+          upstreamResult = JSON.parse(rawText);
+          if (upstreamResult && (upstreamResult.ref || upstreamResult.code === 200 || upstreamResult.code === '200')) {
+            upstreamRef = upstreamResult.ref;
+          }
+        } catch (pe) {
+          upstreamResult = { raw: rawText };
         }
-      } catch (pe) {
-        upstreamResult = { raw: rawText };
       }
     } catch (gwErr) {
       console.error('Error dispatching live SMS via Bulk360:', gwErr.message);
@@ -113,8 +120,8 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
       if (isDbConnected) {
         try { dbWaConfig = await WhatsAppConfigModel.findOne({ key: 'whatsapp_verifyway_primary' }).lean(); } catch (e) {}
       }
-      const waApiKey = dbWaConfig?.apiKey || whatsAppConfig.apiKey;
-      const waApiUrl = dbWaConfig?.apiUrl || whatsAppConfig.apiUrl || 'https://api.verifyway.com/api/v1/';
+      const waApiKey = dbWaConfig?.apiKey;
+      const waApiUrl = dbWaConfig?.apiUrl || 'https://api.verifyway.com/api/v1/';
       if (waApiKey) {
         const cleanPhone = phoneNumber.startsWith('+') ? phoneNumber : '+' + phoneNumber.replace(/[^0-9]/g, '');
         const controller = new AbortController();
@@ -174,6 +181,7 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
 
   // Save OTP transaction record into MongoDB if connected
   let createdLog = null;
+  const finalUserId = authUserId || (balanceResult.user ? balanceResult.user._id.toString() : null);
   if (isDbConnected) {
     try {
       createdLog = await OtpLogModel.create({
@@ -187,7 +195,7 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
         latency: `${(deliveryTimeMs / 1000).toFixed(1)}s`,
         cost: unitCost,
         remark: reqRemark || '',
-        userId: authUserId
+        userId: finalUserId
       });
     } catch (err) {
       console.error('Error saving OTP log to MongoDB:', err.message);

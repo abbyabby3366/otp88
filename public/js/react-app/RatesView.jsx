@@ -26,20 +26,29 @@ function RatesView({
   loading
 }) {
   const [showEditModal, setShowEditModal] = useState(false);
+  const [modalWhatsapp, setModalWhatsapp] = useState('');
+  const [modalTelegram, setModalTelegram] = useState('');
+  const [modalSmsRates, setModalSmsRates] = useState({});
   const backdropMouseDownRef = useRef(false);
 
   const activeRatesList = (ratesList && ratesList.length > 0) ? ratesList : DEFAULT_GLOBAL_RATES;
 
-  const commonWhatsappRate = activeRatesList[0]?.whatsapp ?? 0.0075;
+  const commonWhatsappRate = activeRatesList[0]?.whatsapp ?? 0.0500;
   const commonTelegramRate = activeRatesList[0]?.telegram ?? 0.0035;
-  const mySmsRate = activeRatesList.find(r => r.code === 'MY')?.sms ?? 0.0210;
 
   // Open edit modal for entire table
   const openEditModal = () => {
     if (setEditCountryCode) setEditCountryCode('ALL');
-    setEditRateWhatsapp(commonWhatsappRate.toString());
-    setEditRateTelegram(commonTelegramRate.toString());
-    setEditRateSms(mySmsRate.toString());
+    const wVal = (editRateWhatsapp !== undefined && editRateWhatsapp !== '') ? editRateWhatsapp : commonWhatsappRate.toString();
+    const tVal = (editRateTelegram !== undefined && editRateTelegram !== '') ? editRateTelegram : commonTelegramRate.toString();
+    setModalWhatsapp(wVal);
+    setModalTelegram(tVal);
+
+    const initialSmsRates = {};
+    activeRatesList.forEach(r => {
+      initialSmsRates[r.code] = (r.sms !== null && r.sms !== undefined && r.sms !== '') ? String(r.sms) : '';
+    });
+    setModalSmsRates(initialSmsRates);
     setShowEditModal(true);
   };
 
@@ -69,10 +78,27 @@ function RatesView({
     backdropMouseDownRef.current = false;
   };
 
+  const handleSmsChange = (countryCode, value) => {
+    setModalSmsRates(prev => ({
+      ...prev,
+      [countryCode]: value
+    }));
+  };
+
   const handleFormSubmit = async (e) => {
     e.preventDefault();
+    if (setEditRateWhatsapp) setEditRateWhatsapp(modalWhatsapp);
+    if (setEditRateTelegram) setEditRateTelegram(modalTelegram);
+    if (setEditRateSms && modalSmsRates['MY']) setEditRateSms(modalSmsRates['MY']);
+
     if (handleSaveRate) {
-      await handleSaveRate();
+      await handleSaveRate({
+        countryCode: 'ALL',
+        isGlobal: true,
+        whatsapp: modalWhatsapp,
+        telegram: modalTelegram,
+        smsRates: modalSmsRates
+      });
       closeEditModal();
     }
   };
@@ -199,7 +225,7 @@ function RatesView({
                     )}
 
                     <td style={{ fontFamily: 'var(--font-code)' }}>
-                      {rate.sms !== null && rate.sms !== undefined ? (
+                      {rate.sms !== null && rate.sms !== undefined && rate.sms !== '' ? (
                         <span style={{ fontWeight: '800', color: '#D97706' }}>${Number(rate.sms).toFixed(4)}</span>
                       ) : (
                         <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>—</span>
@@ -216,18 +242,18 @@ function RatesView({
         </table>
       </div>
 
-      {/* SINGLE MODAL DIALOG TO EDIT ENTIRE TABLE RATES */}
+      {/* EDIT MODAL DIALOG WITH PER-COUNTRY SMS PRICING */}
       {showEditModal && (
         <div
           className="sheets-modal-backdrop"
           onMouseDown={handleBackdropMouseDown}
           onMouseUp={handleBackdropMouseUp}
         >
-          <div className="sheets-modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px', width: '100%' }}>
+          <div className="sheets-modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px', width: '100%' }}>
             <div className="sheets-modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ fontSize: '16px' }}>⚙️</span>
-                <span style={{ fontWeight: '800' }}>Edit Carrier Rates (All Destinations)</span>
+                <span style={{ fontWeight: '800' }}>Edit Carrier Rates (Omnichannel & SMS)</span>
               </div>
               <button
                 type="button"
@@ -239,58 +265,110 @@ function RatesView({
             </div>
 
             <form onSubmit={handleFormSubmit}>
-              <div className="sheets-modal-body" style={{ gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#059669', display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span>WhatsApp Rate ($ USD / OTP)</span>
-                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>All 6 Destinations</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.0001"
-                    min="0.0001"
-                    className="sheets-input sheets-input-code"
-                    value={editRateWhatsapp}
-                    onChange={(e) => setEditRateWhatsapp(e.target.value)}
-                    required
-                    style={{ width: '100%', fontWeight: '700', color: '#059669' }}
-                  />
+              <div className="sheets-modal-body" style={{ gap: '14px', maxHeight: '70vh', overflowY: 'auto' }}>
+                
+                {/* GLOBAL OMNICHANNEL SECTION */}
+                <div style={{ background: '#F8FAFC', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '10px 12px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    🌐 Global Channel Pricing (All Destinations)
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label style={{ fontSize: '11px', fontWeight: '700', color: '#059669', display: 'block', marginBottom: '4px' }}>
+                        WhatsApp ($ / OTP)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.0001"
+                        min="0.0001"
+                        className="sheets-input sheets-input-code"
+                        value={modalWhatsapp}
+                        onChange={(e) => setModalWhatsapp(e.target.value)}
+                        required
+                        style={{ width: '100%', fontWeight: '700', color: '#059669' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11px', fontWeight: '700', color: '#0284C7', display: 'block', marginBottom: '4px' }}>
+                        Telegram ($ / OTP)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.0001"
+                        min="0.0001"
+                        className="sheets-input sheets-input-code"
+                        value={modalTelegram}
+                        onChange={(e) => setModalTelegram(e.target.value)}
+                        required
+                        style={{ width: '100%', fontWeight: '700', color: '#0284C7' }}
+                      />
+                    </div>
+                  </div>
                 </div>
 
+                {/* SMS PER-COUNTRY PRICING SECTION */}
                 <div>
-                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#0284C7', display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span>Telegram Rate ($ USD / OTP)</span>
-                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>All 6 Destinations</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.0001"
-                    min="0.0001"
-                    className="sheets-input sheets-input-code"
-                    value={editRateTelegram}
-                    onChange={(e) => setEditRateTelegram(e.target.value)}
-                    required
-                    style={{ width: '100%', fontWeight: '700', color: '#0284C7' }}
-                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      📱 SMS Carrier Rates by Destination ($ / OTP)
+                    </div>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                      Leave empty for inactive (—)
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '8px' }}>
+                    {activeRatesList.map((c) => {
+                      const currentVal = modalSmsRates[c.code] ?? '';
+                      return (
+                        <div
+                          key={c.code}
+                          style={{
+                            border: '1px solid var(--border-subtle)',
+                            borderRadius: '6px',
+                            padding: '8px 10px',
+                            background: '#FFFFFF',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+                              <span>{c.flag || '🌐'}</span>
+                              <span style={{ fontWeight: '700' }}>{c.country}</span>
+                            </div>
+                            <span style={{ fontSize: '10px', fontFamily: 'var(--font-code)', color: 'var(--text-muted)' }}>
+                              {c.dialCode}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700' }}>$</span>
+                            <input
+                              type="number"
+                              step="0.0001"
+                              min="0"
+                              className="sheets-input sheets-input-code"
+                              value={currentVal}
+                              onChange={(e) => handleSmsChange(c.code, e.target.value)}
+                              placeholder="Disabled (—)"
+                              style={{
+                                width: '100%',
+                                fontSize: '11px',
+                                fontWeight: currentVal ? '700' : '400',
+                                color: currentVal ? '#D97706' : 'var(--text-muted)',
+                                padding: '4px 6px'
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <div>
-                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#D97706', display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span>Malaysia SMS Rate ($ USD / OTP)</span>
-                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>🇲🇾 Malaysia Only</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.0001"
-                    min="0"
-                    className="sheets-input sheets-input-code"
-                    value={editRateSms}
-                    onChange={(e) => setEditRateSms(e.target.value)}
-                    placeholder="0.0210"
-                    required
-                    style={{ width: '100%', fontWeight: '700', color: '#D97706' }}
-                  />
-                </div>
               </div>
 
               <div className="sheets-modal-footer">
@@ -308,7 +386,7 @@ function RatesView({
                   disabled={loading}
                   style={{ background: '#059669', fontWeight: '700' }}
                 >
-                  {loading ? 'Saving...' : 'Save Rates'}
+                  {loading ? 'Saving...' : 'Save Rates to Database'}
                 </button>
               </div>
             </form>

@@ -17,7 +17,14 @@ const verifyJwtMiddleware = async (req, res, next) => {
   if (token.startsWith('otp88_api_') || token.startsWith('otp_live_') || token.startsWith('api_')) {
     if (getIsDbConnected()) {
       try {
-        const user = await UserModel.findOne({ apiKeyLive: token }).lean();
+        const user = await UserModel.findOne({
+          $or: [
+            { apiKeyLive: token },
+            { apiKeyLive: token.replace('otp88_api_', 'otp_live_') },
+            { apiKeyLive: token.replace('otp_live_', 'otp88_api_') },
+            { apiKeyLive: token.replace(/^otp88_api_|^otp_live_|^api_/, '') }
+          ]
+        }).lean();
         if (user) {
           req.user = { id: user._id.toString(), email: user.email, role: user.role, name: user.name };
           return next();

@@ -4,7 +4,6 @@ const {
   ADMIN_USERNAME,
   getGlobalRates,
   setGlobalRates,
-  persistRatesToFile,
   setWhatsAppConfig
 } = require('../../config/constants');
 const { getIsDbConnected } = require('../../config/db');
@@ -14,7 +13,7 @@ const { verifyJwtMiddleware, requireAdmin } = require('../../middleware/auth');
 // --- Admin Carrier Rates Adjustment ---
 
 router.post('/api/admin/rates', verifyJwtMiddleware, requireAdmin, async (req, res) => {
-  const { countryCode, whatsapp, telegram, sms, isGlobal } = req.body;
+  const { countryCode, whatsapp, telegram, sms, smsRates, isGlobal } = req.body;
   
   const wNum = (whatsapp !== undefined && whatsapp !== '') ? parseFloat(whatsapp) : undefined;
   const tNum = (telegram !== undefined && telegram !== '') ? parseFloat(telegram) : undefined;
@@ -34,14 +33,22 @@ router.post('/api/admin/rates', verifyJwtMiddleware, requireAdmin, async (req, r
         if (Object.keys(updateData).length > 0) {
           await RateModel.updateMany({}, { $set: updateData });
         }
-        if (sNum !== undefined && !isNaN(sNum)) {
+
+        if (smsRates && typeof smsRates === 'object') {
+          for (const [cCode, val] of Object.entries(smsRates)) {
+            const parsedSms = (val !== null && val !== undefined && val !== '' && !isNaN(parseFloat(val)))
+              ? parseFloat(val)
+              : null;
+            await RateModel.updateOne({ code: cCode.toUpperCase() }, { $set: { sms: parsedSms } });
+          }
+        } else if (sNum !== undefined && !isNaN(sNum)) {
           await RateModel.updateOne({ code: 'MY' }, { $set: { sms: sNum } });
         }
       } else {
         const code = countryCode.toUpperCase();
-        if (code === 'MY' && sNum !== undefined && !isNaN(sNum)) {
+        if (sNum !== undefined && !isNaN(sNum)) {
           updateData.sms = sNum;
-        } else if (code !== 'MY') {
+        } else if (sms === null || sms === '') {
           updateData.sms = null;
         }
         await RateModel.findOneAndUpdate(
@@ -61,10 +68,9 @@ router.post('/api/admin/rates', verifyJwtMiddleware, requireAdmin, async (req, r
       const updatedRates = await RateModel.find().lean();
       if (updatedRates && updatedRates.length > 0) {
         setGlobalRates(updatedRates);
-        persistRatesToFile(updatedRates);
       }
 
-      return res.json({ success: true, message: 'Carrier rates successfully updated and saved.', rates: getGlobalRates() });
+      return res.json({ success: true, message: 'Carrier rates successfully updated and saved in database.', rates: getGlobalRates() });
     } else {
       const modifiedRates = globalRates.map(r => {
         const item = { ...r };
@@ -72,17 +78,26 @@ router.post('/api/admin/rates', verifyJwtMiddleware, requireAdmin, async (req, r
           if (wNum !== undefined && !isNaN(wNum)) item.whatsapp = wNum;
           if (tNum !== undefined && !isNaN(tNum)) item.telegram = tNum;
         }
-        if (r.code === 'MY' && sNum !== undefined && !isNaN(sNum)) {
+        if (isAll && smsRates && typeof smsRates === 'object') {
+          if (r.code in smsRates) {
+            const val = smsRates[r.code];
+            item.sms = (val !== null && val !== undefined && val !== '' && !isNaN(parseFloat(val)))
+              ? parseFloat(val)
+              : null;
+          }
+        } else if (r.code === 'MY' && sNum !== undefined && !isNaN(sNum)) {
           item.sms = sNum;
+        } else if (!isAll && r.code === countryCode.toUpperCase()) {
+          if (sNum !== undefined && !isNaN(sNum)) item.sms = sNum;
+          else if (sms === null || sms === '') item.sms = null;
         }
         return item;
       });
       setGlobalRates(modifiedRates);
-      persistRatesToFile(modifiedRates);
       if (wNum !== undefined && !isNaN(wNum)) {
         setWhatsAppConfig({ ratePerOtp: String(wNum) });
       }
-      return res.json({ success: true, message: 'Carrier rates saved successfully.', rates: getGlobalRates() });
+      return res.json({ success: true, message: 'Carrier rates saved successfully in memory.', rates: getGlobalRates() });
     }
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });

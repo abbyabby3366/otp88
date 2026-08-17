@@ -1,9 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const {
-  getSms360Config,
-  setSms360Config
-} = require('../../config/constants');
 const { getIsDbConnected } = require('../../config/db');
 const {
   OtpLogModel,
@@ -12,8 +8,6 @@ const {
 } = require('../../models');
 const { verifyJwtMiddleware, requireAdmin } = require('../../middleware/auth');
 const { formatDateTime, detectPublicIp } = require('../../utils/format');
-
-let SMS360_LOGS = [];
 
 router.get('/api/admin/sms360/my-ip', verifyJwtMiddleware, requireAdmin, async (req, res) => {
   try {
@@ -33,42 +27,25 @@ router.get('/api/admin/sms360/my-ip', verifyJwtMiddleware, requireAdmin, async (
 
 router.get('/api/admin/sms360/stats', verifyJwtMiddleware, requireAdmin, async (req, res) => {
   try {
-    let activeConfig = getSms360Config();
     const serverIp = await detectPublicIp();
     const rawClientIp = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket.remoteAddress || '';
     const clientIp = rawClientIp.split(',')[0].trim().replace(/^::ffff:/, '');
     let realLogs = [];
+    let dbConfig = null;
 
     if (getIsDbConnected()) {
       try {
-        let dbConfig = await Sms360ConfigModel.findOne({ key: 'sms360_primary' }).lean();
-        if (!dbConfig) {
-          dbConfig = await Sms360ConfigModel.create(activeConfig);
-        }
-        activeConfig = {
-          appKey: dbConfig.appKey || activeConfig.appKey,
-          appSecret: dbConfig.appSecret || activeConfig.appSecret,
-          apiKey: dbConfig.apiKey || dbConfig.appKey || activeConfig.apiKey,
-          apiUrl: dbConfig.apiUrl || activeConfig.apiUrl,
-          balanceUrl: dbConfig.balanceUrl || activeConfig.balanceUrl,
-          senderId: dbConfig.senderId || activeConfig.senderId,
-          webhookUrl: dbConfig.webhookUrl || activeConfig.webhookUrl,
-          ratePerSms: dbConfig.ratePerSms || activeConfig.ratePerSms,
-          currency: dbConfig.currency || activeConfig.currency,
-          status: dbConfig.status || activeConfig.status,
-          autoFallback: dbConfig.autoFallback !== undefined ? dbConfig.autoFallback : true
-        };
-        setSms360Config(activeConfig);
+        dbConfig = await Sms360ConfigModel.findOne({ key: 'sms360_primary' }).lean();
 
         const dbLogs = await OtpLogModel.find({ channel: { $regex: /sms/i } }).sort({ createdAt: -1 }).limit(10).lean();
         realLogs = dbLogs.map(l => ({
           id: l.msgId || ('78-' + l._id.toString().slice(-8)),
           recipient: l.phoneNumber,
           message: l.messageText || (l.otpCode ? `Your OTP88 verification code is ${l.otpCode}. Valid for 5 minutes.` : 'OTP88 authentication SMS'),
-          senderId: l.senderId || activeConfig.senderId || '66688',
+          senderId: l.senderId || dbConfig?.senderId || '66688',
           telco: 'Bulk360',
           segments: l.segments || 1,
-          cost: l.cost || `MYR ${activeConfig.ratePerSms || '0.0210'}`,
+          cost: l.cost || `MYR ${dbConfig?.ratePerSms || '0.0210'}`,
           status: l.status || 'SENT',
           errorCode: l.errorCode || '0',
           latency: l.latency || '0.39s',
@@ -77,13 +54,11 @@ router.get('/api/admin/sms360/stats', verifyJwtMiddleware, requireAdmin, async (
       } catch (e) {
         console.error('Error fetching SMS360 data from MongoDB:', e.message);
       }
-    } else {
-      realLogs = SMS360_LOGS.slice(0, 10);
     }
 
     res.json({
       success: true,
-      config: activeConfig,
+      config: dbConfig || {},
       serverIp,
       clientIp: clientIp || serverIp,
       logs: realLogs
@@ -109,8 +84,6 @@ router.post('/api/admin/sms360/config', verifyJwtMiddleware, requireAdmin, async
     if (status !== undefined) updateData.status = status;
     if (autoFallback !== undefined) updateData.autoFallback = autoFallback;
 
-    const newConfig = setSms360Config(updateData);
-
     if (getIsDbConnected()) {
       const saved = await Sms360ConfigModel.findOneAndUpdate(
         { key: 'sms360_primary' },
@@ -127,9 +100,8 @@ router.post('/api/admin/sms360/config', verifyJwtMiddleware, requireAdmin, async
 
     res.json({
       success: true,
-      message: 'SMS360 configuration updated in memory.',
-      config: newConfig,
-      source: 'memory'
+      message: 'SMS360 configuration saved.',
+      config: updateData
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -138,11 +110,18 @@ router.post('/api/admin/sms360/config', verifyJwtMiddleware, requireAdmin, async
 
 router.post('/api/admin/sms360/live-balance', verifyJwtMiddleware, requireAdmin, async (req, res) => {
   try {
-    const sms360Config = getSms360Config();
-    const user = req.body.appKey || sms360Config.appKey || 'KGRb4qxdBL';
-    const pass = req.body.appSecret || sms360Config.appSecret || 'NE4Ui9KcgxJJl8Y9NbJKhgCohsk6l71GzzBC1gya';
+    let dbConfig = null;
+    if (getIsDbConnected()) {
+      dbConfig = await Sms360ConfigModel.findOne({ key: 'sms360_primary' }).lean();
+    }
+    const user = req.body.appKey || dbConfig?.appKey;
+    const pass = req.body.appSecret || dbConfig?.appSecret;
     const country = req.body.country || 'MYS';
-    const balanceUrl = sms360Config.balanceUrl || 'https://sms.360.my/api/balance/v3_0/getBalance';
+    const balanceUrl = dbConfig?.balanceUrl || 'https://sms.360.my/api/balance/v3_0/getBalance';
+
+    if (!user || !pass) {
+      return res.status(400).json({ success: false, isLiveConnected: false, error: 'Bulk360 App Key and App Secret are required.' });
+    }
 
     const targetUrl = `${balanceUrl}?user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}&country=${encodeURIComponent(country)}`;
     
@@ -209,11 +188,18 @@ router.post('/api/admin/sms360/test-send', verifyJwtMiddleware, requireAdmin, as
     return res.status(400).json({ success: false, error: 'Phone number and message are required.' });
   }
 
-  const sms360Config = getSms360Config();
-  const user = req.body.appKey || sms360Config.appKey || 'KGRb4qxdBL';
-  const pass = req.body.appSecret || sms360Config.appSecret || 'NE4Ui9KcgxJJl8Y9NbJKhgCohsk6l71GzzBC1gya';
+  let dbConfig = null;
+  if (getIsDbConnected()) {
+    dbConfig = await Sms360ConfigModel.findOne({ key: 'sms360_primary' }).lean();
+  }
+  const user = req.body.appKey || dbConfig?.appKey;
+  const pass = req.body.appSecret || dbConfig?.appSecret;
   const cleanPhone = phoneNumber.replace(/[^0-9,]/g, '');
-  const apiUrl = sms360Config.apiUrl || 'https://sms.360.my/gw/bulk360/v3_0/send.php';
+  const apiUrl = dbConfig?.apiUrl || 'https://sms.360.my/gw/bulk360/v3_0/send.php';
+
+  if (!user || !pass) {
+    return res.status(400).json({ success: false, error: 'Bulk360 App Key and App Secret are required.' });
+  }
 
   const sendUrl = `${apiUrl}?user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}&from=${encodeURIComponent(senderId)}&to=${encodeURIComponent(cleanPhone)}&text=${encodeURIComponent(message)}&detail=${detail}`;
 

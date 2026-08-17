@@ -647,28 +647,29 @@ export default function App() {
     }
   };
 
-  const handleSaveRate = async () => {
+  const handleSaveRate = async (customPayload) => {
     if (!jwtToken) return;
     try {
       setLoading(true);
-      const isGlobal = !editCountryCode || editCountryCode === 'ALL';
+      const isGlobal = customPayload ? (customPayload.isGlobal ?? true) : (!editCountryCode || editCountryCode === 'ALL');
+      const payload = customPayload || {
+        countryCode: editCountryCode || 'ALL',
+        isGlobal,
+        whatsapp: editRateWhatsapp,
+        telegram: editRateTelegram,
+        sms: editRateSms
+      };
       const res = await fetch('/api/admin/rates', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${jwtToken}`
         },
-        body: JSON.stringify({
-          countryCode: editCountryCode || 'ALL',
-          isGlobal,
-          whatsapp: editRateWhatsapp,
-          telegram: editRateTelegram,
-          sms: editRateSms
-        })
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (data.success) {
-        showToast(lang === 'zh' ? '费率已更新' : 'Carrier rates updated successfully');
+        showToast(lang === 'zh' ? '费率已更新 (数据库已保存)' : 'Carrier rates updated and saved in database');
         if (data.rates && Array.isArray(data.rates)) {
           setRatesList(data.rates);
         }

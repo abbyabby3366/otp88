@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { MONGODB_URI, ADMIN_USERNAME, ADMIN_PASSWORD, getGlobalRates, setGlobalRates, persistRatesToFile } = require('./constants');
+const { MONGODB_URI, ADMIN_USERNAME, ADMIN_PASSWORD, getGlobalRates, setGlobalRates, DEFAULT_GLOBAL_CARRIER_RATES } = require('./constants');
 const { RateModel, UserModel } = require('../models');
 
 let isDbConnected = false;
@@ -14,8 +14,8 @@ async function seedInitialRates() {
     const allowedCodes = ['MY', 'SG', 'ID', 'TH', 'VN', 'PH'];
     await RateModel.deleteMany({ code: { $nin: allowedCodes } });
 
-    const globalRates = getGlobalRates();
-    for (const r of globalRates) {
+    const seedRates = getGlobalRates() || DEFAULT_GLOBAL_CARRIER_RATES;
+    for (const r of seedRates) {
       if (!allowedCodes.includes(r.code)) continue;
       const existing = await RateModel.findOne({ code: r.code });
       if (!existing) {
@@ -23,13 +23,12 @@ async function seedInitialRates() {
       }
     }
 
-    // Sync in-memory GLOBAL_RATES and rates.json with MongoDB Atlas
+    // Sync in-memory GLOBAL_RATES with MongoDB Atlas
     const currentDbRates = await RateModel.find({ code: { $in: allowedCodes } }).lean();
     if (currentDbRates && currentDbRates.length > 0) {
       setGlobalRates(currentDbRates);
-      persistRatesToFile(currentDbRates);
     }
-    console.log(' Carrier rates successfully verified and synced with MongoDB Atlas & local store.');
+    console.log(' Carrier rates successfully verified and synced directly with MongoDB Atlas.');
   } catch (e) {
     console.error('Error seeding rates to MongoDB:', e.message);
   }

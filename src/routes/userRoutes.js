@@ -119,7 +119,7 @@ router.post('/api/user/webhook/test', verifyJwtMiddleware, async (req, res) => {
       phoneNumber: '+60123456789',
       status: event === 'otp.failed' ? 'FAILED' : 'DELIVERED',
       errorCode: event === 'otp.failed' ? 'ERR_HANDSET_UNREACHABLE' : '0',
-      cost: channel === 'sms' ? '0.0210' : (channel === 'telegram' ? '0.0035' : '0.0075'),
+      cost: channel === 'sms' ? '0.0210' : (channel === 'telegram' ? '0.0035' : '0.0500'),
       currency: 'USD',
       latency: '0.8s',
       timestamp: new Date().toISOString()

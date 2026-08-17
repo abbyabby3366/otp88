@@ -37,7 +37,7 @@ async function forwardDlrToClientWebhook({ msgId, phoneNumber, channel, status, 
       status: status || 'DELIVERED',
       errorCode: errorCode || '0',
       remark: matchedLog?.remark || matchedUser?.remark || '',
-      cost: cost || (normalizedChannel === 'sms' ? '0.0210' : (normalizedChannel === 'telegram' ? '0.0035' : '0.0075')),
+      cost: cost || (matchedLog?.cost ? matchedLog.cost.replace('$', '').trim() : (normalizedChannel === 'sms' ? '0.0210' : (normalizedChannel === 'telegram' ? '0.0035' : '0.0500'))),
       currency: 'USD',
       timestamp: new Date().toISOString()
     };
