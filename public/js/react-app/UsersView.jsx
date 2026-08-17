@@ -26,6 +26,8 @@ function UsersView({
   const [editStatus, setEditStatus] = useState('ACTIVE');
   const [editBalance, setEditBalance] = useState('50');
   const [editPassword, setEditPassword] = useState('');
+  const [editRemark, setEditRemark] = useState('');
+  const [newRemark, setNewRemark] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -51,6 +53,7 @@ function UsersView({
     setEditRole(user.role || 'USER');
     setEditStatus(user.status || 'ACTIVE');
     setEditBalance(user.balanceUsd !== undefined ? user.balanceUsd.toString() : '50');
+    setEditRemark(user.remark || '');
     setEditPassword('');
   };
 
@@ -97,7 +100,8 @@ function UsersView({
       email: editEmail,
       role: editRole,
       status: editStatus,
-      balanceUsd: parseFloat(editBalance) || 0
+      balanceUsd: parseFloat(editBalance) || 0,
+      remark: editRemark.trim()
     };
     if (editPassword && editPassword.trim().length > 0) {
       payload.password = editPassword.trim();
@@ -146,16 +150,17 @@ function UsersView({
               <th>{t.userRole || 'Role'}</th>
               <th>{t.userBalance || 'Balance (USD)'}</th>
               <th>API Key</th>
+              <th>{t.remark || 'Remarks / Notes'}</th>
               <th>{t.statusLabel || 'Status'}</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <TableLoader colSpan={8} message="Loading user accounts directory..." />
+              <TableLoader colSpan={9} message="Loading user accounts directory..." />
             ) : (!usersList || usersList.length === 0) ? (
               <tr>
-                <td colSpan="8" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
+                <td colSpan="9" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
                   No users found. Add a user above or register a new account.
                 </td>
               </tr>
@@ -179,6 +184,30 @@ function UsersView({
                       if (key.startsWith('otp_live_')) key = 'otp88_api_' + key.slice(9);
                       return key.slice(0, 14) + '•••';
                     })()}
+                  </td>
+                  <td>
+                    {usr.remark ? (
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          color: 'var(--text-primary)',
+                          background: '#F8FAFC',
+                          border: '1px solid var(--border-subtle)',
+                          padding: '2px 6px',
+                          borderRadius: '3px',
+                          display: 'inline-block',
+                          maxWidth: '180px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}
+                        title={usr.remark}
+                      >
+                        {usr.remark}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>—</span>
+                    )}
                   </td>
                   <td>
                     <span className={`sheets-badge ${usr.status === 'PAUSED' ? 'sheets-badge-amber' : usr.status === 'SUSPENDED' ? 'sheets-badge-danger' : 'sheets-badge-emerald'}`}>
@@ -313,6 +342,19 @@ function UsersView({
 
                 <div>
                   <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                    {t.remark || 'Remarks / Notes'}
+                  </label>
+                  <input
+                    type="text"
+                    className="sheets-input"
+                    value={editRemark}
+                    onChange={(e) => setEditRemark(e.target.value)}
+                    placeholder={t.placeholderRemark || 'e.g. VIP Client / Test Account / Whitelisted'}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
                     {t.passwordOptional || 'New Password (Optional)'}
                   </label>
                   <input
@@ -411,9 +453,17 @@ function UsersView({
             <form onSubmit={async (e) => {
               e.preventDefault();
               setCreating(true);
-              const success = await handleCreateUser(e);
+              const customPayload = {
+                name: newUserName.trim() || newUserEmail.split('@')[0],
+                email: newUserEmail.trim(),
+                role: 'USER',
+                balanceUsd: parseFloat(newUserBalance) || 100.00,
+                remark: newRemark.trim()
+              };
+              const success = await handleCreateUser(e, customPayload);
               setCreating(false);
               if (success !== false) {
+                setNewRemark('');
                 setShowAddModal(false);
               }
             }}>
@@ -457,6 +507,19 @@ function UsersView({
                     className="sheets-input sheets-input-code"
                     value={newUserBalance}
                     onChange={(e) => setNewUserBalance(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                    {t.remark || 'Remarks / Notes'}
+                  </label>
+                  <input
+                    type="text"
+                    className="sheets-input"
+                    value={newRemark}
+                    onChange={(e) => setNewRemark(e.target.value)}
+                    placeholder={t.placeholderRemark || 'e.g. VIP Client / Test Account / Whitelisted'}
                   />
                 </div>
               </div>

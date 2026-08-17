@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
-// Code snippet helper for multiple channels and languages
+// Code snippet helper for REST API calls (send / verify)
 function getCodeSnippet({ origin, apiKey, channel, lang, action, phone = '+60123456789' }) {
   const isVerify = action === 'verify';
   const url = isVerify ? `${origin}/v1/otp/verify` : `${origin}/v1/otp/send`;
@@ -16,7 +16,8 @@ function getCodeSnippet({ origin, apiKey, channel, lang, action, phone = '+60123
       payloadObj = {
         phoneNumber: phone,
         channel: 'whatsapp',
-        otp: '882910'
+        otp: '882910',
+        remark: 'Login verification #1024'
       };
     } else if (channel === 'telegram') {
       payloadObj = {
@@ -24,7 +25,8 @@ function getCodeSnippet({ origin, apiKey, channel, lang, action, phone = '+60123
         channel: 'telegram',
         senderName: 'Alibaba',
         otp: '882910',
-        expiryMinutes: 5
+        expiryMinutes: 5,
+        remark: 'Login verification #1024'
       };
     } else {
       payloadObj = {
@@ -32,7 +34,8 @@ function getCodeSnippet({ origin, apiKey, channel, lang, action, phone = '+60123
         channel: 'sms',
         senderName: 'Alibaba',
         otp: '882910',
-        expiryMinutes: 5
+        expiryMinutes: 5,
+        remark: 'Login verification #1024'
       };
     }
   }
@@ -113,40 +116,165 @@ echo $response;
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
+\t"bytes"
+\t"encoding/json"
+\t"fmt"
+\t"io"
+\t"net/http"
 )
 
 func main() {
-	payload := map[string]interface{}{
+\tpayload := map[string]interface{}{
 ${Object.entries(payloadObj).map(([k, v]) => `\t\t"${k}": ${Array.isArray(v) ? `[]string{${v.map(x => `"${x}"`).join(', ')}}` : typeof v === 'string' ? `"${v}"` : v},`).join('\n')}
-	}
-	body, _ := json.Marshal(payload)
+\t}
+\tbody, _ := json.Marshal(payload)
 
-	req, _ := http.NewRequest("POST", "${url}", bytes.NewBuffer(body))
-	req.Header.Set("Authorization", "Bearer ${apiKey}")
-	req.Header.Set("Content-Type", "application/json")
+\treq, _ := http.NewRequest("POST", "${url}", bytes.NewBuffer(body))
+\treq.Header.Set("Authorization", "Bearer ${apiKey}")
+\treq.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		panic(err)
-	}
-	defer resp.Body.Close()
+\tclient := &http.Client{}
+\tresp, err := client.Do(req)
+\tif err != nil {
+\t\tpanic(err)
+\t}
+\tdefer resp.Body.Close()
 
-	respBody, _ := io.ReadAll(resp.Body)
-	fmt.Println("Response:", string(respBody))
+\trespBody, _ := io.ReadAll(resp.Body)
+\tfmt.Println("Response:", string(respBody))
 }`;
   }
 
   return '';
 }
 
+// Generate sample webhook payload object across all status events
+function getWebhookSamplePayload({ channel = 'whatsapp', event = 'otp.delivered' }) {
+  const costMap = { sms: '0.0210', telegram: '0.0035', whatsapp: '0.0075' };
+
+  let status = 'DELIVERED';
+  let errorCode = '0';
+  let errorDescription = undefined;
+  let latency = '0.8s';
+
+  if (event === 'otp.delivered') {
+    status = 'DELIVERED';
+    errorCode = '0';
+    latency = '0.8s';
+  } else if (event === 'otp.read') {
+    status = 'READ';
+    errorCode = '0';
+    latency = '1.4s';
+  } else if (event === 'otp.undelivered') {
+    status = 'UNDELIVERED';
+    errorCode = '20';
+    errorDescription = 'Subscriber handset is unreachable, offline, or out of cellular network coverage.';
+    latency = '30.0s';
+  } else if (event === 'otp.failed') {
+    status = 'FAILED';
+    errorCode = '1';
+    errorDescription = 'Network rejection: destination mobile number is invalid, barred, or unreachable.';
+    latency = '0.4s';
+  } else if (event === 'otp.expired') {
+    status = 'EXPIRED';
+    errorCode = '23';
+    errorDescription = 'OTP code validity period exceeded before recipient acknowledgment.';
+    latency = '300.0s';
+  } else if (event === 'otp.sent') {
+    status = 'SENT';
+    errorCode = '0';
+    latency = '0.2s';
+  }
+
+  return {
+    event,
+    msgId: 'msg_live_8820a9bc4',
+    channel,
+    phoneNumber: '+60123456789',
+    status,
+    errorCode,
+    remark: 'Login verification #1024',
+    errorDescription,
+    cost: costMap[channel] || '0.0075',
+    currency: 'USD',
+    latency,
+    timestamp: new Date().toISOString()
+  };
+}
+
+// Webhook listener code snippet generator
+function getWebhookReceiverSnippet(lang = 'node') {
+  if (lang === 'node') {
+    return `// Node.js (Express) Webhook Listener
+const express = require('express');
+const app = express();
+app.use(express.json());
+
+app.post('/api/webhooks/otp88', (req, res) => {
+  const { event, msgId, channel, phoneNumber, status, errorCode, remark } = req.body;
+  
+  console.log(\`Received [\${event}] for \${channel} to \${phoneNumber}: Status = \${status} (Remark: \${remark || 'N/A'})\`);
+
+  if (status === 'DELIVERED') {
+    // Handset received OTP successfully
+  } else if (status === 'READ') {
+    // Handset opened & read message (WhatsApp Blue Tick)
+  } else if (status === 'UNDELIVERED' || status === 'FAILED' || status === 'EXPIRED') {
+    // Delivery failed -> trigger multi-channel waterfall fallback
+  }
+
+  // Acknowledge receipt with HTTP 200 OK immediately
+  res.status(200).json({ received: true });
+});
+
+app.listen(3000, () => console.log('Webhook server listening on port 3000'));`;
+  }
+
+  if (lang === 'python') {
+    return `# Python (FastAPI) Webhook Listener
+from fastapi import FastAPI, Request
+
+app = FastAPI()
+
+@app.post("/api/webhooks/otp88")
+async def handle_otp88_webhook(request: Request):
+    payload = await request.json()
+    event = payload.get("event")
+    channel = payload.get("channel")
+    status = payload.get("status")
+    remark = payload.get("remark")
+    
+    print(f"Received [{event}] on {channel}: status={status}, remark={remark}")
+    
+    # Return 200 OK
+    return {"received": True}`;
+  }
+
+  if (lang === 'php') {
+    return `<?php
+// PHP Webhook Listener
+$rawBody = file_get_contents('php://input');
+$event = json_decode($rawBody, true);
+
+if ($event) {
+    $channel = $event['channel'] ?? 'unknown';
+    $status = $event['status'] ?? 'unknown';
+    $remark = $event['remark'] ?? '';
+    error_log("OTP88 Webhook: channel={$channel}, status={$status}, remark={$remark}");
+}
+
+// Acknowledge receipt with HTTP 200
+http_response_code(200);
+header('Content-Type: application/json');
+echo json_encode(['received' => true]);
+?>`;
+  }
+
+  return '';
+}
+
 // API & Keys Integration Spreadsheet View
-function ApiView({ t, session, revealedApiKey, setRevealedApiKey, copyToClipboard, showToast }) {
+function ApiView({ t, session, setSession, jwtToken, revealedApiKey, setRevealedApiKey, copyToClipboard, showToast }) {
   const currentOrigin = typeof window !== 'undefined' && window.location.origin
     ? window.location.origin
     : 'http://localhost:8884';
@@ -154,6 +282,61 @@ function ApiView({ t, session, revealedApiKey, setRevealedApiKey, copyToClipboar
   const [selectedChannel, setSelectedChannel] = useState('whatsapp');
   const [selectedLang, setSelectedLang] = useState('curl');
   const [selectedAction, setSelectedAction] = useState('send');
+
+  // Collapsible sections state
+  const [isApiCodeOpen, setIsApiCodeOpen] = useState(true);
+  const [isWebhookSampleOpen, setIsWebhookSampleOpen] = useState(false);
+
+  // Webhook State
+  const [webhookUrlInput, setWebhookUrlInput] = useState(session?.webhookUrl || '');
+  const [isSavingWebhook, setIsSavingWebhook] = useState(false);
+  const [isTestingWebhook, setIsTestingWebhook] = useState(false);
+  const [webhookSampleChannel, setWebhookSampleChannel] = useState('whatsapp');
+  const [webhookSampleEvent, setWebhookSampleEvent] = useState('otp.delivered');
+  const [webhookReceiverLang, setWebhookReceiverLang] = useState('node');
+
+  useEffect(() => {
+    if (session?.webhookUrl !== undefined && session.webhookUrl !== null) {
+      setWebhookUrlInput(session.webhookUrl);
+    }
+  }, [session?.webhookUrl]);
+
+  // Channel-specific available events
+  const availableEvents = useMemo(() => {
+    if (webhookSampleChannel === 'whatsapp') {
+      return [
+        { id: 'otp.delivered', label: 'otp.delivered (Delivered - Handset ACK)' },
+        { id: 'otp.read', label: 'otp.read (Read - Blue Tick)' },
+        { id: 'otp.undelivered', label: 'otp.undelivered (Offline / Unreachable)' },
+        { id: 'otp.failed', label: 'otp.failed (Network Reject)' },
+        { id: 'otp.expired', label: 'otp.expired (Timeout Exceeded)' },
+        { id: 'otp.sent', label: 'otp.sent (Dispatched)' }
+      ];
+    }
+    if (webhookSampleChannel === 'sms') {
+      return [
+        { id: 'otp.delivered', label: 'otp.delivered (Delivered - Telco ACK)' },
+        { id: 'otp.undelivered', label: 'otp.undelivered (No Cellular Coverage)' },
+        { id: 'otp.failed', label: 'otp.failed (Invalid Number / Barred)' },
+        { id: 'otp.expired', label: 'otp.expired (Expired in SMSC Queue)' },
+        { id: 'otp.sent', label: 'otp.sent (Enroute / Dispatched)' }
+      ];
+    }
+    return [
+      { id: 'otp.delivered', label: 'otp.delivered (Delivered)' },
+      { id: 'otp.read', label: 'otp.read (Read in Chat)' },
+      { id: 'otp.failed', label: 'otp.failed (Bot Blocked / Invalid User)' },
+      { id: 'otp.expired', label: 'otp.expired (Verification Timeout)' },
+      { id: 'otp.sent', label: 'otp.sent (Sent)' }
+    ];
+  }, [webhookSampleChannel]);
+
+  // Ensure selected event exists for channel
+  useEffect(() => {
+    if (!availableEvents.some(ev => ev.id === webhookSampleEvent)) {
+      setWebhookSampleEvent('otp.delivered');
+    }
+  }, [availableEvents, webhookSampleEvent]);
 
   const rawKey = session?.apiKeyLive || 'otp88_api_88a90184bcedf41';
   const apiKey = useMemo(() => {
@@ -185,9 +368,94 @@ function ApiView({ t, session, revealedApiKey, setRevealedApiKey, copyToClipboar
     });
   }, [currentOrigin, apiKey, selectedChannel, selectedLang, selectedAction]);
 
+  const sampleWebhookJson = useMemo(() => {
+    return JSON.stringify(
+      getWebhookSamplePayload({ channel: webhookSampleChannel, event: webhookSampleEvent }),
+      null,
+      2
+    );
+  }, [webhookSampleChannel, webhookSampleEvent]);
+
+  const activeReceiverSnippet = useMemo(() => {
+    return getWebhookReceiverSnippet(webhookReceiverLang);
+  }, [webhookReceiverLang]);
+
+  // Handle Save Webhook URL
+  const handleSaveWebhook = async () => {
+    const cleanUrl = webhookUrlInput.trim();
+    if (cleanUrl && !cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+      if (showToast) showToast('Webhook URL must start with http:// or https://', 'error');
+      return;
+    }
+
+    setIsSavingWebhook(true);
+    try {
+      const res = await fetch('/api/user/webhook', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': jwtToken ? `Bearer ${jwtToken}` : ''
+        },
+        body: JSON.stringify({ webhookUrl: cleanUrl })
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (setSession) {
+          setSession(prev => {
+            const next = { ...prev, webhookUrl: cleanUrl };
+            localStorage.setItem('otp88_session', JSON.stringify(next));
+            return next;
+          });
+        }
+        if (showToast) showToast('Webhook URL saved successfully!');
+      } else {
+        if (showToast) showToast(data.error || 'Failed to update Webhook URL', 'error');
+      }
+    } catch (err) {
+      if (showToast) showToast('Network error saving Webhook URL', 'error');
+    } finally {
+      setIsSavingWebhook(false);
+    }
+  };
+
+  // Handle Test Ping Webhook
+  const handleTestWebhook = async () => {
+    const targetUrl = webhookUrlInput.trim() || session?.webhookUrl;
+    if (!targetUrl) {
+      if (showToast) showToast('Please enter and save a Webhook URL first.', 'error');
+      return;
+    }
+
+    setIsTestingWebhook(true);
+    try {
+      const res = await fetch('/api/user/webhook/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': jwtToken ? `Bearer ${jwtToken}` : ''
+        },
+        body: JSON.stringify({
+          webhookUrl: targetUrl,
+          channel: webhookSampleChannel,
+          event: webhookSampleEvent
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (showToast) showToast(data.message || 'Test webhook delivered successfully!');
+      } else {
+        if (showToast) showToast(data.error || 'Could not reach test webhook', 'error');
+      }
+    } catch (err) {
+      if (showToast) showToast('Error sending test webhook ping', 'error');
+    } finally {
+      setIsTestingWebhook(false);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-      {/* API Key */}
+      {/* 1. API Key Card */}
       <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '10px', background: '#FFFFFF' }}>
         <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>
           {t.prodApiKey || 'API Key'}
@@ -216,100 +484,315 @@ function ApiView({ t, session, revealedApiKey, setRevealedApiKey, copyToClipboar
             {t.copyKey || 'Copy Key'}
           </button>
         </div>
+        <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '6px' }}>
+          {t.apiKeyDesc || 'Include this secret key in the Authorization: Bearer <API_KEY> header to authenticate your API requests.'}
+        </div>
       </div>
 
-      {/* Code Examples & Channel Selectors */}
+      {/* 2. Webhook URL Card (Identical structure and CSS to API Key card) */}
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '10px', background: '#FFFFFF' }}>
+        <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+          {t.webhookUrl || 'Webhook URL'}
+        </div>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <input
+            type="text"
+            className="sheets-input sheets-input-code"
+            placeholder="https://your-api.com/api/webhooks/otp88"
+            value={webhookUrlInput}
+            onChange={(e) => setWebhookUrlInput(e.target.value)}
+          />
+          <button
+            type="button"
+            className="sheets-btn"
+            onClick={handleTestWebhook}
+            disabled={isTestingWebhook || !webhookUrlInput.trim()}
+            style={{ minWidth: '95px' }}
+          >
+            {isTestingWebhook ? 'Testing...' : 'Test Webhook'}
+          </button>
+          <button
+            type="button"
+            className="sheets-btn sheets-btn-primary"
+            onClick={handleSaveWebhook}
+            disabled={isSavingWebhook}
+            style={{ minWidth: '105px' }}
+          >
+            {isSavingWebhook ? 'Saving...' : (t.saveWebhook || 'Save Webhook')}
+          </button>
+        </div>
+        <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '6px' }}>
+          {t.webhookUrlDesc || 'Configure your HTTPS endpoint to receive real-time delivery receipts (DLR) and message status event callbacks.'}
+        </div>
+      </div>
+
+      {/* 3. API Code Examples & Channel Selectors Card (Collapsible) */}
       <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-        <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <div
+          onClick={() => setIsApiCodeOpen(!isApiCodeOpen)}
+          style={{
+            background: '#F8FAFC',
+            padding: '8px 12px',
+            borderBottom: isApiCodeOpen ? '1px solid var(--border-subtle)' : 'none',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '8px',
+            cursor: 'pointer',
+            userSelect: 'none'
+          }}
+        >
           <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ display: 'inline-block', transition: 'transform 0.2s ease', transform: isApiCodeOpen ? 'rotate(90deg)' : 'rotate(0deg)', fontSize: '10px' }}>
+              ▶
+            </span>
             <span>{t.quickstartCode || 'API Code Examples'}</span>
             <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'normal' }}>
-              ({selectedAction === 'send' ? 'POST /v1/otp/send' : 'POST /v1/otp/verify'})
+              ({selectedAction === 'send' ? `POST ${currentOrigin}/v1/otp/send` : `POST ${currentOrigin}/v1/otp/verify`})
             </span>
           </div>
 
-          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+              <button
+                type="button"
+                className={`sheets-btn ${selectedAction === 'send' ? 'sheets-btn-primary' : ''}`}
+                style={{ fontSize: '10px', padding: '2px 8px' }}
+                onClick={() => setSelectedAction('send')}
+              >
+                Send OTP
+              </button>
+              <button
+                type="button"
+                className={`sheets-btn ${selectedAction === 'verify' ? 'sheets-btn-primary' : ''}`}
+                style={{ fontSize: '10px', padding: '2px 8px' }}
+                onClick={() => setSelectedAction('verify')}
+              >
+                Verify OTP
+              </button>
+            </div>
             <button
               type="button"
-              className={`sheets-btn ${selectedAction === 'send' ? 'sheets-btn-primary' : ''}`}
+              className="sheets-btn"
+              onClick={() => setIsApiCodeOpen(!isApiCodeOpen)}
               style={{ fontSize: '10px', padding: '2px 8px' }}
-              onClick={() => setSelectedAction('send')}
             >
-              Send OTP
-            </button>
-            <button
-              type="button"
-              className={`sheets-btn ${selectedAction === 'verify' ? 'sheets-btn-primary' : ''}`}
-              style={{ fontSize: '10px', padding: '2px 8px' }}
-              onClick={() => setSelectedAction('verify')}
-            >
-              Verify OTP
+              {isApiCodeOpen ? 'Collapse' : 'Expand'}
             </button>
           </div>
         </div>
 
-        {/* Channel & Language Controls */}
-        <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '8px', background: '#FAFAFA' }}>
-          {selectedAction === 'send' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', width: '65px' }}>Channel:</span>
-              {[
-                { id: 'whatsapp', label: 'WhatsApp OTP' },
-                { id: 'sms', label: 'SMS OTP' },
-                { id: 'telegram', label: 'Telegram OTP' }
-              ].map(ch => (
-                <button
-                  key={ch.id}
-                  type="button"
-                  className={`sheets-btn ${selectedChannel === ch.id ? 'sheets-btn-primary' : ''}`}
-                  onClick={() => setSelectedChannel(ch.id)}
-                  style={{ fontSize: '10px', padding: '3px 8px' }}
-                >
-                  {ch.label}
-                </button>
-              ))}
-            </div>
-          )}
+        {/* Collapsible Content */}
+        {isApiCodeOpen && (
+          <>
+            {/* Channel & Language Controls */}
+            <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '8px', background: '#FAFAFA' }}>
+              {selectedAction === 'send' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', width: '65px' }}>Channel:</span>
+                  {[
+                    { id: 'whatsapp', label: 'WhatsApp OTP' },
+                    { id: 'sms', label: 'SMS OTP' },
+                    { id: 'telegram', label: 'Telegram OTP' }
+                  ].map(ch => (
+                    <button
+                      key={ch.id}
+                      type="button"
+                      className={`sheets-btn ${selectedChannel === ch.id ? 'sheets-btn-primary' : ''}`}
+                      onClick={() => setSelectedChannel(ch.id)}
+                      style={{ fontSize: '10px', padding: '3px 8px' }}
+                    >
+                      {ch.label}
+                    </button>
+                  ))}
+                </div>
+              )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', width: '65px' }}>Language:</span>
-            {[
-              { id: 'curl', label: 'cURL' },
-              { id: 'node', label: 'Node.js' },
-              { id: 'python', label: 'Python' },
-              { id: 'php', label: 'PHP' },
-              { id: 'go', label: 'Go' }
-            ].map(lang => (
-              <button
-                key={lang.id}
-                type="button"
-                className={`sheets-btn ${selectedLang === lang.id ? 'sheets-btn-primary' : ''}`}
-                onClick={() => setSelectedLang(lang.id)}
-                style={{ fontSize: '10px', padding: '3px 8px' }}
-              >
-                {lang.label}
-              </button>
-            ))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', width: '65px' }}>Language:</span>
+                {[
+                  { id: 'curl', label: 'cURL' },
+                  { id: 'node', label: 'Node.js' },
+                  { id: 'python', label: 'Python' },
+                  { id: 'php', label: 'PHP' },
+                  { id: 'go', label: 'Go' }
+                ].map(lang => (
+                  <button
+                    key={lang.id}
+                    type="button"
+                    className={`sheets-btn ${selectedLang === lang.id ? 'sheets-btn-primary' : ''}`}
+                    onClick={() => setSelectedLang(lang.id)}
+                    style={{ fontSize: '10px', padding: '3px 8px' }}
+                  >
+                    {lang.label}
+                  </button>
+                ))}
 
-            <div style={{ marginLeft: 'auto' }}>
-              <button
-                type="button"
-                className="sheets-btn"
-                onClick={() => copyToClipboard(activeSnippet, `${selectedChannel.toUpperCase()} ${selectedLang.toUpperCase()} example`)}
-                style={{ fontSize: '10px', padding: '3px 10px', fontWeight: '700' }}
-              >
-                Copy Code
-              </button>
+                <div style={{ marginLeft: 'auto' }}>
+                  <button
+                    type="button"
+                    className="sheets-btn"
+                    onClick={() => copyToClipboard(activeSnippet, `${selectedChannel.toUpperCase()} ${selectedLang.toUpperCase()} example`)}
+                    style={{ fontSize: '10px', padding: '3px 10px', fontWeight: '700' }}
+                  >
+                    Copy Code
+                  </button>
+                </div>
+              </div>
             </div>
+
+            {/* Code View */}
+            <div style={{ padding: '12px', background: '#0F172A' }}>
+              <pre style={{ margin: 0, color: '#38BDF8', fontFamily: 'var(--font-code)', fontSize: '11px', lineHeight: 1.5, overflowX: 'auto' }}>
+                {activeSnippet}
+              </pre>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* 4. Sample Webhook Payload & Event Schema Card (Collapsible) */}
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
+        <div
+          onClick={() => setIsWebhookSampleOpen(!isWebhookSampleOpen)}
+          style={{
+            background: '#F8FAFC',
+            padding: '8px 12px',
+            borderBottom: isWebhookSampleOpen ? '1px solid var(--border-subtle)' : 'none',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '8px',
+            cursor: 'pointer',
+            userSelect: 'none'
+          }}
+        >
+          <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ display: 'inline-block', transition: 'transform 0.2s ease', transform: isWebhookSampleOpen ? 'rotate(90deg)' : 'rotate(0deg)', fontSize: '10px' }}>
+              ▶
+            </span>
+            <span>Sample Webhook Payload & Events</span>
+            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'normal' }}>
+              (POST body sent to your Webhook URL)
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="sheets-btn"
+              onClick={() => copyToClipboard(sampleWebhookJson, 'Sample Webhook Payload JSON')}
+              style={{ fontSize: '10px', padding: '2px 8px', fontWeight: '700' }}
+            >
+              Copy JSON
+            </button>
+            <button
+              type="button"
+              className="sheets-btn"
+              onClick={() => setIsWebhookSampleOpen(!isWebhookSampleOpen)}
+              style={{ fontSize: '10px', padding: '2px 8px' }}
+            >
+              {isWebhookSampleOpen ? 'Collapse' : 'Expand'}
+            </button>
           </div>
         </div>
 
-        {/* Code View */}
-        <div style={{ padding: '12px', background: '#0F172A' }}>
-          <pre style={{ margin: 0, color: '#38BDF8', fontFamily: 'var(--font-code)', fontSize: '11px', lineHeight: 1.5, overflowX: 'auto' }}>
-            {activeSnippet}
-          </pre>
-        </div>
+        {/* Collapsible Content */}
+        {isWebhookSampleOpen && (
+          <>
+            {/* Filters for Sample Payload */}
+            <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '8px', background: '#FAFAFA' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', width: '55px' }}>Channel:</span>
+                {[
+                  { id: 'whatsapp', label: 'WhatsApp' },
+                  { id: 'sms', label: 'SMS' },
+                  { id: 'telegram', label: 'Telegram' }
+                ].map(ch => (
+                  <button
+                    key={ch.id}
+                    type="button"
+                    className={`sheets-btn ${webhookSampleChannel === ch.id ? 'sheets-btn-primary' : ''}`}
+                    onClick={() => setWebhookSampleChannel(ch.id)}
+                    style={{ fontSize: '10px', padding: '2px 8px' }}
+                  >
+                    {ch.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Dynamic Status / Event Buttons based on Channel */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', width: '55px' }}>Event:</span>
+                {availableEvents.map(ev => (
+                  <button
+                    key={ev.id}
+                    type="button"
+                    className={`sheets-btn ${webhookSampleEvent === ev.id ? 'sheets-btn-primary' : ''}`}
+                    onClick={() => setWebhookSampleEvent(ev.id)}
+                    style={{ fontSize: '10px', padding: '2px 8px' }}
+                  >
+                    {ev.label}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', width: '55px' }}>Receiver:</span>
+                {[
+                  { id: 'node', label: 'Node.js (Express)' },
+                  { id: 'python', label: 'Python (FastAPI)' },
+                  { id: 'php', label: 'PHP' }
+                ].map(lang => (
+                  <button
+                    key={lang.id}
+                    type="button"
+                    className={`sheets-btn ${webhookReceiverLang === lang.id ? 'sheets-btn-primary' : ''}`}
+                    onClick={() => setWebhookReceiverLang(lang.id)}
+                    style={{ fontSize: '10px', padding: '2px 8px' }}
+                  >
+                    {lang.label}
+                  </button>
+                ))}
+                <div style={{ marginLeft: 'auto' }}>
+                  <button
+                    type="button"
+                    className="sheets-btn"
+                    onClick={() => copyToClipboard(activeReceiverSnippet, `${webhookReceiverLang.toUpperCase()} webhook listener snippet`)}
+                    style={{ fontSize: '10px', padding: '2px 8px' }}
+                  >
+                    Copy Handler Code
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Code Views Side-by-Side on Desktop */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', background: '#0F172A' }}>
+              {/* Left: JSON Payload */}
+              <div style={{ padding: '12px', borderRight: '1px solid #1E293B' }}>
+                <div style={{ color: '#94A3B8', fontSize: '10px', fontWeight: '700', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  // Webhook JSON Payload
+                </div>
+                <pre style={{ margin: 0, color: '#38BDF8', fontFamily: 'var(--font-code)', fontSize: '11px', lineHeight: 1.45, overflowX: 'auto' }}>
+                  {sampleWebhookJson}
+                </pre>
+              </div>
+
+              {/* Right: Handler Implementation */}
+              <div style={{ padding: '12px' }}>
+                <div style={{ color: '#94A3B8', fontSize: '10px', fontWeight: '700', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  // Backend Webhook Handler ({webhookReceiverLang.toUpperCase()})
+                </div>
+                <pre style={{ margin: 0, color: '#A7F3D0', fontFamily: 'var(--font-code)', fontSize: '11px', lineHeight: 1.45, overflowX: 'auto' }}>
+                  {activeReceiverSnippet}
+                </pre>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

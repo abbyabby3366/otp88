@@ -1,29 +1,6 @@
 [
   {
-    "country": "Malaysia",
-    "code": "MY",
-    "dialCode": "+60",
-    "flag": "🇲🇾",
-    "whatsapp": 0.0075,
-    "telegram": 0.0035,
-    "sms": 0.0210,
-    "avgLatency": "0.8s",
-    "successRate": "99.98%",
-    "directRoutes": ["Celcom", "Digi", "Maxis", "U Mobile"]
-  },
-  {
-    "country": "Singapore",
-    "code": "SG",
-    "dialCode": "+65",
-    "flag": "🇸🇬",
-    "whatsapp": 0.0075,
-    "telegram": 0.0035,
-    "sms": null,
-    "avgLatency": "0.8s",
-    "successRate": "99.98%",
-    "directRoutes": ["WhatsApp Global", "Telegram Bot"]
-  },
-  {
+    "_id": "6a8019eccb6791a960c9c70d",
     "country": "Indonesia",
     "code": "ID",
     "dialCode": "+62",
@@ -31,35 +8,44 @@
     "whatsapp": 0.0075,
     "telegram": 0.0035,
     "sms": null,
-    "avgLatency": "0.8s",
-    "successRate": "99.98%",
-    "directRoutes": ["WhatsApp Global", "Telegram Bot"]
+    "voice": 0.032,
+    "legacySms": 0.049,
+    "avgLatency": "1.6s",
+    "successRate": "99.91%",
+    "directRoutes": [
+      "Telkomsel",
+      "Indosat",
+      "XL Axiata"
+    ],
+    "__v": 0,
+    "createdAt": "2026-08-15T07:49:00.963Z",
+    "updatedAt": "2026-08-17T07:33:15.571Z"
   },
   {
-    "country": "Thailand",
-    "code": "TH",
-    "dialCode": "+66",
-    "flag": "🇹🇭",
+    "_id": "6a8019eccb6791a960c9c70b",
+    "country": "Malaysia",
+    "code": "MY",
+    "dialCode": "+60",
+    "flag": "🇲🇾",
     "whatsapp": 0.0075,
     "telegram": 0.0035,
-    "sms": null,
-    "avgLatency": "0.8s",
-    "successRate": "99.98%",
-    "directRoutes": ["WhatsApp Global", "Telegram Bot"]
+    "sms": 0.021,
+    "voice": 0.024,
+    "legacySms": 0.038,
+    "avgLatency": "1.4s",
+    "successRate": "99.96%",
+    "directRoutes": [
+      "Celcom",
+      "Digi",
+      "Maxis",
+      "U Mobile"
+    ],
+    "__v": 0,
+    "createdAt": "2026-08-15T07:49:00.962Z",
+    "updatedAt": "2026-08-17T07:33:15.649Z"
   },
   {
-    "country": "Vietnam",
-    "code": "VN",
-    "dialCode": "+84",
-    "flag": "🇻🇳",
-    "whatsapp": 0.0075,
-    "telegram": 0.0035,
-    "sms": null,
-    "avgLatency": "0.8s",
-    "successRate": "99.98%",
-    "directRoutes": ["WhatsApp Global", "Telegram Bot"]
-  },
-  {
+    "_id": "6a8019eccb6791a960c9c710",
     "country": "Philippines",
     "code": "PH",
     "dialCode": "+63",
@@ -67,8 +53,83 @@
     "whatsapp": 0.0075,
     "telegram": 0.0035,
     "sms": null,
-    "avgLatency": "0.8s",
-    "successRate": "99.98%",
-    "directRoutes": ["WhatsApp Global", "Telegram Bot"]
+    "voice": 0.03,
+    "legacySms": 0.044,
+    "avgLatency": "1.8s",
+    "successRate": "99.90%",
+    "directRoutes": [
+      "Globe",
+      "Smart",
+      "DITO"
+    ],
+    "__v": 0,
+    "createdAt": "2026-08-15T07:49:00.963Z",
+    "updatedAt": "2026-08-17T07:33:15.571Z"
+  },
+  {
+    "_id": "6a8019eccb6791a960c9c70c",
+    "country": "Singapore",
+    "code": "SG",
+    "dialCode": "+65",
+    "flag": "🇸🇬",
+    "whatsapp": 0.0075,
+    "telegram": 0.0035,
+    "sms": null,
+    "voice": 0.028,
+    "legacySms": 0.045,
+    "avgLatency": "1.2s",
+    "successRate": "99.99%",
+    "directRoutes": [
+      "Singtel",
+      "StarHub",
+      "M1"
+    ],
+    "__v": 0,
+    "createdAt": "2026-08-15T07:49:00.963Z",
+    "updatedAt": "2026-08-17T07:33:15.571Z"
+  },
+  {
+    "_id": "6a8019eccb6791a960c9c70e",
+    "country": "Thailand",
+    "code": "TH",
+    "dialCode": "+66",
+    "flag": "🇹🇭",
+    "whatsapp": 0.0075,
+    "telegram": 0.0035,
+    "sms": null,
+    "voice": 0.027,
+    "legacySms": 0.039,
+    "avgLatency": "1.5s",
+    "successRate": "99.94%",
+    "directRoutes": [
+      "AIS",
+      "TrueMove H",
+      "DTAC"
+    ],
+    "__v": 0,
+    "createdAt": "2026-08-15T07:49:00.963Z",
+    "updatedAt": "2026-08-17T07:33:15.571Z"
+  },
+  {
+    "_id": "6a8019eccb6791a960c9c70f",
+    "country": "Vietnam",
+    "code": "VN",
+    "dialCode": "+84",
+    "flag": "🇻🇳",
+    "whatsapp": 0.0075,
+    "telegram": 0.0035,
+    "sms": null,
+    "voice": 0.031,
+    "legacySms": 0.046,
+    "avgLatency": "1.7s",
+    "successRate": "99.92%",
+    "directRoutes": [
+      "Viettel",
+      "Vinaphone",
+      "MobiFone"
+    ],
+    "__v": 0,
+    "createdAt": "2026-08-15T07:49:00.963Z",
+    "updatedAt": "2026-08-17T07:33:15.571Z"
   }
 ]

@@ -615,19 +615,20 @@ export default function App() {
     }
   };
 
-  const handleCreateUser = async (e) => {
+  const handleCreateUser = async (e, customPayload = null) => {
     if (e && e.preventDefault) e.preventDefault();
-    if (!newUserEmail.trim()) return false;
+    const payload = customPayload || {
+      name: newUserName.trim() || newUserEmail.split('@')[0],
+      email: newUserEmail.trim(),
+      role: 'USER',
+      balanceUsd: parseFloat(newUserBalance) || 100.00
+    };
+    if (!payload.email || !payload.email.trim()) return false;
     try {
       const res = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
-        body: JSON.stringify({
-          name: newUserName.trim() || newUserEmail.split('@')[0],
-          email: newUserEmail.trim(),
-          role: 'USER',
-          balanceUsd: parseFloat(newUserBalance) || 100.00
-        })
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (data.success) {
@@ -668,6 +669,9 @@ export default function App() {
       const data = await res.json();
       if (data.success) {
         showToast(lang === 'zh' ? '费率已更新' : 'Carrier rates updated successfully');
+        if (data.rates && Array.isArray(data.rates)) {
+          setRatesList(data.rates);
+        }
         fetchRates();
       } else {
         showToast(data.error || 'Failed to update rates', 'error');
@@ -970,6 +974,8 @@ export default function App() {
                 <ApiView
                   t={t}
                   session={session}
+                  setSession={setSession}
+                  jwtToken={jwtToken}
                   revealedApiKey={revealedApiKey}
                   setRevealedApiKey={setRevealedApiKey}
                   copyToClipboard={copyToClipboard}

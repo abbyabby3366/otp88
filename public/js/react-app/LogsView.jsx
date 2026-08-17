@@ -1,6 +1,33 @@
 import React, { useState, useMemo } from 'react';
 import { TableLoader } from './TableLoader.jsx';
 
+// Format date-time helper (YYYY-MM-DD HH:mm:ss)
+function formatDateTime(val) {
+  if (!val) return '-';
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(:\d{2})?$/.test(trimmed)) {
+      return trimmed;
+    }
+    if (/^\d{2}:\d{2}(:\d{2})?$/.test(trimmed)) {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd} ${trimmed}`;
+    }
+  }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return String(val);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+}
+
 // User OTP Logs Component (with Filters & Pagination)
 function LogsView({ t, logs = [], loading = false }) {
   const [platformFilter, setPlatformFilter] = useState('ALL');
@@ -96,13 +123,13 @@ function LogsView({ t, logs = [], loading = false }) {
             <tr>
               <th style={{ width: '35px' }}>#</th>
               <th>{t.txId || 'Transaction ID'}</th>
-              <th>{t.recipient || 'Recipient Phone'}</th>
+              <th>{t.recipient || 'Recipient'}</th>
               <th>{t.carrierRoute || 'Channel'}</th>
               <th>Message Content</th>
               <th>Latency</th>
               <th>{t.unitCost || 'Cost'}</th>
               <th>{t.status || 'Status'}</th>
-              <th>{t.timestamp || 'Time'}</th>
+              <th>{t.timestamp || 'Date & Time'}</th>
             </tr>
           </thead>
           <tbody>
@@ -131,7 +158,7 @@ function LogsView({ t, logs = [], loading = false }) {
                       (log.channel || '').toUpperCase().includes('EMAIL') ? 'sheets-badge-cyan' :
                       'sheets-badge-amber'
                     }`}>
-                      {log.channel}
+                      {(log.channel || '').toUpperCase().includes('WHATSAPP') ? 'WhatsApp VerifyWay' : (log.channel || '').toUpperCase().includes('SMS') || (log.channel || '').toUpperCase().includes('360') || (log.channel || '').toUpperCase().includes('TELCO') ? 'SMS 360' : log.channel}
                     </span>
                   </td>
                   <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '11px', color: 'var(--text-primary)' }} title={log.message || (log.otpCode ? `Your ${log.senderId || 'Alibaba'} verification code is ${log.otpCode}. Valid for 5 minutes.` : 'Authentication OTP Message')}>
@@ -144,7 +171,9 @@ function LogsView({ t, logs = [], loading = false }) {
                       {log.status === 'FAILED' ? 'FAILED' : (log.status || 'DELIVERED')}
                     </span>
                   </td>
-                  <td style={{ fontFamily: 'var(--font-code)', color: 'var(--text-muted)', fontSize: '11px' }}>{log.time}</td>
+                  <td style={{ fontFamily: 'var(--font-code)', color: 'var(--text-muted)', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                    {formatDateTime(log.createdAt || log.time)}
+                  </td>
                 </tr>
               ))
             )}

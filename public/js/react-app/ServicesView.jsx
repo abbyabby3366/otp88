@@ -94,7 +94,7 @@ function ServicesView({ t, ratesList, simPhone, setSimPhone, simChannel, setSimC
           </thead>
           <tbody>
             <tr>
-              <td><strong>Direct Telco SMS</strong></td>
+              <td><strong>SMS 360</strong></td>
               <td>
                 <span style={{ marginRight: '6px' }}>🇲🇾</span>
                 <strong>Malaysia (+60) Only</strong>

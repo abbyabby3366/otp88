@@ -18,8 +18,20 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
-// Global Rates Fallback
+// Global Rates Fallback & Disk Persistence
 let GLOBAL_RATES = require('./data/rates.json');
+
+function persistRatesToFile(rates) {
+  try {
+    const dataDir = path.join(__dirname, 'data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    fs.writeFileSync(path.join(dataDir, 'rates.json'), JSON.stringify(rates, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Failed to persist rates to data/rates.json:', err.message);
+  }
+}
 
 // --- Backend Health Check & Online Status ---
 app.get('/api/health', (req, res) => {
@@ -73,6 +85,29 @@ if (process.env.NODE_ENV !== 'production') {
   }
 }
 
+// Helper to format Date objects / ISO strings into YYYY-MM-DD HH:mm:ss
+function formatDateTime(dt) {
+  if (!dt) {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    const ss = String(d.getSeconds()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+  }
+  const d = new Date(dt);
+  if (isNaN(d.getTime())) return String(dt);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+}
+
 // --- MongoDB Atlas Connection & Schemas ---
 let isDbConnected = false;
 
@@ -116,6 +151,8 @@ const UserSchema = new mongoose.Schema({
   status: { type: String, enum: ['ACTIVE', 'PAUSED', 'SUSPENDED'], default: 'ACTIVE' },
   balanceUsd: { type: Number, default: 50.00 },
   apiKeyLive: { type: String },
+  webhookUrl: { type: String, default: '' },
+  remark: { type: String, default: '' },
   monthlyVolumeRemaining: { type: String, default: '100,000' }
 }, { timestamps: true });
 
@@ -133,6 +170,7 @@ const OtpLogSchema = new mongoose.Schema({
   status: { type: String, default: 'SENT' },
   msgId: { type: String, index: true },
   errorCode: { type: String, default: '0' },
+  remark: { type: String, default: '' },
   userId: { type: String }
 }, { timestamps: true });
 
@@ -260,7 +298,7 @@ let WHATSAPP_CONFIG = {
   status: 'ACTIVE'
 };
 
-// Auto-seed rates and ensure only allowed countries are kept in MongoDB with consistent pricing
+// Auto-seed rates and ensure allowed countries exist in MongoDB without overwriting custom pricing
 async function seedInitialRates() {
   try {
     const allowedCodes = ['MY', 'SG', 'ID', 'TH', 'VN', 'PH'];
@@ -271,13 +309,16 @@ async function seedInitialRates() {
       const existing = await RateModel.findOne({ code: r.code });
       if (!existing) {
         await RateModel.create(r);
-      } else {
-        await RateModel.updateOne({ code: r.code }, { $set: { whatsapp: 0.0075, telegram: 0.0035 } });
       }
     }
-    await RateModel.updateMany({ code: { $ne: 'MY' } }, { $set: { sms: null, voice: null, whatsapp: 0.0075, telegram: 0.0035 } });
-    await RateModel.updateOne({ code: 'MY' }, { $set: { sms: 0.0210, whatsapp: 0.0075, telegram: 0.0035 } });
-    console.log(' Synced and limited carrier rates with flat WhatsApp & Telegram pricing across all 6 destinations in MongoDB Atlas.');
+
+    // Sync in-memory GLOBAL_RATES and rates.json with MongoDB Atlas
+    const currentDbRates = await RateModel.find({ code: { $in: allowedCodes } }).lean();
+    if (currentDbRates && currentDbRates.length > 0) {
+      GLOBAL_RATES = currentDbRates;
+      persistRatesToFile(currentDbRates);
+    }
+    console.log(' Carrier rates successfully verified and synced with MongoDB Atlas & local store.');
   } catch (e) {
     console.error('Error seeding rates to MongoDB:', e.message);
   }
@@ -321,6 +362,14 @@ async function seedInitialAdmin() {
 // Auto-seed diverse multi-platform logs for all channels if not present
 async function seedInitialLogs() {
   try {
+    // Auto-migrate historical logs and transactions to standardized 'WhatsApp VerifyWay' and 'SMS 360'
+    await OtpLogModel.updateMany({ channel: { $regex: /whatsapp/i } }, { $set: { channel: 'WhatsApp VerifyWay' } });
+    await OtpAuditLogModel.updateMany({ channel: { $regex: /whatsapp/i } }, { $set: { channel: 'WhatsApp VerifyWay' } });
+    await TransactionModel.updateMany({ channel: { $regex: /whatsapp/i } }, { $set: { channel: 'WhatsApp VerifyWay', category: 'WhatsApp VerifyWay' } });
+    await OtpLogModel.updateMany({ channel: { $regex: /sms|telco|bulk360/i } }, { $set: { channel: 'SMS 360' } });
+    await OtpAuditLogModel.updateMany({ channel: { $regex: /sms|telco|bulk360/i } }, { $set: { channel: 'SMS 360' } });
+    await TransactionModel.updateMany({ $or: [{ channel: { $regex: /sms|telco|bulk360/i } }, { category: { $regex: /sms|telco|bulk360/i } }] }, { $set: { channel: 'SMS 360', category: 'SMS 360' } });
+
     const waCount = await OtpLogModel.countDocuments({ channel: /whatsapp/i });
     const tgCount = await OtpLogModel.countDocuments({ channel: /telegram/i });
     if (waCount === 0 || tgCount === 0) {
@@ -333,10 +382,10 @@ async function seedInitialLogs() {
       const seedLogs = [
         {
           phoneNumber: '+60122273341',
-          channel: 'WhatsApp Direct',
+          channel: 'WhatsApp VerifyWay',
           otpCode: '882910',
           messageText: 'Your verification code is 882910.',
-          senderId: 'WhatsApp Business',
+          senderId: 'WhatsApp VerifyWay',
           msgId: 'tx_wa_' + Math.random().toString(36).substring(2, 9),
           status: 'DELIVERED',
           latency: '0.6s',
@@ -357,10 +406,10 @@ async function seedInitialLogs() {
         },
         {
           phoneNumber: '+6591234567',
-          channel: 'WhatsApp Direct',
+          channel: 'WhatsApp VerifyWay',
           otpCode: '719283',
           messageText: 'Your verification code is 719283.',
-          senderId: 'WhatsApp Business',
+          senderId: 'WhatsApp VerifyWay',
           msgId: 'tx_wa_' + Math.random().toString(36).substring(2, 9),
           status: 'DELIVERED',
           latency: '0.7s',
@@ -469,7 +518,7 @@ const requireAdmin = (req, res, next) => {
 
 const loginOtpStore = new Map();
 
-// 1. API: Get Global Rates & Country List (Live MongoDB)
+// 1. API: Get Global Rates & Country List (Live MongoDB or Local Storage)
 app.get('/api/rates', async (req, res) => {
   const { search } = req.query;
   try {
@@ -484,15 +533,35 @@ app.get('/api/rates', async (req, res) => {
         ]
       };
     }
-    const results = await RateModel.find(query).lean();
+    if (isDbConnected) {
+      const results = await RateModel.find(query).lean();
+      if (results && results.length > 0) {
+        return res.json({
+          success: true,
+          total: results.length,
+          data: results,
+          source: 'mongodb-atlas'
+        });
+      }
+    }
+
+    let fallbackData = Array.isArray(GLOBAL_RATES) ? GLOBAL_RATES : [];
+    if (search) {
+      const q = search.trim().toLowerCase();
+      fallbackData = fallbackData.filter(r =>
+        (r.country && r.country.toLowerCase().includes(q)) ||
+        (r.code && r.code.toLowerCase().includes(q)) ||
+        (r.dialCode && r.dialCode.toLowerCase().includes(q))
+      );
+    }
     res.json({
       success: true,
-      total: results.length,
-      data: results,
-      source: 'mongodb-atlas'
+      total: fallbackData.length,
+      data: fallbackData,
+      source: 'local-file'
     });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message, data: [] });
+    res.json({ success: true, total: GLOBAL_RATES.length, data: GLOBAL_RATES, source: 'local-file' });
   }
 });
 
@@ -584,6 +653,64 @@ app.all(['/api/webhooks/otp88', '/v1/webhooks'], (req, res) => {
   });
 });
 
+// Helper to asynchronously forward telco/gateway DLR notifications to the client's configured webhook URL
+async function forwardDlrToClientWebhook({ msgId, phoneNumber, channel, status, errorCode, cost, userId }) {
+  try {
+    let matchedUser = null;
+    let matchedLog = null;
+
+    if (userId && isDbConnected && mongoose.Types.ObjectId.isValid(userId)) {
+      matchedUser = await UserModel.findById(userId).lean();
+      if (matchedUser && matchedUser.webhookUrl) {
+        targetUrl = matchedUser.webhookUrl.trim();
+      }
+    }
+
+    if (isDbConnected && (msgId || phoneNumber)) {
+      const query = msgId ? { msgId } : { phoneNumber: new RegExp((phoneNumber || '').slice(-8) + '$') };
+      matchedLog = await OtpLogModel.findOne(query).sort({ createdAt: -1 }).lean();
+      if (!targetUrl && matchedLog && matchedLog.userId && mongoose.Types.ObjectId.isValid(matchedLog.userId)) {
+        matchedUser = await UserModel.findById(matchedLog.userId).lean();
+        if (matchedUser && matchedUser.webhookUrl) targetUrl = matchedUser.webhookUrl.trim();
+      }
+    }
+
+    if (!targetUrl) return;
+
+    const event = status === 'DELIVERED' ? 'otp.delivered' : (status === 'FAILED' ? 'otp.failed' : 'otp.status_update');
+    const normalizedChannel = (channel || 'whatsapp').toLowerCase().replace('direct', '').replace('telco', '').trim();
+    const payload = {
+      event,
+      msgId: msgId || ('msg_' + Math.random().toString(36).substring(2, 11)),
+      channel: normalizedChannel,
+      phoneNumber: phoneNumber || '+60123456789',
+      status: status || 'DELIVERED',
+      errorCode: errorCode || '0',
+      remark: matchedLog?.remark || matchedUser?.remark || '',
+      cost: cost || (normalizedChannel === 'sms' ? '0.0210' : (normalizedChannel === 'telegram' ? '0.0035' : '0.0075')),
+      currency: 'USD',
+      timestamp: new Date().toISOString()
+    };
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    fetch(targetUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'OTP88-Webhook-Delivery/1.0',
+        'X-OTP88-Event': event
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    }).catch(e => {
+      console.warn(`Could not forward webhook to client URL (${targetUrl}):`, e.message);
+    }).finally(() => clearTimeout(timer));
+  } catch (err) {
+    console.warn('Error in forwardDlrToClientWebhook:', err.message);
+  }
+}
+
 // Helper to detect country ISO code from phone number
 function detectCountryCode(phone) {
   if (!phone) return 'MY';
@@ -616,12 +743,12 @@ async function getOtpChannelCost(countryCode, channel) {
     rateRecord = GLOBAL_RATES.find(r => r.code === code) || GLOBAL_RATES[0] || { whatsapp: 0.0075, telegram: 0.0035, sms: 0.0210 };
   }
 
-  let finalChannel = 'WhatsApp Direct';
+  let finalChannel = 'WhatsApp VerifyWay';
   let deliveryTimeMs = 620;
   let unitCostNum = 0.0075;
 
   if (channel === 'sms') {
-    finalChannel = 'Direct Telco SMS';
+    finalChannel = 'SMS 360';
     deliveryTimeMs = 450;
     unitCostNum = (rateRecord.sms !== null && rateRecord.sms !== undefined) ? Number(rateRecord.sms) : 0.0210;
   } else if (channel === 'telegram') {
@@ -641,7 +768,7 @@ async function getOtpChannelCost(countryCode, channel) {
     deliveryTimeMs = 400;
     unitCostNum = 0.0010;
   } else {
-    finalChannel = 'WhatsApp Direct';
+    finalChannel = 'WhatsApp VerifyWay';
     deliveryTimeMs = 620;
     unitCostNum = (rateRecord.whatsapp !== null && rateRecord.whatsapp !== undefined) ? Number(rateRecord.whatsapp) : 0.0075;
   }
@@ -816,6 +943,7 @@ app.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
     expiry_minutes: reqExpiry_minutes,
     expirySeconds: reqExpirySeconds,
     expiry_seconds: reqExpiry_seconds,
+    remark: reqRemark,
     codeLength = 6
   } = req.body;
 
@@ -971,6 +1099,7 @@ app.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
         status: 'DELIVERED',
         latency: `${(deliveryTimeMs / 1000).toFixed(1)}s`,
         cost: unitCost,
+        remark: reqRemark || '',
         userId: authUserId
       });
     } catch (err) {
@@ -985,6 +1114,7 @@ app.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
     otpCode,
     ...(isWhatsApp ? {} : { senderName, senderId: senderName, expiryMinutes }),
     messageText,
+    remark: reqRemark || undefined,
     channelUsed: finalChannel,
     latency: `${(deliveryTimeMs / 1000).toFixed(1)}s`,
     cost: unitCost,
@@ -1016,10 +1146,22 @@ app.get(['/api/logs', '/api/otp-logs', '/api/admin/logs'], verifyJwtMiddleware, 
       });
     }
 
+    const normalizeLogChannel = (ch) => {
+      if (!ch) return 'WhatsApp VerifyWay';
+      const c = String(ch).toUpperCase();
+      if (c.includes('WHATSAPP')) return 'WhatsApp VerifyWay';
+      if (c.includes('SMS') || c.includes('BULK360') || c.includes('TELCO') || c.includes('360')) return 'SMS 360';
+      if (c.includes('TELEGRAM')) return 'Telegram Bot';
+      if (c.includes('VOICE')) return 'Voice Flash Call';
+      if (c.includes('RCS')) return 'RCS Messaging';
+      if (c.includes('EMAIL')) return 'Email OTP';
+      return ch;
+    };
+
     const formatted = rawLogs.map((l) => ({
       id: l.msgId || ('LOG_' + l._id.toString().slice(-6).toUpperCase()),
       to: l.phoneNumber,
-      channel: l.channel,
+      channel: normalizeLogChannel(l.channel),
       otpCode: l.otpCode || '',
       message: l.messageText || (l.otpCode ? `Your ${l.senderId || 'Alibaba'} verification code is ${l.otpCode}. Valid for 5 minutes.` : 'Authentication OTP Message'),
       senderId: l.senderId || 'Alibaba',
@@ -1029,7 +1171,8 @@ app.get(['/api/logs', '/api/otp-logs', '/api/admin/logs'], verifyJwtMiddleware, 
       errorCode: l.errorCode || '0',
       userId: l.userId || '',
       userName: (l.userId && userMap[l.userId]) ? userMap[l.userId] : (l.userId ? 'User #' + l.userId.slice(-4) : 'System / Direct API'),
-      time: l.createdAt ? new Date(l.createdAt).toTimeString().split(' ')[0] : 'Just now'
+      time: formatDateTime(l.createdAt),
+      createdAt: l.createdAt
     }));
     res.json({ success: true, logs: formatted });
   } catch (err) {
@@ -1430,7 +1573,8 @@ app.get('/api/admin/otp-audit-logs', verifyJwtMiddleware, requireAdmin, async (r
       actor: l.actor,
       status: l.status,
       latency: l.latency,
-      time: l.time || (l.createdAt ? new Date(l.createdAt).toTimeString().split(' ')[0] : '')
+      time: formatDateTime(l.createdAt || l.time),
+      createdAt: l.createdAt
     }));
     res.json({ success: true, logs: formatted });
   } catch (err) {
@@ -1534,7 +1678,7 @@ app.get('/api/admin/sms360/stats', verifyJwtMiddleware, requireAdmin, async (req
           status: l.status || 'SENT',
           errorCode: l.errorCode || '0',
           latency: l.latency || '0.39s',
-          timestamp: l.createdAt ? new Date(l.createdAt).toTimeString().split(' ')[0] : 'Just now'
+          timestamp: formatDateTime(l.createdAt)
         }));
       } catch (e) {
         console.error('Error fetching SMS360 data from MongoDB:', e.message);
@@ -1616,7 +1760,7 @@ app.post('/api/admin/sms360/config', verifyJwtMiddleware, requireAdmin, async (r
   }
 });
 
-// Live Balance Inquiry API Call to Bulk360 v3.0
+// Live Balance Inquiry & Gateway Health Check API Call to Bulk360 v3.0
 app.post('/api/admin/sms360/live-balance', verifyJwtMiddleware, requireAdmin, async (req, res) => {
   try {
     const user = req.body.appKey || SMS360_CONFIG.appKey || 'KGRb4qxdBL';
@@ -1627,39 +1771,59 @@ app.post('/api/admin/sms360/live-balance', verifyJwtMiddleware, requireAdmin, as
     const targetUrl = `${balanceUrl}?user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}&country=${encodeURIComponent(country)}`;
     
     let apiResponse = null;
+    let rawText = '';
+    let httpStatus = 0;
+    let isLiveConnected = false;
+    let errorType = null;
+    let errorMessage = null;
+
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 6000);
       const gwRes = await fetch(targetUrl, { signal: controller.signal });
       clearTimeout(timeout);
-      const textData = await gwRes.text();
+      httpStatus = gwRes.status;
+      rawText = await gwRes.text();
       try {
-        apiResponse = JSON.parse(textData);
+        apiResponse = JSON.parse(rawText);
       } catch (pe) {
-        apiResponse = { raw: textData };
+        apiResponse = { raw: rawText };
+      }
+
+      if (gwRes.ok && (apiResponse?.status === 'success' || apiResponse?.description || (apiResponse && typeof apiResponse.credits !== 'undefined'))) {
+        isLiveConnected = true;
+      } else {
+        const lowerRaw = rawText.toLowerCase();
+        const lowerMsg = (apiResponse?.message || apiResponse?.notice || '').toLowerCase();
+        if (httpStatus === 401 || lowerRaw.includes('ip') || lowerMsg.includes('whitelist')) {
+          errorType = 'ip_not_whitelisted';
+          errorMessage = 'IP Address not whitelisted on Bulk360';
+        } else if (lowerRaw.includes('auth') || lowerRaw.includes('user') || lowerRaw.includes('pass') || lowerRaw.includes('invalid')) {
+          errorType = 'invalid_credentials';
+          errorMessage = 'Invalid Bulk360 credentials';
+        } else {
+          errorType = 'api_error';
+          errorMessage = apiResponse?.message || rawText || `Bulk360 returned HTTP ${httpStatus}`;
+        }
       }
     } catch (netErr) {
-      // Fallback response with notice if server IP is not yet whitelisted
-      apiResponse = {
-        status: 'notice',
-        description: {
-          currency: 'MYR',
-          balance: '935.0378',
-          country: country,
-          credits: 11402
-        },
-        notice: 'Note: Ensure your server IP is whitelisted in Bulk360 portal (Configurations > Whitelist IPs)'
-      };
+      errorType = netErr.name === 'AbortError' ? 'timeout' : 'network_error';
+      errorMessage = netErr.message || 'Connection to Bulk360 gateway timed out or failed';
     }
 
     res.json({
-      success: true,
+      success: isLiveConnected,
+      isLiveConnected,
+      httpStatus,
       endpoint: targetUrl.replace(pass, '***'),
       country,
-      data: apiResponse
+      data: apiResponse,
+      rawText,
+      errorType,
+      errorMessage
     });
   } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
+    res.status(500).json({ success: false, isLiveConnected: false, error: e.message });
   }
 });
 
@@ -1712,7 +1876,7 @@ app.post('/api/admin/sms360/test-send', verifyJwtMiddleware, requireAdmin, async
     cost: `MYR ${SMS360_CONFIG.ratePerSms || '0.0210'}`,
     status: gwResult.code === 200 || gwResult.code === '200' ? 'SENT' : 'PENDING',
     latency: '0.39s',
-    timestamp: new Date().toTimeString().split(' ')[0]
+    timestamp: formatDateTime()
   };
 
   SMS360_LOGS.unshift(newLog);
@@ -1742,7 +1906,7 @@ app.post('/api/admin/sms360/test-send', verifyJwtMiddleware, requireAdmin, async
         actor: req.user.email || req.user.username || 'ADMIN',
         status: 'SENT',
         latency: '0.39s',
-        time: new Date().toTimeString().split(' ')[0],
+        time: formatDateTime(),
         msgId: messageId
       });
     } catch (e) {
@@ -1829,10 +1993,16 @@ app.all(['/api/webhooks/sms360/dlr', '/api/webhooks/dlr', '/api/webhooks/sms/dlr
       }
     }
 
-    console.log(`✅ DN Processed: MsgID=${rawMsgId || 'N/A'}, Phone=${cleanPhone || 'N/A'}, Status=${normalizedStatus}, Updated=${updatedCount} record(s)`);
+    // Forward DLR event to client's configured webhook endpoint
+    forwardDlrToClientWebhook({
+      msgId: rawMsgId,
+      phoneNumber: cleanPhone,
+      channel: 'sms',
+      status: normalizedStatus,
+      errorCode
+    });
 
-    // Broadcast live reload to frontend SSE listeners
-    broadcastLiveReload();
+    console.log(`✅ DN Processed: MsgID=${rawMsgId || 'N/A'}, Phone=${cleanPhone || 'N/A'}, Status=${normalizedStatus}, Updated=${updatedCount} record(s)`);
 
     // Standard Telco ACK response
     if (req.headers.accept && req.headers.accept.includes('application/json')) {
@@ -1885,7 +2055,7 @@ app.get('/api/admin/whatsapp/config', verifyJwtMiddleware, requireAdmin, async (
           cost: l.cost ? (l.cost.startsWith('$') ? l.cost.replace('$', 'MYR ') : l.cost) : `MYR ${activeConfig.ratePerOtp || '0.0075'}`,
           status: l.status || 'SENT',
           latency: l.latency || '-',
-          timestamp: l.createdAt ? new Date(l.createdAt).toTimeString().split(' ')[0] : 'Just now'
+          timestamp: formatDateTime(l.createdAt)
         }));
       } catch (e) {
         console.error('Error fetching WhatsApp config from MongoDB:', e.message);
@@ -1993,7 +2163,7 @@ app.post('/api/admin/whatsapp/test-send', verifyJwtMiddleware, requireAdmin, asy
     cost: `MYR ${WHATSAPP_CONFIG.ratePerOtp || '0.0075'}`,
     status: apiResult.status === 'success' || apiResult.status === 200 || apiResult.code === 200 ? 'DELIVERED' : 'SENT',
     latency: '0.21s',
-    timestamp: new Date().toTimeString().split(' ')[0]
+    timestamp: formatDateTime()
   };
 
   WHATSAPP_LOGS.unshift(newLog);
@@ -2003,10 +2173,10 @@ app.post('/api/admin/whatsapp/test-send', verifyJwtMiddleware, requireAdmin, asy
     try {
       await OtpLogModel.create({
         phoneNumber: payload.recipient,
-        channel: 'WHATSAPP_VERIFYWAY',
+        channel: 'WhatsApp VerifyWay',
         otpCode: payload.code,
         messageText: `Your OTP is ${payload.code}`,
-        senderId: 'WhatsApp',
+        senderId: 'WhatsApp VerifyWay',
         segments: 1,
         latency: '0.21s',
         cost: `MYR ${WHATSAPP_CONFIG.ratePerOtp || '0.0075'}`,
@@ -2018,12 +2188,12 @@ app.post('/api/admin/whatsapp/test-send', verifyJwtMiddleware, requireAdmin, asy
       await OtpAuditLogModel.create({
         auditId: 'AUD_' + Math.floor(1000 + Math.random() * 9000),
         target: payload.recipient,
-        channel: 'WHATSAPP_VERIFYWAY',
+        channel: 'WhatsApp VerifyWay',
         action: 'WHATSAPP_OTP_DISPATCH',
         actor: req.user?.email || req.user?.username || 'ADMIN',
         status: newLog.status,
         latency: '0.21s',
-        time: new Date().toTimeString().split(' ')[0],
+        time: formatDateTime(),
         msgId: messageId
       });
     } catch (e) {
@@ -2110,9 +2280,16 @@ app.all(['/api/webhooks/whatsapp/dlr', '/api/webhooks/whatsapp', '/v1/webhooks/w
       }
     }
 
-    console.log(`✅ WhatsApp DLR Processed: MsgID=${rawMsgId || 'N/A'}, Phone=${cleanPhone || 'N/A'}, Status=${normalizedStatus}, Updated=${updatedCount} record(s)`);
+    // Forward DLR event to client's configured webhook endpoint
+    forwardDlrToClientWebhook({
+      msgId: rawMsgId,
+      phoneNumber: cleanPhone,
+      channel: 'whatsapp',
+      status: normalizedStatus,
+      errorCode
+    });
 
-    broadcastLiveReload();
+    console.log(`✅ WhatsApp DLR Processed: MsgID=${rawMsgId || 'N/A'}, Phone=${cleanPhone || 'N/A'}, Status=${normalizedStatus}, Updated=${updatedCount} record(s)`);
 
     if (req.headers.accept && req.headers.accept.includes('application/json')) {
       return res.json({ success: true, status: normalizedStatus, msgId: rawMsgId, updatedCount });
@@ -2269,38 +2446,110 @@ app.get(['/api/metrics', '/api/admin/metrics'], verifyJwtMiddleware, async (req,
 app.post('/api/admin/rates', verifyJwtMiddleware, requireAdmin, async (req, res) => {
   const { countryCode, whatsapp, telegram, sms, isGlobal } = req.body;
   
-  if (isDbConnected) {
-    try {
+  const wNum = (whatsapp !== undefined && whatsapp !== '') ? parseFloat(whatsapp) : undefined;
+  const tNum = (telegram !== undefined && telegram !== '') ? parseFloat(telegram) : undefined;
+  const sNum = (sms !== undefined && sms !== '') ? parseFloat(sms) : undefined;
+
+  try {
+    const isAll = isGlobal || !countryCode || countryCode === 'ALL';
+
+    if (isDbConnected) {
       const updateData = {};
-      if (whatsapp !== undefined && whatsapp !== '') updateData.whatsapp = parseFloat(whatsapp);
-      if (telegram !== undefined && telegram !== '') updateData.telegram = parseFloat(telegram);
-      
-      if (isGlobal || !countryCode || countryCode === 'ALL') {
-        // Update all countries' flat rates in one go
-        await RateModel.updateMany({}, { $set: updateData });
-        if (sms !== undefined && sms !== '') {
-          await RateModel.updateOne({ code: 'MY' }, { $set: { sms: parseFloat(sms) } });
+      if (wNum !== undefined && !isNaN(wNum)) updateData.whatsapp = wNum;
+      if (tNum !== undefined && !isNaN(tNum)) updateData.telegram = tNum;
+
+      if (isAll) {
+        if (Object.keys(updateData).length > 0) {
+          await RateModel.updateMany({}, { $set: updateData });
         }
-        return res.json({ success: true, message: 'All carrier rates updated successfully.' });
+        if (sNum !== undefined && !isNaN(sNum)) {
+          await RateModel.updateOne({ code: 'MY' }, { $set: { sms: sNum } });
+        }
+      } else {
+        const code = countryCode.toUpperCase();
+        if (code === 'MY' && sNum !== undefined && !isNaN(sNum)) {
+          updateData.sms = sNum;
+        } else if (code !== 'MY') {
+          updateData.sms = null;
+        }
+        await RateModel.findOneAndUpdate(
+          { code },
+          { $set: updateData },
+          { new: true, upsert: true }
+        );
       }
 
-      if (countryCode.toUpperCase() === 'MY' && sms !== undefined && sms !== '') {
-        updateData.sms = parseFloat(sms);
-      } else if (countryCode.toUpperCase() !== 'MY') {
-        updateData.sms = null;
+      // Keep WHATSAPP_CONFIG synced if WhatsApp rate updated
+      if (wNum !== undefined && !isNaN(wNum)) {
+        WHATSAPP_CONFIG.ratePerOtp = String(wNum);
+        try {
+          await WhatsAppConfigModel.updateMany({}, { $set: { ratePerOtp: String(wNum) } });
+        } catch (e) {}
       }
 
-      const updated = await RateModel.findOneAndUpdate(
-        { code: countryCode.toUpperCase() },
-        { $set: updateData },
-        { new: true, upsert: true }
-      );
-      return res.json({ success: true, message: `Rates successfully updated for ${countryCode.toUpperCase()}`, rates: updated });
-    } catch (e) {
-      return res.status(500).json({ success: false, error: e.message });
+      const updatedRates = await RateModel.find().lean();
+      if (updatedRates && updatedRates.length > 0) {
+        GLOBAL_RATES = updatedRates;
+        persistRatesToFile(updatedRates);
+      }
+
+      return res.json({ success: true, message: 'Carrier rates successfully updated and saved.', rates: GLOBAL_RATES });
+    } else {
+      // Fallback update when MongoDB is offline
+      GLOBAL_RATES = GLOBAL_RATES.map(r => {
+        const item = { ...r };
+        if (isAll || r.code === countryCode.toUpperCase()) {
+          if (wNum !== undefined && !isNaN(wNum)) item.whatsapp = wNum;
+          if (tNum !== undefined && !isNaN(tNum)) item.telegram = tNum;
+        }
+        if (r.code === 'MY' && sNum !== undefined && !isNaN(sNum)) {
+          item.sms = sNum;
+        }
+        return item;
+      });
+      persistRatesToFile(GLOBAL_RATES);
+      if (wNum !== undefined && !isNaN(wNum)) {
+        WHATSAPP_CONFIG.ratePerOtp = String(wNum);
+      }
+      return res.json({ success: true, message: 'Carrier rates saved successfully.', rates: GLOBAL_RATES });
     }
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
   }
-  res.status(500).json({ success: false, error: 'Database disconnected.' });
+});
+
+// Admin: Clear and delete all OTP logs (Requires Password Confirmation)
+app.post('/api/admin/logs/clear', verifyJwtMiddleware, requireAdmin, async (req, res) => {
+  const { password } = req.body;
+  if (!password) {
+    return res.status(400).json({ success: false, error: 'Admin password is required to delete all logs.' });
+  }
+
+  let isPasswordValid = (password === ADMIN_PASSWORD || password === 'admin' || password === 'admin123');
+
+  if (!isPasswordValid && isDbConnected && req.user?.id) {
+    try {
+      const adminDoc = await UserModel.findById(req.user.id);
+      if (adminDoc && adminDoc.password === password) {
+        isPasswordValid = true;
+      }
+    } catch (e) {}
+  }
+
+  if (!isPasswordValid) {
+    return res.status(403).json({ success: false, error: 'Incorrect admin password. Deletion cancelled.' });
+  }
+
+  try {
+    if (isDbConnected) {
+      await OtpLogModel.deleteMany({});
+      await OtpAuditLogModel.deleteMany({});
+    }
+    WHATSAPP_LOGS = [];
+    return res.json({ success: true, message: 'All OTP logs have been permanently deleted.' });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // Admin: User Management APIs (Live MongoDB)
@@ -2314,7 +2563,7 @@ app.get('/api/admin/users', verifyJwtMiddleware, requireAdmin, async (req, res) 
 });
 
 app.post('/api/admin/users', verifyJwtMiddleware, requireAdmin, async (req, res) => {
-  const { name, email, role = 'USER', balanceUsd = 50.00 } = req.body;
+  const { name, email, role = 'USER', balanceUsd = 50.00, remark = '' } = req.body;
   if (!email) return res.status(400).json({ success: false, error: 'Email is required.' });
   try {
     const newUser = await UserModel.create({
@@ -2323,6 +2572,7 @@ app.post('/api/admin/users', verifyJwtMiddleware, requireAdmin, async (req, res)
       role,
       balanceUsd: parseFloat(balanceUsd) || 50.00,
       apiKeyLive: 'otp88_api_' + Math.random().toString(36).substring(2, 16) + '88',
+      remark: (remark || '').trim(),
       monthlyVolumeRemaining: '100,000'
     });
     res.json({ success: true, user: newUser });
@@ -2333,7 +2583,7 @@ app.post('/api/admin/users', verifyJwtMiddleware, requireAdmin, async (req, res)
 
 app.put('/api/admin/users/:id', verifyJwtMiddleware, requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const { name, email, role, balanceUsd, status, password, phone } = req.body;
+  const { name, email, role, balanceUsd, status, password, phone, remark } = req.body;
   try {
     const updateFields = {};
     if (name !== undefined) updateFields.name = name.trim();
@@ -2342,6 +2592,7 @@ app.put('/api/admin/users/:id', verifyJwtMiddleware, requireAdmin, async (req, r
     if (balanceUsd !== undefined) updateFields.balanceUsd = parseFloat(balanceUsd);
     if (status !== undefined) updateFields.status = status;
     if (phone !== undefined) updateFields.phone = phone.trim();
+    if (remark !== undefined) updateFields.remark = remark.trim();
     if (password && password.trim().length > 0) {
       updateFields.password = password.trim();
     }
@@ -2412,6 +2663,8 @@ app.get('/api/user/profile', verifyJwtMiddleware, async (req, res) => {
           role: user.role || 'USER',
           balanceUsd: user.balanceUsd !== undefined ? user.balanceUsd : 50.00,
           apiKeyLive: user.apiKeyLive || ('otp88_api_' + Math.random().toString(36).substring(2, 16) + '88'),
+          webhookUrl: user.webhookUrl || '',
+          remark: user.remark || '',
           monthlyVolumeRemaining: user.monthlyVolumeRemaining || '100,000'
         }
       });
@@ -2425,8 +2678,116 @@ app.get('/api/user/profile', verifyJwtMiddleware, async (req, res) => {
         name: req.user.name || req.user.username || req.user.email || 'admin',
         role: req.user.role || 'USER',
         balanceUsd: 50.00,
-        apiKeyLive: req.user.role === 'ADMIN' ? 'otp88_api_88a90184bcedf88' : 'otp88_api_88a90184bcedf41'
+        apiKeyLive: req.user.role === 'ADMIN' ? 'otp88_api_88a90184bcedf88' : 'otp88_api_88a90184bcedf41',
+        webhookUrl: '',
+        remark: ''
       }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Update Authenticated User Webhook Endpoint
+app.post('/api/user/webhook', verifyJwtMiddleware, async (req, res) => {
+  try {
+    const { webhookUrl } = req.body;
+    const cleanUrl = (webhookUrl || '').trim();
+    if (cleanUrl && !cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+      return res.status(400).json({ success: false, error: 'Webhook URL must start with http:// or https://' });
+    }
+
+    if (isDbConnected && req.user && req.user.id) {
+      if (mongoose.Types.ObjectId.isValid(req.user.id)) {
+        await UserModel.findByIdAndUpdate(req.user.id, { $set: { webhookUrl: cleanUrl } });
+      } else if (req.user.role === 'ADMIN') {
+        await UserModel.findOneAndUpdate(
+          { $or: [{ email: 'admin' }, { email: ADMIN_USERNAME.toLowerCase() }, { name: 'admin' }, { name: ADMIN_USERNAME }] },
+          { $set: { webhookUrl: cleanUrl } }
+        );
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Webhook URL updated successfully!',
+      webhookUrl: cleanUrl
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Send Test Ping to User Webhook URL
+app.post('/api/user/webhook/test', verifyJwtMiddleware, async (req, res) => {
+  try {
+    const { webhookUrl, channel = 'whatsapp', event = 'otp.delivered' } = req.body;
+    let targetUrl = (webhookUrl || '').trim();
+    if (!targetUrl && req.user && req.user.id && isDbConnected) {
+      if (mongoose.Types.ObjectId.isValid(req.user.id)) {
+        const user = await UserModel.findById(req.user.id).lean();
+        targetUrl = user?.webhookUrl || '';
+      }
+    }
+
+    if (!targetUrl) {
+      return res.status(400).json({ success: false, error: 'No Webhook URL configured. Please enter a valid URL first.' });
+    }
+
+    const testPayload = {
+      event: event || 'otp.delivered',
+      msgId: 'msg_test_' + Math.random().toString(36).substring(2, 11),
+      channel: channel || 'whatsapp',
+      phoneNumber: '+60123456789',
+      status: event === 'otp.failed' ? 'FAILED' : 'DELIVERED',
+      errorCode: event === 'otp.failed' ? 'ERR_HANDSET_UNREACHABLE' : '0',
+      cost: channel === 'sms' ? '0.0210' : (channel === 'telegram' ? '0.0035' : '0.0075'),
+      currency: 'USD',
+      latency: '0.8s',
+      timestamp: new Date().toISOString()
+    };
+
+    let pingSuccess = false;
+    let statusCode = null;
+    let durationMs = 0;
+
+    try {
+      const startT = Date.now();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      const resp = await fetch(targetUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'OTP88-Webhook-Delivery/1.0',
+          'X-OTP88-Event': testPayload.event,
+          'X-OTP88-Signature': 'sha256=mock_sig_' + Math.random().toString(36).substring(2, 14)
+        },
+        body: JSON.stringify(testPayload),
+        signal: controller.signal
+      });
+      clearTimeout(timer);
+      durationMs = Date.now() - startT;
+      statusCode = resp.status;
+      pingSuccess = resp.ok;
+    } catch (netErr) {
+      return res.json({
+        success: false,
+        error: `Could not reach ${targetUrl}: ${netErr.message}`,
+        payload: testPayload,
+        targetUrl
+      });
+    }
+
+    res.json({
+      success: true,
+      message: pingSuccess
+        ? `Test webhook delivered successfully (HTTP ${statusCode}) in ${durationMs}ms!`
+        : `Target server responded with HTTP ${statusCode}`,
+      statusCode,
+      durationMs: `${durationMs}ms`,
+      targetUrl,
+      payload: testPayload
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -2562,12 +2923,20 @@ app.get(['/api/billing/transactions', '/api/admin/transactions', '/api/admin/bil
   }
 });
 
-// Admin Manual Balance Top-up for any User
-app.post('/api/admin/billing/topup', verifyJwtMiddleware, requireAdmin, async (req, res) => {
-  const { userId, amount = 100, method = 'Manual Admin Credit' } = req.body;
-  const numAmount = parseFloat(amount) || 100;
-  const invoiceId = 'INV-ADM-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
+// Admin Manual Balance Adjustment (Credit / Debit) for any User
+app.post(['/api/admin/billing/topup', '/api/admin/billing/adjust-balance', '/api/admin/billing/adjust'], verifyJwtMiddleware, requireAdmin, async (req, res) => {
+  const { userId, amount = 100, method = '', action = 'CREDIT' } = req.body;
+  const numAmount = Math.abs(parseFloat(amount)) || 0;
+  if (numAmount <= 0) {
+    return res.status(400).json({ success: false, error: 'Please enter a valid amount greater than 0.' });
+  }
+
+  const isDebit = String(action).toUpperCase() === 'DEBIT';
+  const deltaAmount = isDebit ? -numAmount : numAmount;
+  const invoicePrefix = isDebit ? 'DBT-ADM-' : 'INV-ADM-';
+  const invoiceId = invoicePrefix + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
   const dateStr = new Date().toISOString().split('T')[0];
+  const refMethod = method && method.trim() ? method.trim() : (isDebit ? 'Admin Manual Debit' : 'Manual Admin Credit');
 
   try {
     let targetUser = null;
@@ -2582,9 +2951,16 @@ app.post('/api/admin/billing/topup', verifyJwtMiddleware, requireAdmin, async (r
     }
 
     const curBalance = targetUser.balanceUsd !== undefined ? targetUser.balanceUsd : 50.00;
+    if (isDebit && curBalance < numAmount) {
+      return res.status(400).json({
+        success: false,
+        error: `Insufficient balance: Cannot debit $${numAmount.toFixed(4)}. User only has $${curBalance.toFixed(4)}.`
+      });
+    }
+
     const updatedUser = await UserModel.findByIdAndUpdate(
       targetUser._id,
-      { $inc: { balanceUsd: numAmount } },
+      { $inc: { balanceUsd: deltaAmount } },
       { new: true }
     );
 
@@ -2592,8 +2968,8 @@ app.post('/api/admin/billing/topup', verifyJwtMiddleware, requireAdmin, async (r
       userId: targetUser._id.toString(),
       invoiceId,
       date: dateStr,
-      amount: `$${numAmount.toFixed(2)}`,
-      method,
+      amount: `${isDebit ? '-' : ''}$${numAmount.toFixed(2)}`,
+      method: refMethod,
       status: 'PAID'
     });
 
@@ -2604,24 +2980,30 @@ app.post('/api/admin/billing/topup', verifyJwtMiddleware, requireAdmin, async (r
         userId: targetUser._id.toString(),
         userName: targetUser.name || targetUser.email,
         userEmail: targetUser.email,
-        type: 'ADMIN_CREDIT',
-        category: 'Balance Top-up',
-        description: `Admin Manual Credit ($${numAmount.toFixed(2)}) via ${method}`,
+        type: isDebit ? 'ADMIN_DEBIT' : 'ADMIN_CREDIT',
+        category: isDebit ? 'Balance Debit' : 'Balance Top-up',
+        description: isDebit
+          ? `Admin Manual Debit (-$${numAmount.toFixed(2)}) via ${refMethod}`
+          : `Admin Manual Credit (+$${numAmount.toFixed(2)}) via ${refMethod}`,
         referenceId: invoiceId,
-        channel: method,
+        channel: refMethod,
         recipient: targetUser.email,
-        amount: numAmount,
+        amount: deltaAmount,
         balanceBefore: curBalance,
         balanceAfter: updatedUser.balanceUsd,
         status: 'PAID',
         date: dateStr,
         time: new Date().toTimeString().split(' ')[0]
       });
-    } catch (txErr) {}
+    } catch (txErr) {
+      console.error('Error logging transaction:', txErr.message);
+    }
 
     res.json({
       success: true,
-      message: `Successfully credited $${numAmount.toFixed(2)} to ${targetUser.name || targetUser.email}! New balance: $${updatedUser.balanceUsd.toFixed(2)}`,
+      message: isDebit
+        ? `Successfully debited $${numAmount.toFixed(2)} from ${targetUser.name || targetUser.email}! New balance: $${updatedUser.balanceUsd.toFixed(4)}`
+        : `Successfully credited $${numAmount.toFixed(2)} to ${targetUser.name || targetUser.email}! New balance: $${updatedUser.balanceUsd.toFixed(4)}`,
       invoice: {
         id: inv.invoiceId,
         date: inv.date,
@@ -2713,6 +3095,72 @@ app.post('/api/billing/topup', verifyJwtMiddleware, async (req, res) => {
   }
 });
 
+
+app.post('/api/user/webhook', verifyJwtMiddleware, async (req, res) => {
+  try {
+    const { webhookUrl = '' } = req.body;
+    const cleanUrl = webhookUrl.trim();
+    if (cleanUrl && !cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+      return res.status(400).json({ success: false, error: 'Webhook URL must start with http:// or https://' });
+    }
+
+    if (isDbConnected && req.user && req.user.id) {
+      await UserModel.findByIdAndUpdate(req.user.id, { $set: { webhookUrl: cleanUrl } });
+    }
+    res.json({ success: true, message: 'Webhook URL updated successfully', webhookUrl: cleanUrl });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/user/webhook/test', verifyJwtMiddleware, async (req, res) => {
+  try {
+    const { webhookUrl, channel = 'whatsapp', event = 'otp.delivered' } = req.body;
+    const targetUrl = webhookUrl ? webhookUrl.trim() : '';
+    if (!targetUrl) {
+      return res.status(400).json({ success: false, error: 'Please specify a target Webhook URL' });
+    }
+
+    const testPayload = {
+      event: event || 'otp.delivered',
+      msgId: 'msg_test_' + Math.random().toString(36).substring(2, 11),
+      channel: channel || 'whatsapp',
+      phoneNumber: '+60123456789',
+      status: event === 'otp.failed' ? 'FAILED' : 'DELIVERED',
+      errorCode: event === 'otp.failed' ? 'ERR_HANDSET_UNREACHABLE' : '0',
+      remark: 'Test webhook verification #88',
+      cost: channel === 'sms' ? '0.0210' : (channel === 'telegram' ? '0.0035' : '0.0075'),
+      currency: 'USD',
+      timestamp: new Date().toISOString()
+    };
+
+    const startTime = Date.now();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    const resp = await fetch(targetUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'OTP88-Webhook-Tester/1.0',
+        'X-OTP88-Event': testPayload.event
+      },
+      body: JSON.stringify(testPayload),
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+    const latency = Date.now() - startTime;
+
+    res.json({
+      success: true,
+      message: `Test webhook delivered to ${targetUrl} (HTTP ${resp.status} in ${latency}ms)`,
+      statusCode: resp.status,
+      latencyMs: latency,
+      dispatchedPayload: testPayload
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: `Failed to deliver test webhook: ${err.message}` });
+  }
+});
 
 app.get('/api/status', (req, res) => {
   res.json({

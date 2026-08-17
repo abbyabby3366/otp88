@@ -35,10 +35,10 @@ const OTP88_I18N = {
     fromDate: 'From Date',
     toDate: 'To Date',
     filterDateRange: 'Date Range',
-    thisMonth: 'This Month',
+    today: 'Today',
     last7Days: 'Last 7 Days',
     last30Days: 'Last 30 Days',
-    today: 'Today',
+    thisMonth: 'This Month',
     allTime: 'All Time',
     autoReload: '● Active',
     allGreen: '● Systems Operational',
@@ -52,12 +52,12 @@ const OTP88_I18N = {
     searchRatesPlaceholder: 'Filter by country, ISO, or dial code (e.g. Malaysia, +60, SG)...',
     row: '#',
     txId: 'Transaction ID',
-    recipient: 'Recipient Phone',
+    recipient: 'Recipient',
     carrierRoute: 'Channel',
     avgDelivery: 'Delivery Time',
     unitCost: 'Cost',
     status: 'Status',
-    timestamp: 'Time',
+    timestamp: 'Date & Time',
     
     // Services
     servicesTitle: 'MESSAGING CHANNELS',
@@ -73,10 +73,12 @@ const OTP88_I18N = {
     // API
     apiTitle: 'API CREDENTIALS',
     prodApiKey: 'API Key',
+    apiKeyDesc: 'Include this secret key in the Authorization: Bearer <API_KEY> header to authenticate your API requests.',
     jwtBearer: 'JWT Token',
     copyKey: 'Copy Key',
     copyJwt: 'Copy Token',
     webhookUrl: 'Webhook URL',
+    webhookUrlDesc: 'Configure your HTTPS endpoint to receive real-time delivery receipts (DLR) and message status event callbacks.',
     saveWebhook: 'Save Webhook',
     quickstartCode: 'API Code Example',
     
@@ -115,6 +117,8 @@ const OTP88_I18N = {
     passwordOptional: 'New Password (Optional)',
     placeholderPassword: 'Leave blank to keep unchanged',
     totalUsers: 'Total Users',
+    remark: 'Remarks / Notes',
+    placeholderRemark: 'e.g. Enterprise Client / VIP / Test Account',
     commitChanges: 'Save Rate Changes',
     
     // Auth & Generic
@@ -173,10 +177,10 @@ const OTP88_I18N = {
     fromDate: '起始日期',
     toDate: '截止日期',
     filterDateRange: '统计周期',
-    thisMonth: '本月',
+    today: '今日',
     last7Days: '近7天',
     last30Days: '近30天',
-    today: '今日',
+    thisMonth: '本月',
     allTime: '全部时间',
     autoReload: '● 运行中',
     allGreen: '● 系统正常',
@@ -190,12 +194,12 @@ const OTP88_I18N = {
     searchRatesPlaceholder: '搜索国家、ISO代码或国际区号 (+60, SG 等)...',
     row: '#',
     txId: '交易编号',
-    recipient: '接收手机号',
+    recipient: '接收方',
     carrierRoute: '通道',
     avgDelivery: '送达用时',
     unitCost: '单价',
     status: '状态',
-    timestamp: '时间',
+    timestamp: '日期时间',
     
     // Services
     servicesTitle: '消息服务通道',
@@ -211,10 +215,12 @@ const OTP88_I18N = {
     // API
     apiTitle: 'API 凭证与接口',
     prodApiKey: 'API 密钥',
+    apiKeyDesc: '在请求头中附带 Authorization: Bearer <API_KEY> 用于鉴权调用 REST API 接口。',
     jwtBearer: 'JWT Token',
     copyKey: '复制密钥',
     copyJwt: '复制 Token',
     webhookUrl: '回调 Webhook URL',
+    webhookUrlDesc: '配置接收实时状态回调的 HTTPS 地址，接收验证码发送、送达、已读及失败等事件推送。',
     saveWebhook: '保存配置',
     quickstartCode: 'API 调用示例',
     
@@ -252,6 +258,8 @@ const OTP88_I18N = {
     passwordOptional: '重置密码 (可选)',
     placeholderPassword: '留空表示不修改密码',
     totalUsers: '用户总数',
+    remark: '备注信息',
+    placeholderRemark: '例如：企业客户 / VIP / 测试账号',
     commitChanges: '保存费率修改',
     
     // 认证与注册与重置

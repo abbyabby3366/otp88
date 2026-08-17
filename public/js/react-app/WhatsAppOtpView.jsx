@@ -4,7 +4,17 @@ import { TableLoader } from './TableLoader.jsx';
 
 // Admin VerifyWay WhatsApp OTP API Complete Management & Interactive Explorer
 function WhatsAppOtpView({ t, jwtToken, showToast }) {
-  const [activeSubTab, setActiveSubTab] = useState('send');
+  const [activeSubTab, setActiveSubTab] = useState(() => {
+    try {
+      const saved = localStorage.getItem('whatsapp_active_subtab');
+      if (saved && ['send', 'verify', 'webhook', 'keys', 'docs'].includes(saved)) return saved;
+    } catch (e) {}
+    return 'send';
+  });
+
+  useEffect(() => {
+    try { if (activeSubTab) localStorage.setItem('whatsapp_active_subtab', activeSubTab); } catch (e) {}
+  }, [activeSubTab]);
 
   // Credentials & Config (Stored in MongoDB Atlas)
   const [config, setConfig] = useState({
@@ -367,7 +377,7 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
       {activeSubTab === 'keys' && (
         <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
           <div style={{ background: '#F8FAFC', padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '12px', fontWeight: '800' }}>🔑 VERIFYWAY API CREDENTIALS & SETTINGS</span>
+            <span style={{ fontSize: '12px', fontWeight: '800' }}>VERIFYWAY API CREDENTIALS & SETTINGS</span>
             <span className="sheets-badge sheets-badge-emerald" style={{ fontSize: '9px', padding: '1px 5px' }}>● Saved</span>
           </div>
 
@@ -377,14 +387,16 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
               <input type="text" className="sheets-input" value={config.apiKey} onChange={(e) => setConfig({ ...config, apiKey: e.target.value })} placeholder="VerifyWay API Key" style={{ width: '100%', fontSize: '12px', fontFamily: 'var(--font-code)', fontWeight: '700' }} />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>API Endpoint URL</label>
                 <input type="text" className="sheets-input" value={config.apiUrl} onChange={(e) => setConfig({ ...config, apiUrl: e.target.value })} style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-code)' }} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>Unit Rate (MYR/OTP)</label>
-                <input type="text" className="sheets-input" value={config.ratePerOtp} onChange={(e) => setConfig({ ...config, ratePerOtp: e.target.value })} style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-code)' }} />
+                <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                  Supplier Rate <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(Fixed by VerifyWay)</span>
+                </label>
+                <input type="text" className="sheets-input" readOnly value={`${config.ratePerOtp || '0.0075'} USD / OTP`} style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-code)', background: '#F8FAFC', color: 'var(--text-secondary)', cursor: 'not-allowed' }} />
               </div>
             </div>
 
@@ -405,11 +417,19 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>Gateway Status</label>
-                <select className="sheets-input" value={config.status} onChange={(e) => setConfig({ ...config, status: e.target.value })} style={{ width: '100%', fontSize: '11px' }}>
-                  <option value="ACTIVE">ACTIVE (Primary Route)</option>
-                  <option value="BACKUP">BACKUP (Secondary)</option>
-                  <option value="PAUSED">PAUSED (Maintenance)</option>
-                </select>
+                <div style={{ display: 'flex', alignItems: 'center', height: '28px' }}>
+                  {config.apiKey && config.apiKey.trim() ? (
+                    <span className="sheets-badge sheets-badge-emerald" style={{ fontSize: '10px', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981', display: 'inline-block' }}></span>
+                      Connected & Ready
+                    </span>
+                  ) : (
+                    <span className="sheets-badge sheets-badge-amber" style={{ fontSize: '10px', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#F59E0B', display: 'inline-block' }}></span>
+                      API Key Required
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -439,42 +459,12 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>recipient</td>
-                  <td>string</td>
-                  <td><span className="sheets-badge sheets-badge-emerald">Yes</span></td>
-                  <td>The user's phone number in E.164 format (e.g., +60123456789).</td>
-                </tr>
-                <tr>
-                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>type</td>
-                  <td>string</td>
-                  <td><span className="sheets-badge sheets-badge-emerald">Yes</span></td>
-                  <td>Must be set to "otp".</td>
-                </tr>
-                <tr>
-                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>channel</td>
-                  <td>string</td>
-                  <td><span className="sheets-badge sheets-badge-emerald">Yes</span></td>
-                  <td>Must be set to "whatsapp" (or "telegram").</td>
-                </tr>
-                <tr>
-                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>code</td>
-                  <td>string</td>
-                  <td><span className="sheets-badge sheets-badge-emerald">Yes</span></td>
-                  <td>The OTP code to be sent (e.g., "123456").</td>
-                </tr>
-                <tr>
-                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>lang</td>
-                  <td>string</td>
-                  <td><span className="sheets-badge sheets-badge-gray">No</span></td>
-                  <td>Language code (default is "en", "ms", "zh", "id", "ar").</td>
-                </tr>
-                <tr>
-                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>fallback</td>
-                  <td>string</td>
-                  <td><span className="sheets-badge sheets-badge-gray">No</span></td>
-                  <td>Set to "yes" to enable automatic SMS fallback.</td>
-                </tr>
+                <tr><td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>recipient</td><td>string</td><td><span className="sheets-badge sheets-badge-emerald">Yes</span></td><td>The user's phone number in E.164 format (e.g., +60123456789).</td></tr>
+                <tr><td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>type</td><td>string</td><td><span className="sheets-badge sheets-badge-emerald">Yes</span></td><td>Must be set to "otp".</td></tr>
+                <tr><td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>channel</td><td>string</td><td><span className="sheets-badge sheets-badge-emerald">Yes</span></td><td>Must be set to "whatsapp" (or "telegram").</td></tr>
+                <tr><td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>code</td><td>string</td><td><span className="sheets-badge sheets-badge-emerald">Yes</span></td><td>The OTP code to be sent (e.g., "123456").</td></tr>
+                <tr><td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>lang</td><td>string</td><td><span className="sheets-badge sheets-badge-gray">No</span></td><td>Language code (default is "en", "ms", "zh", "id", "ar").</td></tr>
+                <tr><td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>fallback</td><td>string</td><td><span className="sheets-badge sheets-badge-gray">No</span></td><td>Set to "yes" to enable automatic SMS fallback.</td></tr>
               </tbody>
             </table>
 
@@ -501,14 +491,14 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
             <tr>
               <th style={{ width: '35px' }}>#</th>
               <th>Message ID</th>
-              <th>Recipient Phone</th>
+              <th>Recipient</th>
               <th>Channel</th>
               <th>OTP Code</th>
               <th>Fallback</th>
               <th>Cost</th>
               <th>Status</th>
               <th>Latency</th>
-              <th>Time</th>
+              <th>Date & Time</th>
             </tr>
           </thead>
           <tbody>
@@ -528,7 +518,7 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
                   <td style={{ fontFamily: 'var(--font-code)' }}>{l.cost}</td>
                   <td><span className="sheets-badge sheets-badge-emerald">{l.status}</span></td>
                   <td style={{ fontFamily: 'var(--font-code)', color: '#059669' }}>{l.latency}</td>
-                  <td style={{ fontFamily: 'var(--font-code)', color: 'var(--text-muted)' }}>{l.timestamp}</td>
+                  <td style={{ fontFamily: 'var(--font-code)', color: 'var(--text-muted)', fontSize: '11px', whiteSpace: 'nowrap' }}>{l.timestamp}</td>
                 </tr>
               ))
             )}

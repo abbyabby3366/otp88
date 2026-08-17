@@ -2,6 +2,33 @@ import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './SearchableSelect.jsx';
 import { TableLoader } from './TableLoader.jsx';
 
+// Format date-time helper (YYYY-MM-DD HH:mm:ss)
+function formatDateTime(val) {
+  if (!val) return '-';
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(:\d{2})?$/.test(trimmed)) {
+      return trimmed;
+    }
+    if (/^\d{2}:\d{2}(:\d{2})?$/.test(trimmed)) {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd} ${trimmed}`;
+    }
+  }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return String(val);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+}
+
 // Admin All-Users OTP Logs & Audit View
 function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
   const [logs, setLogs] = useState([]);
@@ -13,6 +40,11 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
 
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [clearingLogs, setClearingLogs] = useState(false);
+  const [clearError, setClearError] = useState('');
+
   const fetchAllLogs = () => {
     if (!jwtToken) return;
     setLoading(true);
@@ -23,6 +55,39 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+  };
+
+  const handleClearLogs = async (e) => {
+    if (e) e.preventDefault();
+    if (!adminPassword.trim()) {
+      setClearError('Please enter your admin password.');
+      return;
+    }
+    setClearingLogs(true);
+    setClearError('');
+    try {
+      const res = await fetch('/api/admin/logs/clear', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwtToken}`
+        },
+        body: JSON.stringify({ password: adminPassword })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setLogs([]);
+        setShowClearModal(false);
+        setAdminPassword('');
+        if (showToast) showToast('🗑️ All OTP logs have been cleared successfully.');
+      } else {
+        setClearError(data.error || 'Failed to clear logs.');
+      }
+    } catch (err) {
+      setClearError('Network or server error while clearing logs.');
+    } finally {
+      setClearingLogs(false);
+    }
   };
 
   useEffect(() => {
@@ -95,7 +160,7 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
           ))}
         </div>
 
-        {/* Search & Status Filter */}
+        {/* Search & Status Filter & Actions */}
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
           <input
             type="text"
@@ -128,6 +193,31 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
           >
             {loading ? '...' : '↻'}
           </button>
+
+          <button
+            type="button"
+            className="sheets-btn"
+            onClick={() => { setShowClearModal(true); setAdminPassword(''); setClearError(''); }}
+            disabled={loading || logs.length === 0}
+            style={{
+              padding: '3px 9px',
+              fontSize: '11px',
+              fontWeight: '700',
+              color: '#DC2626',
+              border: '1px solid #FECACA',
+              background: '#FEF2F2',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+            title="Clear and permanently delete all logs"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg>
+            Clear All
+          </button>
         </div>
       </div>
 
@@ -139,13 +229,13 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
               <th style={{ width: '35px' }}>#</th>
               <th>{t.txId || 'Transaction ID'}</th>
               <th>User</th>
-              <th>{t.recipient || 'Recipient Phone'}</th>
+              <th>{t.recipient || 'Recipient'}</th>
               <th>{t.carrierRoute || 'Channel'}</th>
               <th>Message Content</th>
               <th>Latency</th>
               <th>{t.unitCost || 'Cost'}</th>
               <th>{t.status || 'Status'}</th>
-              <th>{t.timestamp || 'Time'}</th>
+              <th>{t.timestamp || 'Date & Time'}</th>
             </tr>
           </thead>
           <tbody>
@@ -179,7 +269,7 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
                       (log.channel || '').toUpperCase().includes('EMAIL') ? 'sheets-badge-cyan' :
                       'sheets-badge-amber'
                     }`}>
-                      {log.channel}
+                      {(log.channel || '').toUpperCase().includes('WHATSAPP') ? 'WhatsApp VerifyWay' : (log.channel || '').toUpperCase().includes('SMS') || (log.channel || '').toUpperCase().includes('360') || (log.channel || '').toUpperCase().includes('TELCO') ? 'SMS 360' : log.channel}
                     </span>
                   </td>
                   <td style={{ maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '11px', color: 'var(--text-primary)' }} title={log.message || (log.otpCode ? `Your ${log.senderId || 'Alibaba'} verification code is ${log.otpCode}. Valid for 5 minutes.` : 'Authentication OTP Message')}>
@@ -192,7 +282,9 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
                       {log.status === 'FAILED' ? 'FAILED' : (log.status || 'DELIVERED')}
                     </span>
                   </td>
-                  <td style={{ fontFamily: 'var(--font-code)', color: 'var(--text-muted)', fontSize: '11px' }}>{log.time}</td>
+                  <td style={{ fontFamily: 'var(--font-code)', color: 'var(--text-muted)', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                    {formatDateTime(log.createdAt || log.time)}
+                  </td>
                 </tr>
               ))
             )}
@@ -247,6 +339,91 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
         </div>
 
       </div>
+
+      {/* Password Confirmation Modal for Clearing Logs */}
+      {showClearModal && (
+        <div
+          className="sheets-modal-backdrop"
+          onClick={() => !clearingLogs && setShowClearModal(false)}
+        >
+          <div
+            className="sheets-modal-dialog"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '420px', width: '100%' }}
+          >
+            <div className="sheets-modal-header" style={{ borderBottom: '1px solid #FEE2E2', background: '#FEF2F2' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#DC2626' }}>
+                <span style={{ fontSize: '18px' }}>⚠️</span>
+                <span style={{ fontWeight: '800', fontSize: '13px' }}>Clear All OTP Logs</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => !clearingLogs && setShowClearModal(false)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '16px', color: 'var(--text-muted)' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleClearLogs}>
+              <div className="sheets-modal-body" style={{ gap: '14px', padding: '16px' }}>
+                <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '4px', padding: '10px 12px', fontSize: '11px', color: '#9F1239', lineHeight: '1.5' }}>
+                  <strong>Warning:</strong> This will permanently delete all <strong>{logs.length}</strong> OTP audit logs and transaction history from MongoDB Atlas. This action is irreversible.
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-primary)', display: 'block', marginBottom: '6px' }}>
+                    Confirm Admin Password:
+                  </label>
+                  <input
+                    type="password"
+                    className="sheets-input"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    placeholder="Enter admin password to confirm"
+                    required
+                    autoFocus
+                    style={{ width: '100%', fontSize: '12px', fontFamily: 'var(--font-code)' }}
+                  />
+                </div>
+
+                {clearError && (
+                  <div style={{ background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#B91C1C', padding: '6px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>
+                    {clearError}
+                  </div>
+                )}
+              </div>
+
+              <div className="sheets-modal-footer" style={{ padding: '10px 16px', background: '#F8FAFC', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="sheets-btn"
+                  onClick={() => setShowClearModal(false)}
+                  disabled={clearingLogs}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="sheets-btn"
+                  disabled={clearingLogs || !adminPassword.trim()}
+                  style={{
+                    background: '#DC2626',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    fontWeight: '700',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  {clearingLogs ? 'Deleting...' : 'Confirm & Delete All Logs'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

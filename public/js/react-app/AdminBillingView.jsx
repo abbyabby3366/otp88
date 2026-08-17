@@ -7,10 +7,11 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
   const [invoices, setInvoices] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [activeSubTab, setActiveSubTab] = useState('transactions'); // 'transactions' | 'invoices'
-  const [txFilter, setTxFilter] = useState('ALL'); // 'ALL' | 'USAGE_OTP' | 'TOPUP'
+  const [txFilter, setTxFilter] = useState('ALL'); // 'ALL' | 'USAGE_OTP' | 'ADJUSTMENTS'
   const [selectedUserId, setSelectedUserId] = useState('');
-  const [topupAmount, setTopupAmount] = useState(100);
-  const [topupMethod, setTopupMethod] = useState('Manual Admin Credit');
+  const [adjustmentAction, setAdjustmentAction] = useState('CREDIT'); // 'CREDIT' | 'DEBIT'
+  const [adjustmentAmount, setAdjustmentAmount] = useState(100);
+  const [adjustmentMethod, setAdjustmentMethod] = useState('');
   const [processing, setProcessing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -58,12 +59,18 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
     }
   }, [usersList, selectedUserId]);
 
-  const handleAdminTopup = async (e) => {
+  const handleAdminBalanceAdjustment = async (e) => {
     e.preventDefault();
     if (!selectedUserId || !jwtToken) return;
+    const parsedAmount = parseFloat(adjustmentAmount) || 0;
+    if (parsedAmount <= 0) {
+      showToast('Please enter an amount greater than 0', 'error');
+      return;
+    }
+
     setProcessing(true);
     try {
-      const res = await fetch('/api/admin/billing/topup', {
+      const res = await fetch('/api/admin/billing/adjust-balance', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -71,8 +78,9 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
         },
         body: JSON.stringify({
           userId: selectedUserId,
-          amount: parseFloat(topupAmount) || 0,
-          method: topupMethod
+          amount: parsedAmount,
+          action: adjustmentAction,
+          method: adjustmentMethod.trim() || (adjustmentAction === 'DEBIT' ? 'Admin Manual Debit' : 'Manual Admin Credit')
         })
       });
       const data = await res.json();
@@ -82,10 +90,10 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
         fetchTransactions();
         if (refreshUsers) refreshUsers();
       } else {
-        showToast(data.error || 'Failed to credit user balance', 'error');
+        showToast(data.error || `Failed to ${adjustmentAction.toLowerCase()} user balance`, 'error');
       }
     } catch (err) {
-      showToast('Error crediting balance', 'error');
+      showToast(`Error performing ${adjustmentAction.toLowerCase()} balance adjustment`, 'error');
     } finally {
       setProcessing(false);
     }
@@ -96,7 +104,7 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
 
   const filteredTransactions = transactions.filter(tx => {
     if (txFilter === 'USAGE_OTP' && tx.type !== 'USAGE_OTP') return false;
-    if (txFilter === 'TOPUP' && tx.type !== 'TOPUP' && tx.type !== 'ADMIN_CREDIT') return false;
+    if (txFilter === 'ADJUSTMENTS' && tx.type !== 'TOPUP' && tx.type !== 'ADMIN_CREDIT' && tx.type !== 'ADMIN_DEBIT') return false;
     if (!searchTerm.trim()) return true;
     const term = searchTerm.toLowerCase().trim();
     return (
@@ -124,7 +132,7 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       
-        {/* Top Platform Financial KPI Cards */}
+      {/* Top Platform Financial KPI Cards */}
       <div className="sheets-kpi-grid">
         <div className="sheets-kpi-cell">
           <div className="sheets-kpi-label">TOTAL PLATFORM BALANCES</div>
@@ -149,17 +157,62 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
         </div>
       </div>
 
-      {/* Manual Top-up / Balance Credit Box */}
-      <div style={{ background: '#FFFFFF', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '12px' }}>
-        <div style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="1" x2="12" y2="23" />
-            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-          </svg>
-          ADMIN: CREDIT USER BALANCE (MANUAL RECHARGE)
+      {/* Edit User Balance Box (Credit & Debit stored in Transactions) */}
+      <div style={{ background: '#FFFFFF', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '14px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+            EDIT USER BALANCE
+          </div>
+
+          {/* Action Selector: Credit vs Debit */}
+          <div style={{ display: 'inline-flex', background: '#F1F5F9', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
+            <button
+              type="button"
+              onClick={() => setAdjustmentAction('CREDIT')}
+              style={{
+                padding: '4px 14px',
+                fontSize: '11px',
+                fontWeight: '700',
+                borderRadius: '4px',
+                border: 'none',
+                cursor: 'pointer',
+                background: adjustmentAction === 'CREDIT' ? '#059669' : 'transparent',
+                color: adjustmentAction === 'CREDIT' ? '#FFFFFF' : 'var(--text-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <span>+</span> Credit (Add Balance)
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdjustmentAction('DEBIT')}
+              style={{
+                padding: '4px 14px',
+                fontSize: '11px',
+                fontWeight: '700',
+                borderRadius: '4px',
+                border: 'none',
+                cursor: 'pointer',
+                background: adjustmentAction === 'DEBIT' ? '#DC2626' : 'transparent',
+                color: adjustmentAction === 'DEBIT' ? '#FFFFFF' : 'var(--text-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <span>-</span> Debit (Deduct Balance)
+            </button>
+          </div>
         </div>
 
-        <form onSubmit={handleAdminTopup} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', alignItems: 'end' }}>
+        <form onSubmit={handleAdminBalanceAdjustment} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', alignItems: 'end' }}>
           <div>
             <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
               Target User
@@ -178,32 +231,30 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
 
           <div>
             <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-              Top-up Amount ($ USD)
+              {adjustmentAction === 'CREDIT' ? 'Credit Amount ($ USD)' : 'Debit Amount ($ USD)'}
             </label>
-            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-              <input
-                type="number"
-                step="5"
-                min="1"
-                className="sheets-input sheets-input-code"
-                value={topupAmount}
-                onChange={(e) => setTopupAmount(e.target.value)}
-                required
-                style={{ width: '100%', fontWeight: '700' }}
-              />
-            </div>
+            <input
+              type="number"
+              step="any"
+              min="0.0001"
+              className="sheets-input sheets-input-code"
+              value={adjustmentAmount}
+              onChange={(e) => setAdjustmentAmount(e.target.value)}
+              required
+              style={{ width: '100%', fontWeight: '700' }}
+            />
           </div>
 
           <div>
             <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-              Reference / Method
+              {adjustmentAction === 'CREDIT' ? 'Reference / Top-up Method' : 'Reason / Note'}
             </label>
             <input
               type="text"
               className="sheets-input"
-              value={topupMethod}
-              onChange={(e) => setTopupMethod(e.target.value)}
-              placeholder="e.g. Bank Wire / USDT / Promo Credit"
+              value={adjustmentMethod}
+              onChange={(e) => setAdjustmentMethod(e.target.value)}
+              placeholder={adjustmentAction === 'CREDIT' ? 'e.g. Bank Wire / USDT / Promo Credit' : 'e.g. Manual Adjustment / Fee Deduction / Correction'}
               style={{ width: '100%' }}
             />
           </div>
@@ -211,18 +262,43 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
           <div>
             <button
               type="submit"
-              className="sheets-btn sheets-btn-primary"
-              disabled={processing || !selectedUserId}
-              style={{ width: '100%', padding: '6px 14px', background: '#059669', fontWeight: '700' }}
+              className="sheets-btn"
+              disabled={processing || !selectedUserId || !adjustmentAmount || parseFloat(adjustmentAmount) <= 0}
+              style={{
+                width: '100%',
+                padding: '6px 14px',
+                background: adjustmentAction === 'CREDIT' ? '#059669' : '#DC2626',
+                color: '#FFFFFF',
+                fontWeight: '700',
+                border: 'none',
+                cursor: 'pointer'
+              }}
             >
-              {processing ? 'Crediting...' : `+ Credit $${parseFloat(topupAmount || 0).toFixed(2)} to User`}
+              {processing
+                ? 'Processing...'
+                : adjustmentAction === 'CREDIT'
+                ? `+ Credit $${parseFloat(adjustmentAmount || 0).toFixed(2)} to User`
+                : `- Debit $${parseFloat(adjustmentAmount || 0).toFixed(2)} from User`}
             </button>
           </div>
         </form>
 
         {selectedUser && (
-          <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)', background: '#F8FAFC', padding: '6px 10px', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
-            Selected: <strong>{selectedUser.name || selectedUser.email}</strong> | Role: <span className="sheets-badge sheets-badge-blue">{selectedUser.role}</span> | Current Balance: <strong style={{ color: '#059669' }}>${(selectedUser.balanceUsd || 0).toFixed(4)}</strong>
+          <div style={{ marginTop: '10px', fontSize: '11px', color: 'var(--text-secondary)', background: '#F8FAFC', padding: '8px 12px', borderRadius: '4px', border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <div>
+              Selected: <strong>{selectedUser.name || selectedUser.email}</strong> | Role: <span className="sheets-badge sheets-badge-blue">{selectedUser.role}</span> | Current Balance: <strong style={{ color: '#059669' }}>${(selectedUser.balanceUsd || 0).toFixed(4)}</strong>
+            </div>
+            {adjustmentAmount && parseFloat(adjustmentAmount) > 0 && (
+              <div style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>
+                Est. Balance After:{' '}
+                <span style={{ color: adjustmentAction === 'CREDIT' ? '#059669' : ((selectedUser.balanceUsd || 0) - parseFloat(adjustmentAmount)) < 0 ? '#DC2626' : '#2563EB' }}>
+                  ${(adjustmentAction === 'CREDIT'
+                    ? (selectedUser.balanceUsd || 0) + parseFloat(adjustmentAmount)
+                    : (selectedUser.balanceUsd || 0) - parseFloat(adjustmentAmount)
+                  ).toFixed(4)}
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -265,11 +341,11 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
                 OTP Usage ({transactions.filter(t => t.type === 'USAGE_OTP').length})
               </button>
               <button
-                className={`sheets-btn ${txFilter === 'TOPUP' ? 'sheets-btn-primary' : ''}`}
+                className={`sheets-btn ${txFilter === 'ADJUSTMENTS' ? 'sheets-btn-primary' : ''}`}
                 style={{ fontSize: '10px', padding: '2px 8px' }}
-                onClick={() => setTxFilter('TOPUP')}
+                onClick={() => setTxFilter('ADJUSTMENTS')}
               >
-                Top-ups ({transactions.filter(t => t.type === 'TOPUP' || t.type === 'ADMIN_CREDIT').length})
+                Credits & Debits ({transactions.filter(t => t.type === 'TOPUP' || t.type === 'ADMIN_CREDIT' || t.type === 'ADMIN_DEBIT').length})
               </button>
             </div>
 
@@ -313,7 +389,7 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
                 </tr>
               ) : (
                 filteredTransactions.map((tx, idx) => {
-                  const isUsage = tx.type === 'USAGE_OTP' || (tx.amount && tx.amount < 0);
+                  const isDebitOrUsage = tx.type === 'USAGE_OTP' || tx.type === 'ADMIN_DEBIT' || (tx.amount && tx.amount < 0);
                   return (
                     <tr key={tx._id || tx.txId || idx}>
                       <td style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-code)', fontSize: '10px' }}>{idx + 1}</td>
@@ -335,14 +411,14 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
                         )}
                       </td>
                       <td>
-                        <span className={`sheets-badge ${tx.channel && tx.channel.includes('WHATSAPP') ? 'sheets-badge-emerald' : tx.channel && tx.channel.includes('TELEGRAM') ? 'sheets-badge-blue' : tx.channel && tx.channel.includes('SMS') ? 'sheets-badge-amber' : 'sheets-badge-purple'}`}>
+                        <span className={`sheets-badge ${tx.type === 'ADMIN_DEBIT' || tx.category === 'Balance Debit' ? 'sheets-badge-danger' : (tx.type === 'ADMIN_CREDIT' || tx.type === 'TOPUP') ? 'sheets-badge-emerald' : tx.channel && tx.channel.includes('WHATSAPP') ? 'sheets-badge-emerald' : tx.channel && tx.channel.includes('TELEGRAM') ? 'sheets-badge-blue' : tx.channel && tx.channel.includes('SMS') ? 'sheets-badge-amber' : 'sheets-badge-purple'}`}>
                           {tx.category || tx.channel}
                         </span>
                       </td>
                       <td style={{ fontFamily: 'var(--font-code)', fontWeight: '800' }}>
-                        {isUsage ? (
+                        {isDebitOrUsage ? (
                           <span style={{ color: '#DC2626' }}>
-                            -${Math.abs(tx.amount).toFixed(4)}
+                            -${Math.abs(tx.amount).toFixed(tx.type === 'USAGE_OTP' ? 4 : 2)}
                           </span>
                         ) : (
                           <span style={{ color: '#059669' }}>

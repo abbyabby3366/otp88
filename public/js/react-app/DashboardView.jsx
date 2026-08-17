@@ -153,10 +153,10 @@ function DashboardView({
             {t.filterDateRange || 'Date Range'}:
           </span>
           {[
-            { id: 'month', label: t.thisMonth || 'This Month' },
+            { id: 'today', label: t.today || 'Today' },
             { id: '7days', label: t.last7Days || 'Last 7 Days' },
             { id: '30days', label: t.last30Days || 'Last 30 Days' },
-            { id: 'today', label: t.today || 'Today' },
+            { id: 'month', label: t.thisMonth || 'This Month' },
             { id: 'all', label: t.allTime || 'All Time' }
           ].map(btn => (
             <button
@@ -316,7 +316,7 @@ function DashboardView({
               <strong style={{ color: '#0284C7', fontFamily: 'var(--font-code)' }}>{telegramRateText}</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--text-secondary)' }}>Direct Telco SMS</span>
+              <span style={{ color: 'var(--text-secondary)' }}>SMS 360</span>
               <strong style={{ color: '#D97706', fontFamily: 'var(--font-code)' }}>{smsRateText}</strong>
             </div>
           </div>

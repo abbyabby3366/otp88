@@ -58,6 +58,66 @@ function Sms360View({ t, jwtToken, showToast }) {
   const [clientIp, setClientIp] = useState('');
   const [loadingIp, setLoadingIp] = useState(false);
 
+  // Dynamic Gateway Health Check State
+  const [healthStatus, setHealthStatus] = useState('idle'); // 'idle' | 'checking' | 'verified' | 'unauthorized' | 'not_whitelisted' | 'error'
+  const [healthDetails, setHealthDetails] = useState(null);
+  const [lastCheckedAt, setLastCheckedAt] = useState(null);
+
+  const checkGatewayHealth = async (silent = false, customConfig = null) => {
+    if (!jwtToken) return;
+    const targetConfig = customConfig || config;
+    if (!targetConfig.appKey || !targetConfig.appKey.trim()) {
+      setHealthStatus('unauthorized');
+      setHealthDetails({ message: 'App Key is required' });
+      return;
+    }
+    setHealthStatus('checking');
+    try {
+      const startTime = Date.now();
+      const res = await fetch('/api/admin/sms360/live-balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
+        body: JSON.stringify({
+          country: inquiryCountry || 'MYS',
+          appKey: targetConfig.appKey,
+          appSecret: targetConfig.appSecret
+        })
+      });
+      const latency = Date.now() - startTime;
+      const data = await res.json();
+      setLastCheckedAt(new Date().toLocaleTimeString());
+
+      if (data.isLiveConnected) {
+        setHealthStatus('verified');
+        setHealthDetails({
+          balance: data.data?.description?.balance || data.data?.balance || 'Active',
+          credits: data.data?.description?.credits ?? data.data?.credits ?? 'OK',
+          currency: data.data?.description?.currency || 'MYR',
+          latency
+        });
+        if (!silent && showToast) showToast(`🟢 Bulk360 Gateway Verified! (${latency}ms)`);
+      } else {
+        if (data.errorType === 'ip_not_whitelisted') {
+          setHealthStatus('not_whitelisted');
+          setHealthDetails({ message: data.errorMessage || 'IP Not Whitelisted', latency });
+          if (!silent && showToast) showToast('🔴 Bulk360: Server IP not whitelisted', 'error');
+        } else if (data.errorType === 'invalid_credentials') {
+          setHealthStatus('unauthorized');
+          setHealthDetails({ message: data.errorMessage || 'Invalid API Key / Secret', latency });
+          if (!silent && showToast) showToast('🔴 Bulk360: 401 Invalid Credentials', 'error');
+        } else {
+          setHealthStatus('error');
+          setHealthDetails({ message: data.errorMessage || data.rawText || 'Gateway unreachable', latency });
+          if (!silent && showToast) showToast(`🔴 Bulk360 Error: ${data.errorMessage || 'Connection failed'}`, 'error');
+        }
+      }
+    } catch (err) {
+      setHealthStatus('error');
+      setHealthDetails({ message: err.message || 'Network error' });
+      if (!silent && showToast) showToast('Failed to reach server for health check', 'error');
+    }
+  };
+
   // Fetch live stats, database config, and detected public IP
   const loadData = () => {
     if (jwtToken) {
@@ -66,7 +126,12 @@ function Sms360View({ t, jwtToken, showToast }) {
         .then(res => res.json())
         .then(data => {
           if (data.success) {
-            if (data.config) setConfig(prev => ({ ...prev, ...data.config }));
+            if (data.config) {
+              setConfig(prev => ({ ...prev, ...data.config }));
+              checkGatewayHealth(true, data.config);
+            } else {
+              checkGatewayHealth(true);
+            }
             if (data.logs) setLogs(data.logs);
             if (data.serverIp) setServerIp(data.serverIp);
             if (data.clientIp) setClientIp(data.clientIp);
@@ -126,6 +191,7 @@ function Sms360View({ t, jwtToken, showToast }) {
           setConfig(updated);
           setShowEditModal(false);
           if (showToast) showToast('✅ Bulk360 API keys saved!');
+          checkGatewayHealth(false, updated);
         }
       }
     } catch (err) {
@@ -146,7 +212,10 @@ function Sms360View({ t, jwtToken, showToast }) {
           body: JSON.stringify(config)
         });
         const data = await res.json();
-        if (data.success && showToast) showToast('✅ Bulk360 API settings saved to database!');
+        if (data.success) {
+          if (showToast) showToast('✅ Bulk360 API settings saved to database!');
+          checkGatewayHealth(false, config);
+        }
       }
     } catch (err) {
       if (showToast) showToast('Error saving to database.', 'error');
@@ -266,9 +335,43 @@ function Sms360View({ t, jwtToken, showToast }) {
             </svg>
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <h2 style={{ fontSize: '14px', fontWeight: '800', margin: 0, color: 'var(--text-primary)' }}>Bulk360 SMS API V3.0</h2>
-              <span className="sheets-badge sheets-badge-emerald" style={{ fontSize: '10px', padding: '2px 6px' }}>● Active</span>
+              {healthStatus === 'checking' && (
+                <span className="sheets-badge sheets-badge-amber" style={{ fontSize: '10px', padding: '2px 7px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#F59E0B', display: 'inline-block', animation: 'pulse 1.5s infinite' }}></span>
+                  Checking...
+                </span>
+              )}
+              {healthStatus === 'verified' && (
+                <span className="sheets-badge sheets-badge-emerald" style={{ fontSize: '10px', padding: '2px 7px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981', display: 'inline-block' }}></span>
+                  Active &amp; Verified
+                </span>
+              )}
+              {healthStatus === 'not_whitelisted' && (
+                <span className="sheets-badge sheets-badge-red" style={{ fontSize: '10px', padding: '2px 7px', display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#B91C1C' }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EF4444', display: 'inline-block' }}></span>
+                  IP Not Whitelisted
+                </span>
+              )}
+              {healthStatus === 'unauthorized' && (
+                <span className="sheets-badge sheets-badge-red" style={{ fontSize: '10px', padding: '2px 7px', display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#B91C1C' }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EF4444', display: 'inline-block' }}></span>
+                  401 Unauthorized
+                </span>
+              )}
+              {healthStatus === 'error' && (
+                <span className="sheets-badge sheets-badge-red" style={{ fontSize: '10px', padding: '2px 7px', display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#B91C1C' }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EF4444', display: 'inline-block' }}></span>
+                  Offline
+                </span>
+              )}
+              {healthStatus === 'idle' && (
+                <span className="sheets-badge" style={{ fontSize: '10px', padding: '2px 7px', background: '#F1F5F9', color: 'var(--text-secondary)' }}>
+                  ● Ready
+                </span>
+              )}
             </div>
             <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>https://sms.360.my/developers/v3.0</p>
           </div>
@@ -553,7 +656,7 @@ function Sms360View({ t, jwtToken, showToast }) {
       {activeSubTab === 'keys' && (
         <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
           <div style={{ background: '#F8FAFC', padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '12px', fontWeight: '800' }}>🔑 BULK360 API CREDENTIALS & SETTINGS</span>
+            <span style={{ fontSize: '12px', fontWeight: '800' }}>BULK360 API CREDENTIALS & SETTINGS</span>
             <span className="sheets-badge sheets-badge-emerald" style={{ fontSize: '9px', padding: '1px 5px' }}>● Saved</span>
           </div>
 
@@ -578,27 +681,91 @@ function Sms360View({ t, jwtToken, showToast }) {
                 <input type="text" className="sheets-input" value={config.balanceUrl} onChange={(e) => setConfig({ ...config, balanceUrl: e.target.value })} style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-code)' }} />
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>Default Sender ID (`from`)</label>
                 <input type="text" className="sheets-input" value={config.senderId} onChange={(e) => setConfig({ ...config, senderId: e.target.value })} style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-code)' }} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>Unit Rate (MYR/SMS)</label>
-                <input type="text" className="sheets-input" value={config.ratePerSms} onChange={(e) => setConfig({ ...config, ratePerSms: e.target.value })} style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-code)' }} />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>Gateway Status</label>
-                <select className="sheets-input" value={config.status} onChange={(e) => setConfig({ ...config, status: e.target.value })} style={{ width: '100%', fontSize: '11px' }}>
-                  <option value="ACTIVE">ACTIVE (Primary Route)</option>
-                  <option value="BACKUP">BACKUP (Secondary)</option>
-                  <option value="PAUSED">PAUSED (Maintenance)</option>
-                </select>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', margin: 0 }}>Gateway Live Status</label>
+                  <button
+                    type="button"
+                    disabled={healthStatus === 'checking'}
+                    onClick={() => checkGatewayHealth(false)}
+                    className="sheets-btn"
+                    style={{ fontSize: '9px', padding: '2px 8px', background: '#F1F5F9', border: '1px solid #CBD5E1', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: healthStatus === 'checking' ? 'not-allowed' : 'pointer' }}
+                  >
+                    <span style={{ display: 'inline-block', animation: healthStatus === 'checking' ? 'spin 1s linear infinite' : 'none' }}>🔄</span>
+                    {healthStatus === 'checking' ? 'Pinging Gateway...' : 'Test Connection'}
+                  </button>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minHeight: '30px', flexWrap: 'wrap' }}>
+                  {healthStatus === 'checking' && (
+                    <span className="sheets-badge sheets-badge-amber" style={{ fontSize: '10px', padding: '4px 9px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#F59E0B', display: 'inline-block' }}></span>
+                      🟡 Pinging Bulk360...
+                    </span>
+                  )}
+                  {healthStatus === 'verified' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span className="sheets-badge sheets-badge-emerald" style={{ fontSize: '10px', padding: '4px 9px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981', display: 'inline-block' }}></span>
+                        🟢 Online &amp; Verified
+                      </span>
+                      {healthDetails?.latency && (
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-code)' }}>
+                          {healthDetails.latency}ms
+                        </span>
+                      )}
+                      {lastCheckedAt && (
+                        <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+                          (Checked {lastCheckedAt})
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {healthStatus === 'not_whitelisted' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span className="sheets-badge sheets-badge-red" style={{ fontSize: '10px', padding: '4px 9px', display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#B91C1C' }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EF4444', display: 'inline-block' }}></span>
+                        🔴 IP Not Whitelisted
+                      </span>
+                      {lastCheckedAt && <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>({lastCheckedAt})</span>}
+                    </div>
+                  )}
+                  {healthStatus === 'unauthorized' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span className="sheets-badge sheets-badge-red" style={{ fontSize: '10px', padding: '4px 9px', display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#B91C1C' }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EF4444', display: 'inline-block' }}></span>
+                        🔴 401 Unauthorized / Bad Key
+                      </span>
+                      {lastCheckedAt && <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>({lastCheckedAt})</span>}
+                    </div>
+                  )}
+                  {(healthStatus === 'error' || healthStatus === 'idle') && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      {healthStatus === 'error' ? (
+                        <span className="sheets-badge sheets-badge-red" style={{ fontSize: '10px', padding: '4px 9px', display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#B91C1C' }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EF4444', display: 'inline-block' }}></span>
+                          🔴 Connection Failed
+                        </span>
+                      ) : (
+                        <span className="sheets-badge" style={{ fontSize: '10px', padding: '4px 9px', background: '#F1F5F9', color: 'var(--text-secondary)' }}>
+                          ⚪ Ready to Test
+                        </span>
+                      )}
+                      {healthDetails?.message && (
+                        <span style={{ fontSize: '10px', color: '#DC2626' }}>{healthDetails.message}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             {/* IP Whitelist Security Configuration Box */}
             <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '4px', padding: '10px 12px', fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ fontWeight: '700', color: '#92400E' }}>🛡️ Bulk360 IP Whitelist Security Configuration</div>
+              <div style={{ fontWeight: '700', color: '#92400E' }}>Bulk360 IP Whitelist Security Configuration</div>
               <div style={{ color: '#78350F', lineHeight: '1.4' }}>
                 Bulk360 firewall requires your public server IP to be whitelisted under <strong>Configurations &gt; Whitelist IPs</strong>. Outbound requests without whitelisting return <code>401 Unauthorized</code>.
               </div>
@@ -687,7 +854,7 @@ function Sms360View({ t, jwtToken, showToast }) {
         <table className="sheets-table">
           <thead>
             <tr>
-              <th style={{ width: '35px' }}>#</th><th>Reference ID</th><th>Recipient Phone</th><th>Message Content</th><th>Sender ID</th><th>Gateway</th><th>Segments</th><th>Cost</th><th>Status</th><th>Latency</th><th>Time</th>
+              <th style={{ width: '35px' }}>#</th><th>Reference ID</th><th>Recipient</th><th>Message Content</th><th>Sender ID</th><th>Gateway</th><th>Segments</th><th>Cost</th><th>Status</th><th>Latency</th><th>Date & Time</th>
             </tr>
           </thead>
           <tbody>
@@ -710,7 +877,7 @@ function Sms360View({ t, jwtToken, showToast }) {
                   <td style={{ fontFamily: 'var(--font-code)' }}>{l.cost}</td>
                   <td><span className="sheets-badge sheets-badge-emerald">{l.status}</span></td>
                   <td style={{ fontFamily: 'var(--font-code)', color: '#059669' }}>{l.latency}</td>
-                  <td style={{ fontFamily: 'var(--font-code)', color: 'var(--text-muted)' }}>{l.timestamp}</td>
+                  <td style={{ fontFamily: 'var(--font-code)', color: 'var(--text-muted)', fontSize: '11px', whiteSpace: 'nowrap' }}>{l.timestamp}</td>
                 </tr>
               ))
             )}
