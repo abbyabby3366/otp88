@@ -28,7 +28,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 # Copy application files and built static assets
 COPY --from=builder /app/server.js ./server.js
-COPY --from=builder /app/data ./data
+COPY --from=builder /app/src ./src
 COPY --from=builder /app/public ./public
 
 # Default PORT (Render automatically injects PORT at runtime)
