@@ -1,15 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { TableLoader } from './TableLoader.jsx';
+import { TopupModal } from './TopupModal.jsx';
+import { PaginationBar } from './PaginationBar.jsx';
 
 // User Billing & Transaction Ledger View
-function BillingView({ t, session, setSession, jwtToken, showToast, ratesList = [] }) {
+function BillingView({ t = {}, session, setSession, jwtToken, showToast, ratesList = [] }) {
   const [topupAmount, setTopupAmount] = useState(100);
+  const [showTopupModal, setShowTopupModal] = useState(false);
   const [invoices, setInvoices] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [activeSubTab, setActiveSubTab] = useState('transactions'); // 'transactions' | 'invoices'
   const [txFilter, setTxFilter] = useState('ALL'); // 'ALL' | 'USAGE_OTP' | 'TOPUP'
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [invoicePage, setInvoicePage] = useState(1);
+  const [invoicePageSize, setInvoicePageSize] = useState(10);
 
   const waRate = (ratesList && ratesList.length > 0 && ratesList[0]?.whatsapp !== undefined && ratesList[0]?.whatsapp !== null)
     ? Number(ratesList[0].whatsapp)
@@ -88,16 +95,57 @@ function BillingView({ t, session, setSession, jwtToken, showToast, ratesList = 
     );
   });
 
+  const filteredInvoices = invoices.filter(inv => {
+    if (!searchTerm.trim()) return true;
+    const q = searchTerm.toLowerCase().trim();
+    return (
+      (inv.id && inv.id.toLowerCase().includes(q)) ||
+      (inv.method && inv.method.toLowerCase().includes(q)) ||
+      (inv.amount && String(inv.amount).toLowerCase().includes(q))
+    );
+  });
+
+  const paginatedTransactions = filteredTransactions.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paginatedInvoices = filteredInvoices.slice((invoicePage - 1) * invoicePageSize, invoicePage * invoicePageSize);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       {/* KPI Balance Strip */}
       <div className="sheets-kpi-grid">
-        <div className="sheets-kpi-cell">
-          <div className="sheets-kpi-label">{t.currentBalance || 'AVAILABLE BALANCE'}</div>
-          <div className="sheets-kpi-value" style={{ color: '#059669', fontSize: '22px' }}>
-            ${(session.balanceUsd !== undefined ? session.balanceUsd : 50).toFixed(4)}
+        <div className="sheets-kpi-cell" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+              <div>
+                <div className="sheets-kpi-label">{t.currentBalance || 'AVAILABLE BALANCE'}</div>
+                <div className="sheets-kpi-value" style={{ color: '#059669', fontSize: '22px' }}>
+                  ${(session?.balanceUsd !== undefined ? session.balanceUsd : 50).toFixed(4)}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="sheets-btn sheets-btn-primary"
+                onClick={() => setShowTopupModal(true)}
+                style={{
+                  padding: '5px 12px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                {t.topUpCredits || 'Top-up Balance'}
+              </button>
+            </div>
+            <div className="sheets-kpi-sub">{t.autoReload || '● Active'}</div>
           </div>
-          <div className="sheets-kpi-sub">{t.autoReload || '● Active'}</div>
         </div>
         <div className="sheets-kpi-cell">
           <div className="sheets-kpi-label">Estimated Remaining OTPs</div>
@@ -113,56 +161,29 @@ function BillingView({ t, session, setSession, jwtToken, showToast, ratesList = 
         </div>
       </div>
 
-      {/* Top-up Selection Box */}
-      <div style={{ background: '#FFFFFF', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '12px' }}>
-        <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '8px', letterSpacing: '0.02em' }}>
-          {t.topUpCredits || 'ACCOUNT BALANCE RECHARGE'}
-        </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
-          {[50, 100, 250, 500, 1000].map((amt) => (
-            <button
-              key={amt}
-              type="button"
-              className={`sheets-btn ${topupAmount === amt ? 'sheets-btn-primary' : ''}`}
-              onClick={() => setTopupAmount(amt)}
-              style={{ padding: '6px 14px', fontSize: '12px' }}
-            >
-              + ${amt} USD
-            </button>
-          ))}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Custom: $</span>
-            <input
-              type="number"
-              className="sheets-input sheets-input-code"
-              style={{ width: '80px', padding: '5px' }}
-              value={topupAmount}
-              onChange={(e) => setTopupAmount(e.target.value)}
-            />
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="sheets-btn sheets-btn-primary" style={{ padding: '6px 14px' }} onClick={() => handleSimulateTopup('Credit Card (Stripe)')}>
-            {t.payWithCard || 'Pay with Credit Card'}
-          </button>
-          <button className="sheets-btn" style={{ padding: '6px 14px' }} onClick={() => handleSimulateTopup('USDT Crypto')}>
-            {t.payWithCrypto || 'Pay with Crypto (USDT)'}
-          </button>
-        </div>
-      </div>
+      {/* Top-up Balance Modal */}
+      <TopupModal
+        isOpen={showTopupModal}
+        onClose={() => setShowTopupModal(false)}
+        session={session}
+        topupAmount={topupAmount}
+        setTopupAmount={setTopupAmount}
+        onSimulateTopup={handleSimulateTopup}
+        t={t}
+      />
 
       {/* SUB-TABS: TRANSACTION LEDGER VS INVOICES */}
       <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '4px' }}>
         <button
           className={`sheets-btn ${activeSubTab === 'transactions' ? 'sheets-btn-primary' : ''}`}
-          onClick={() => setActiveSubTab('transactions')}
+          onClick={() => { setActiveSubTab('transactions'); setCurrentPage(1); }}
           style={{ fontSize: '11px', fontWeight: '700' }}
         >
           Transaction & Usage Ledger ({transactions.length})
         </button>
         <button
           className={`sheets-btn ${activeSubTab === 'invoices' ? 'sheets-btn-primary' : ''}`}
-          onClick={() => setActiveSubTab('invoices')}
+          onClick={() => { setActiveSubTab('invoices'); setInvoicePage(1); }}
           style={{ fontSize: '11px', fontWeight: '700' }}
         >
           Invoices & Receipts ({invoices.length})
@@ -177,21 +198,21 @@ function BillingView({ t, session, setSession, jwtToken, showToast, ratesList = 
               <button
                 className={`sheets-btn ${txFilter === 'ALL' ? 'sheets-btn-primary' : ''}`}
                 style={{ fontSize: '10px', padding: '2px 8px' }}
-                onClick={() => setTxFilter('ALL')}
+                onClick={() => { setTxFilter('ALL'); setCurrentPage(1); }}
               >
                 All ({transactions.length})
               </button>
               <button
                 className={`sheets-btn ${txFilter === 'USAGE_OTP' ? 'sheets-btn-primary' : ''}`}
                 style={{ fontSize: '10px', padding: '2px 8px' }}
-                onClick={() => setTxFilter('USAGE_OTP')}
+                onClick={() => { setTxFilter('USAGE_OTP'); setCurrentPage(1); }}
               >
                 OTP Usage ({transactions.filter(t => t.type === 'USAGE_OTP').length})
               </button>
               <button
                 className={`sheets-btn ${txFilter === 'TOPUP' ? 'sheets-btn-primary' : ''}`}
                 style={{ fontSize: '10px', padding: '2px 8px' }}
-                onClick={() => setTxFilter('TOPUP')}
+                onClick={() => { setTxFilter('TOPUP'); setCurrentPage(1); }}
               >
                 Top-ups ({transactions.filter(t => t.type === 'TOPUP' || t.type === 'ADMIN_CREDIT').length})
               </button>
@@ -203,7 +224,7 @@ function BillingView({ t, session, setSession, jwtToken, showToast, ratesList = 
                 className="sheets-input"
                 placeholder="Search reference ID, phone, or description..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); setInvoicePage(1); }}
                 style={{ width: '240px', padding: '3px 8px', fontSize: '11px' }}
               />
               <button className="sheets-btn" style={{ fontSize: '10px', padding: '2px 6px' }} onClick={fetchBillingData}>
@@ -217,7 +238,6 @@ function BillingView({ t, session, setSession, jwtToken, showToast, ratesList = 
               <tr>
                 <th style={{ width: '35px' }}>#</th>
                 <th>Reference / Tx ID</th>
-                <th>Spent Where / Description</th>
                 <th>Channel / Method</th>
                 <th>Amount ($)</th>
                 <th>Balance After</th>
@@ -227,33 +247,37 @@ function BillingView({ t, session, setSession, jwtToken, showToast, ratesList = 
             </thead>
             <tbody>
               {loading ? (
-                <TableLoader colSpan={8} message="Loading transaction ledger..." />
+                <TableLoader colSpan={7} message="Loading transaction ledger..." />
               ) : filteredTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: 'center', padding: '18px', color: 'var(--text-muted)' }}>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '18px', color: 'var(--text-muted)' }}>
                     No transactions found. Send an OTP to see live balance deductions.
                   </td>
                 </tr>
               ) : (
-                filteredTransactions.map((tx, idx) => {
+                paginatedTransactions.map((tx, idx) => {
                   const isUsage = tx.type === 'USAGE_OTP' || (tx.amount && tx.amount < 0);
+                  const rowNum = (currentPage - 1) * pageSize + idx + 1;
                   return (
                     <tr key={tx._id || tx.txId || idx}>
-                      <td style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-code)', fontSize: '10px' }}>{idx + 1}</td>
+                      <td style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-code)', fontSize: '10px' }}>{rowNum}</td>
                       <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700', color: 'var(--text-primary)' }}>
                         {tx.referenceId || tx.txId}
                       </td>
                       <td>
-                        <strong>{tx.description}</strong>
-                        {tx.recipient && (
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px', fontFamily: 'var(--font-code)' }}>
-                            ({tx.recipient})
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        <span className={`sheets-badge ${tx.channel && tx.channel.includes('WHATSAPP') ? 'sheets-badge-emerald' : tx.channel && tx.channel.includes('TELEGRAM') ? 'sheets-badge-blue' : tx.channel && tx.channel.includes('SMS') ? 'sheets-badge-amber' : 'sheets-badge-purple'}`}>
-                          {tx.category || tx.channel}
+                        <span className={`sheets-badge ${
+                          (tx.category || tx.channel || tx.method || '').toUpperCase().includes('WHATSAPP') ? 'sheets-badge-emerald' :
+                          (tx.category || tx.channel || tx.method || '').toUpperCase().includes('TELEGRAM') ? 'sheets-badge-blue' :
+                          (tx.category || tx.channel || tx.method || '').toUpperCase().includes('VOICE') ? 'sheets-badge-purple' :
+                          (tx.category || tx.channel || tx.method || '').toUpperCase().includes('RCS') ? 'sheets-badge-indigo' :
+                          (tx.category || tx.channel || tx.method || '').toUpperCase().includes('EMAIL') ? 'sheets-badge-cyan' :
+                          (tx.category || tx.channel || tx.method || '').toUpperCase().includes('SMS') || (tx.category || tx.channel || tx.method || '').toUpperCase().includes('360') || (tx.category || tx.channel || tx.method || '').toUpperCase().includes('TELCO') ? 'sheets-badge-amber' :
+                          'sheets-badge-emerald'
+                        }`}>
+                          {(tx.category || tx.channel || tx.method || '').toUpperCase().includes('WHATSAPP') ? 'WHATSAPP API' :
+                           (tx.category || tx.channel || tx.method || '').toUpperCase().includes('SMS') || (tx.category || tx.channel || tx.method || '').toUpperCase().includes('360') || (tx.category || tx.channel || tx.method || '').toUpperCase().includes('TELCO') ? 'SMS' :
+                           (tx.category || tx.channel || tx.method || '').toUpperCase().includes('TELEGRAM') ? 'TELEGRAM' :
+                           tx.category || tx.channel || tx.method || 'GENERAL'}
                         </span>
                       </td>
                       <td style={{ fontFamily: 'var(--font-code)', fontWeight: '800' }}>
@@ -268,7 +292,7 @@ function BillingView({ t, session, setSession, jwtToken, showToast, ratesList = 
                         )}
                       </td>
                       <td style={{ fontFamily: 'var(--font-code)', fontWeight: '600', color: '#0F172A' }}>
-                        ${(tx.balanceAfter !== undefined && tx.balanceAfter !== null) ? Number(tx.balanceAfter).toFixed(4) : (session.balanceUsd || 50).toFixed(4)}
+                        ${(tx.balanceAfter !== undefined && tx.balanceAfter !== null) ? Number(tx.balanceAfter).toFixed(4) : (session?.balanceUsd || 50).toFixed(4)}
                       </td>
                       <td style={{ fontFamily: 'var(--font-code)', color: 'var(--text-muted)', fontSize: '11px' }}>
                         {tx.date} {tx.time}
@@ -284,14 +308,32 @@ function BillingView({ t, session, setSession, jwtToken, showToast, ratesList = 
               )}
             </tbody>
           </table>
+
+          {/* Compact Pagination Bar for Transactions */}
+          <PaginationBar
+            totalItems={filteredTransactions.length}
+            currentPage={currentPage}
+            pageSize={pageSize}
+            onPageChange={(p) => setCurrentPage(p)}
+            onPageSizeChange={(sz) => { setPageSize(sz); setCurrentPage(1); }}
+            pageSizeOptions={[10, 25, 50, 100]}
+          />
         </div>
       )}
 
       {/* VIEW 2: INVOICES HISTORY */}
       {activeSubTab === 'invoices' && (
         <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden', background: '#FFFFFF' }}>
-          <div style={{ background: '#F8FAFC', padding: '8px 12px', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-subtle)' }}>
-            {t.invoicesHistory || 'INVOICES & TOP-UP RECEIPTS'}
+          <div style={{ background: '#F8FAFC', padding: '8px 12px', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <span>{t.invoicesHistory || 'INVOICES & TOP-UP RECEIPTS'} ({invoices.length})</span>
+            <input
+              type="text"
+              className="sheets-input"
+              placeholder="Search invoices..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setInvoicePage(1); }}
+              style={{ width: '180px', padding: '2px 6px', fontSize: '11px' }}
+            />
           </div>
           <table className="sheets-table">
             <thead>
@@ -307,14 +349,14 @@ function BillingView({ t, session, setSession, jwtToken, showToast, ratesList = 
             <tbody>
               {loading ? (
                 <TableLoader colSpan={6} message="Loading invoices & receipts..." />
-              ) : invoices.length === 0 ? (
+              ) : filteredInvoices.length === 0 ? (
                 <tr>
                   <td colSpan="6" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
                     No invoice history found.
                   </td>
                 </tr>
               ) : (
-                invoices.map((inv) => (
+                paginatedInvoices.map((inv) => (
                   <tr key={inv.id}>
                     <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>{inv.id}</td>
                     <td style={{ fontFamily: 'var(--font-code)' }}>{inv.date}</td>
@@ -331,6 +373,16 @@ function BillingView({ t, session, setSession, jwtToken, showToast, ratesList = 
               )}
             </tbody>
           </table>
+
+          {/* Compact Pagination Bar for Invoices */}
+          <PaginationBar
+            totalItems={filteredInvoices.length}
+            currentPage={invoicePage}
+            pageSize={invoicePageSize}
+            onPageChange={(p) => setInvoicePage(p)}
+            onPageSizeChange={(sz) => { setInvoicePageSize(sz); setInvoicePage(1); }}
+            pageSizeOptions={[10, 25, 50]}
+          />
         </div>
       )}
     </div>
@@ -342,4 +394,3 @@ if (typeof window !== 'undefined') {
 }
 
 export default BillingView;
-

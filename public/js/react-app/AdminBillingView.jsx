@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import SearchableSelect from './SearchableSelect.jsx';
 import { TableLoader } from './TableLoader.jsx';
+import { PaginationBar } from './PaginationBar.jsx';
 
 // Admin Billing, Multi-Tenant Balance Management & Platform Transaction Ledger
 function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers }) {
@@ -15,6 +16,10 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
   const [processing, setProcessing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [invoicePage, setInvoicePage] = useState(1);
+  const [invoicePageSize, setInvoicePageSize] = useState(10);
 
   // Fetch all invoices across all users
   const fetchInvoices = () => {
@@ -128,6 +133,9 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
       (inv.method && inv.method.toLowerCase().includes(term))
     );
   });
+
+  const paginatedTransactions = filteredTransactions.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paginatedInvoices = filteredInvoices.slice((invoicePage - 1) * invoicePageSize, invoicePage * invoicePageSize);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -307,14 +315,14 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
       <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '4px' }}>
         <button
           className={`sheets-btn ${activeSubTab === 'transactions' ? 'sheets-btn-primary' : ''}`}
-          onClick={() => setActiveSubTab('transactions')}
+          onClick={() => { setActiveSubTab('transactions'); setCurrentPage(1); }}
           style={{ fontSize: '11px', fontWeight: '700' }}
         >
           All Platform Transactions & Usage ({transactions.length})
         </button>
         <button
           className={`sheets-btn ${activeSubTab === 'invoices' ? 'sheets-btn-primary' : ''}`}
-          onClick={() => setActiveSubTab('invoices')}
+          onClick={() => { setActiveSubTab('invoices'); setInvoicePage(1); }}
           style={{ fontSize: '11px', fontWeight: '700' }}
         >
           Invoices & Top-up Receipts ({invoices.length})
@@ -329,21 +337,21 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
               <button
                 className={`sheets-btn ${txFilter === 'ALL' ? 'sheets-btn-primary' : ''}`}
                 style={{ fontSize: '10px', padding: '2px 8px' }}
-                onClick={() => setTxFilter('ALL')}
+                onClick={() => { setTxFilter('ALL'); setCurrentPage(1); }}
               >
                 All ({transactions.length})
               </button>
               <button
                 className={`sheets-btn ${txFilter === 'USAGE_OTP' ? 'sheets-btn-primary' : ''}`}
                 style={{ fontSize: '10px', padding: '2px 8px' }}
-                onClick={() => setTxFilter('USAGE_OTP')}
+                onClick={() => { setTxFilter('USAGE_OTP'); setCurrentPage(1); }}
               >
                 OTP Usage ({transactions.filter(t => t.type === 'USAGE_OTP').length})
               </button>
               <button
                 className={`sheets-btn ${txFilter === 'ADJUSTMENTS' ? 'sheets-btn-primary' : ''}`}
                 style={{ fontSize: '10px', padding: '2px 8px' }}
-                onClick={() => setTxFilter('ADJUSTMENTS')}
+                onClick={() => { setTxFilter('ADJUSTMENTS'); setCurrentPage(1); }}
               >
                 Credits & Debits ({transactions.filter(t => t.type === 'TOPUP' || t.type === 'ADMIN_CREDIT' || t.type === 'ADMIN_DEBIT').length})
               </button>
@@ -355,7 +363,7 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
                 className="sheets-input sheets-input-code"
                 placeholder="Search user, ID, phone, description..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); setInvoicePage(1); }}
                 style={{ width: '240px', padding: '3px 8px', fontSize: '11px' }}
               />
               <button className="sheets-btn" style={{ fontSize: '10px', padding: '2px 6px' }} onClick={fetchTransactions}>
@@ -370,7 +378,6 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
                 <th style={{ width: '35px' }}>#</th>
                 <th>User / Tenant</th>
                 <th>Reference / Tx ID</th>
-                <th>Spent Where / Description</th>
                 <th>Channel / Method</th>
                 <th>Amount ($)</th>
                 <th>Balance After</th>
@@ -380,19 +387,20 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
             </thead>
             <tbody>
               {loading ? (
-                <TableLoader colSpan={9} message="Loading all platform billing ledgers..." />
+                <TableLoader colSpan={8} message="Loading all platform billing ledgers..." />
               ) : filteredTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan="9" style={{ textAlign: 'center', padding: '18px', color: 'var(--text-muted)' }}>
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '18px', color: 'var(--text-muted)' }}>
                     No transactions found.
                   </td>
                 </tr>
               ) : (
-                filteredTransactions.map((tx, idx) => {
+                paginatedTransactions.map((tx, idx) => {
                   const isDebitOrUsage = tx.type === 'USAGE_OTP' || tx.type === 'ADMIN_DEBIT' || (tx.amount && tx.amount < 0);
+                  const rowNum = (currentPage - 1) * pageSize + idx + 1;
                   return (
                     <tr key={tx._id || tx.txId || idx}>
-                      <td style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-code)', fontSize: '10px' }}>{idx + 1}</td>
+                      <td style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-code)', fontSize: '10px' }}>{rowNum}</td>
                       <td>
                         <strong>{tx.userName || 'User'}</strong>
                         {tx.userEmail && (
@@ -403,16 +411,24 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
                         {tx.referenceId || tx.txId}
                       </td>
                       <td>
-                        <strong>{tx.description}</strong>
-                        {tx.recipient && (
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px', fontFamily: 'var(--font-code)' }}>
-                            ({tx.recipient})
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        <span className={`sheets-badge ${tx.type === 'ADMIN_DEBIT' || tx.category === 'Balance Debit' ? 'sheets-badge-danger' : (tx.type === 'ADMIN_CREDIT' || tx.type === 'TOPUP') ? 'sheets-badge-emerald' : tx.channel && tx.channel.includes('WHATSAPP') ? 'sheets-badge-emerald' : tx.channel && tx.channel.includes('TELEGRAM') ? 'sheets-badge-blue' : tx.channel && tx.channel.includes('SMS') ? 'sheets-badge-amber' : 'sheets-badge-purple'}`}>
-                          {tx.category || tx.channel}
+                        <span className={`sheets-badge ${
+                          tx.type === 'ADMIN_DEBIT' || (tx.category || '').includes('Debit') ? 'sheets-badge-danger' :
+                          tx.type === 'ADMIN_CREDIT' || tx.type === 'TOPUP' ? 'sheets-badge-emerald' :
+                          (tx.category || tx.channel || tx.method || '').toUpperCase().includes('WHATSAPP') ? 'sheets-badge-emerald' :
+                          (tx.category || tx.channel || tx.method || '').toUpperCase().includes('TELEGRAM') ? 'sheets-badge-blue' :
+                          (tx.category || tx.channel || tx.method || '').toUpperCase().includes('VOICE') ? 'sheets-badge-purple' :
+                          (tx.category || tx.channel || tx.method || '').toUpperCase().includes('RCS') ? 'sheets-badge-indigo' :
+                          (tx.category || tx.channel || tx.method || '').toUpperCase().includes('EMAIL') ? 'sheets-badge-cyan' :
+                          (tx.category || tx.channel || tx.method || '').toUpperCase().includes('SMS') || (tx.category || tx.channel || tx.method || '').toUpperCase().includes('360') || (tx.category || tx.channel || tx.method || '').toUpperCase().includes('TELCO') ? 'sheets-badge-amber' :
+                          'sheets-badge-emerald'
+                        }`}>
+                          {tx.type === 'ADMIN_DEBIT' ? 'ADMIN DEBIT' :
+                           tx.type === 'ADMIN_CREDIT' ? 'ADMIN CREDIT' :
+                           tx.type === 'TOPUP' ? (tx.method || 'TOP-UP') :
+                           (tx.category || tx.channel || tx.method || '').toUpperCase().includes('WHATSAPP') ? 'WHATSAPP API' :
+                           (tx.category || tx.channel || tx.method || '').toUpperCase().includes('SMS') || (tx.category || tx.channel || tx.method || '').toUpperCase().includes('360') || (tx.category || tx.channel || tx.method || '').toUpperCase().includes('TELCO') ? 'SMS' :
+                           (tx.category || tx.channel || tx.method || '').toUpperCase().includes('TELEGRAM') ? 'TELEGRAM' :
+                           tx.category || tx.channel || tx.method || 'GENERAL'}
                         </span>
                       </td>
                       <td style={{ fontFamily: 'var(--font-code)', fontWeight: '800' }}>
@@ -443,6 +459,16 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
               )}
             </tbody>
           </table>
+
+          {/* Compact Pagination Bar for Transactions */}
+          <PaginationBar
+            totalItems={filteredTransactions.length}
+            currentPage={currentPage}
+            pageSize={pageSize}
+            onPageChange={(p) => setCurrentPage(p)}
+            onPageSizeChange={(sz) => { setPageSize(sz); setCurrentPage(1); }}
+            pageSizeOptions={[10, 25, 50, 100]}
+          />
         </div>
       )}
 
@@ -457,7 +483,7 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
               className="sheets-input sheets-input-code"
               placeholder="Search invoice, user or email..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setInvoicePage(1); }}
               style={{ width: '220px', padding: '4px 8px', fontSize: '11px' }}
             />
           </div>
@@ -486,9 +512,9 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
                   </td>
                 </tr>
               ) : (
-                filteredInvoices.map((inv, idx) => (
+                paginatedInvoices.map((inv, idx) => (
                   <tr key={inv.id || idx}>
-                    <td style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-code)', fontSize: '10px' }}>{idx + 1}</td>
+                    <td style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-code)', fontSize: '10px' }}>{(invoicePage - 1) * invoicePageSize + idx + 1}</td>
                     <td><strong>{inv.userName || 'User'}</strong></td>
                     <td style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>{inv.userEmail || '-'}</td>
                     <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>{inv.id}</td>
@@ -510,6 +536,16 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
               )}
             </tbody>
           </table>
+
+          {/* Compact Pagination Bar for Invoices */}
+          <PaginationBar
+            totalItems={filteredInvoices.length}
+            currentPage={invoicePage}
+            pageSize={invoicePageSize}
+            onPageChange={(p) => setInvoicePage(p)}
+            onPageSizeChange={(sz) => { setInvoicePageSize(sz); setInvoicePage(1); }}
+            pageSizeOptions={[10, 25, 50]}
+          />
         </div>
       )}
 

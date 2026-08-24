@@ -26,14 +26,14 @@ router.get(['/api/logs', '/api/otp-logs', '/api/admin/logs'], verifyJwtMiddlewar
     }
 
     const normalizeLogChannel = (ch) => {
-      if (!ch) return 'WhatsApp VerifyWay';
+      if (!ch) return 'WHATSAPP API';
       const c = String(ch).toUpperCase();
-      if (c.includes('WHATSAPP')) return 'WhatsApp VerifyWay';
-      if (c.includes('SMS') || c.includes('BULK360') || c.includes('TELCO') || c.includes('360')) return 'SMS 360';
-      if (c.includes('TELEGRAM')) return 'Telegram Bot';
-      if (c.includes('VOICE')) return 'Voice Flash Call';
-      if (c.includes('RCS')) return 'RCS Messaging';
-      if (c.includes('EMAIL')) return 'Email OTP';
+      if (c.includes('WHATSAPP')) return 'WHATSAPP API';
+      if (c.includes('SMS') || c.includes('BULK360') || c.includes('TELCO') || c.includes('360')) return 'SMS';
+      if (c.includes('TELEGRAM')) return 'Telegram';
+      if (c.includes('VOICE')) return 'Voice';
+      if (c.includes('RCS')) return 'RCS';
+      if (c.includes('EMAIL')) return 'Email';
       return ch;
     };
 

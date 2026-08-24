@@ -48,7 +48,7 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
   const fetchAllLogs = () => {
     if (!jwtToken) return;
     setLoading(true);
-    fetch('/api/logs', { headers: { 'Authorization': `Bearer ${jwtToken}` } })
+    fetch('/api/otp-logs', { headers: { 'Authorization': `Bearer ${jwtToken}` } })
       .then(res => res.json())
       .then(data => {
         if (data.success && data.logs) setLogs(data.logs);
@@ -232,7 +232,15 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
               <th>{t.recipient || 'Recipient'}</th>
               <th>{t.carrierRoute || 'Channel'}</th>
               <th>Message Content</th>
-              <th>Latency</th>
+              <th>
+                <span className="header-tooltip-wrapper">
+                  {t?.latencyHeader || 'Latency'}
+                  <span className="header-tooltip-icon" title={t?.latencyTooltip || "Turnaround delivery speed from API dispatch to upstream carrier network acknowledgment."}>i</span>
+                  <span className="header-tooltip-bubble">
+                    {t?.latencyTooltip || "Turnaround delivery speed from API dispatch to upstream carrier network acknowledgment."}
+                  </span>
+                </span>
+              </th>
               <th>{t.unitCost || 'Cost'}</th>
               <th>{t.status || 'Status'}</th>
               <th>{t.timestamp || 'Date & Time'}</th>
@@ -269,7 +277,7 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
                       (log.channel || '').toUpperCase().includes('EMAIL') ? 'sheets-badge-cyan' :
                       'sheets-badge-amber'
                     }`}>
-                      {(log.channel || '').toUpperCase().includes('WHATSAPP') ? 'WhatsApp VerifyWay' : (log.channel || '').toUpperCase().includes('SMS') || (log.channel || '').toUpperCase().includes('360') || (log.channel || '').toUpperCase().includes('TELCO') ? 'SMS 360' : log.channel}
+                      {(log.channel || '').toUpperCase().includes('WHATSAPP') ? 'WHATSAPP API' : (log.channel || '').toUpperCase().includes('SMS') || (log.channel || '').toUpperCase().includes('360') || (log.channel || '').toUpperCase().includes('TELCO') ? 'SMS' : log.channel}
                     </span>
                   </td>
                   <td style={{ maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '11px', color: 'var(--text-primary)' }} title={log.message || (log.otpCode ? `Your ${log.senderId || 'Alibaba'} verification code is ${log.otpCode}. Valid for 5 minutes.` : 'Authentication OTP Message')}>

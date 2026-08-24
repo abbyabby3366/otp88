@@ -107,7 +107,7 @@ router.get('/api/user/webhook/logs', verifyJwtMiddleware, async (req, res) => {
       ? {}
       : { userId: req.user.id };
 
-    const logs = await WebhookLogModel.find(query).sort({ createdAt: -1 }).limit(20).lean();
+    const logs = await WebhookLogModel.find(query).sort({ createdAt: -1 }).limit(100).lean();
     res.json({
       success: true,
       logs: logs.map(l => ({

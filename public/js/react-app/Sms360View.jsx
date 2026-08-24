@@ -854,7 +854,25 @@ function Sms360View({ t, jwtToken, showToast }) {
         <table className="sheets-table">
           <thead>
             <tr>
-              <th style={{ width: '35px' }}>#</th><th>Reference ID</th><th>Recipient</th><th>Message Content</th><th>Sender ID</th><th>Gateway</th><th>Segments</th><th>Cost</th><th>Status</th><th>Latency</th><th>Date & Time</th>
+              <th style={{ width: '35px' }}>#</th>
+              <th>Reference ID</th>
+              <th>Recipient</th>
+              <th>Message Content</th>
+              <th>Sender ID</th>
+              <th>Gateway</th>
+              <th>Segments</th>
+              <th>Cost</th>
+              <th>Status</th>
+              <th>
+                <span className="header-tooltip-wrapper">
+                  Latency
+                  <span className="header-tooltip-icon" title="Turnaround delivery speed from API dispatch to Bulk360 SMS gateway.">i</span>
+                  <span className="header-tooltip-bubble">
+                    Turnaround delivery speed from API dispatch to Bulk360 SMS gateway.
+                  </span>
+                </span>
+              </th>
+              <th>Date & Time</th>
             </tr>
           </thead>
           <tbody>

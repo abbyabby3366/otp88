@@ -14,9 +14,9 @@ router.get([
 // 2. React Application & Auth/Console Routes serve the React Console (login.html)
 router.get([
   '/login', '/login.html', '/register', '/forgot', '/reset',
-  '/dashboard', '/logs', '/otp-logs', '/services', '/rates',
+  '/dashboard', '/otp-logs', '/services', '/rates',
   '/api', '/keys', '/billing', '/users', '/admin', '/admin/dashboard',
-  '/admin/users', '/admin/logs', '/admin-logs', '/admin/rates', '/admin/api', '/admin/keys',
+  '/admin/users', '/admin/otp-logs', '/admin/rates', '/admin/api', '/admin/keys',
   '/admin/billing', '/admin/invoices', '/admin/topup',
   '/sms360', '/admin/sms360', '/admin-sms360', '/whatsapp-otp', '/admin/whatsapp-otp', '/console'
 ], (req, res) => {

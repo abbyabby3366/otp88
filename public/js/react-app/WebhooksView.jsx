@@ -1,55 +1,41 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import WebhookLogsTable from './WebhookLogsTable.jsx';
+
+// Format date-time helper (YYYY-MM-DD HH:mm:ss)
+function formatDateTime(val) {
+  if (!val) return '-';
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return String(val);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+const EVENT_CONFIGS = {
+  'otp.delivered': { status: 'DELIVERED', errorCode: '0', latency: '0.8s' },
+  'otp.read': { status: 'READ', errorCode: '0', latency: '1.4s' },
+  'otp.undelivered': { status: 'UNDELIVERED', errorCode: '20', latency: '30.0s', errorDescription: 'Subscriber handset is unreachable, offline, or out of cellular network coverage.' },
+  'otp.failed': { status: 'FAILED', errorCode: '1', latency: '0.4s', errorDescription: 'Network rejection: destination mobile number is invalid, barred, or unreachable.' },
+  'otp.expired': { status: 'EXPIRED', errorCode: '23', latency: '300.0s', errorDescription: 'OTP code validity period exceeded before recipient acknowledgment.' },
+  'otp.sent': { status: 'SENT', errorCode: '0', latency: '0.2s' }
+};
 
 // Generate sample webhook payload object across all status events
 function getWebhookSamplePayload({ channel = 'whatsapp', event = 'otp.delivered' }) {
   const costMap = { sms: '0.0210', telegram: '0.0035', whatsapp: '0.0500' };
-
-  let status = 'DELIVERED';
-  let errorCode = '0';
-  let errorDescription = undefined;
-  let latency = '0.8s';
-
-  if (event === 'otp.delivered') {
-    status = 'DELIVERED';
-    errorCode = '0';
-    latency = '0.8s';
-  } else if (event === 'otp.read') {
-    status = 'READ';
-    errorCode = '0';
-    latency = '1.4s';
-  } else if (event === 'otp.undelivered') {
-    status = 'UNDELIVERED';
-    errorCode = '20';
-    errorDescription = 'Subscriber handset is unreachable, offline, or out of cellular network coverage.';
-    latency = '30.0s';
-  } else if (event === 'otp.failed') {
-    status = 'FAILED';
-    errorCode = '1';
-    errorDescription = 'Network rejection: destination mobile number is invalid, barred, or unreachable.';
-    latency = '0.4s';
-  } else if (event === 'otp.expired') {
-    status = 'EXPIRED';
-    errorCode = '23';
-    errorDescription = 'OTP code validity period exceeded before recipient acknowledgment.';
-    latency = '300.0s';
-  } else if (event === 'otp.sent') {
-    status = 'SENT';
-    errorCode = '0';
-    latency = '0.2s';
-  }
+  const cfg = EVENT_CONFIGS[event] || EVENT_CONFIGS['otp.delivered'];
 
   return {
     event,
     msgId: 'msg_live_8820a9bc4',
     channel,
     phoneNumber: '+60123456789',
-    status,
-    errorCode,
+    status: cfg.status,
+    errorCode: cfg.errorCode,
     remark: 'Login verification #1024',
-    errorDescription,
+    errorDescription: cfg.errorDescription,
     cost: costMap[channel] || '0.0500',
     currency: 'USD',
-    latency,
+    latency: cfg.latency,
     timestamp: new Date().toISOString()
   };
 }
@@ -364,82 +350,37 @@ function WebhooksView({ t, session, setSession, jwtToken, copyToClipboard, showT
               className="sheets-btn"
               disabled={loadingWebhookLogs}
               onClick={fetchWebhookLogs}
-              style={{ fontSize: '10px', padding: '2px 8px' }}
+              title={t.refreshLogs || "Refresh Logs"}
+              aria-label="Refresh Logs"
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '3px 6px', fontSize: '11px' }}
             >
-              {loadingWebhookLogs ? 'Refreshing...' : '🔄 Refresh Logs'}
-            </button>
-            <button
-              type="button"
-              className="sheets-btn"
-              onClick={() => setIsWebhookLogsOpen(!isWebhookLogsOpen)}
-              style={{ fontSize: '10px', padding: '2px 8px' }}
-            >
-              {isWebhookLogsOpen ? 'Collapse' : 'Expand'}
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ animation: loadingWebhookLogs ? 'spin 0.8s linear infinite' : 'none', display: 'block' }}
+              >
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                <path d="M21 3v5h-5" />
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                <path d="M3 21v-5h5" />
+              </svg>
             </button>
           </div>
         </div>
 
         {isWebhookLogsOpen && (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="sheets-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '30px' }}>#</th>
-                  <th>Event</th>
-                  <th>Status</th>
-                  <th>Attempts</th>
-                  <th>Latency</th>
-                  <th>Target Endpoint</th>
-                  <th>Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loadingWebhookLogs ? (
-                  <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
-                      Loading webhook delivery history...
-                    </td>
-                  </tr>
-                ) : webhookLogs.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
-                      No webhook deliveries recorded yet. Send an OTP or click "Test Webhook" to view real-time delivery receipts and retry telemetry here.
-                    </td>
-                  </tr>
-                ) : (
-                  webhookLogs.map((log, idx) => (
-                    <tr key={log.id || idx}>
-                      <td style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-code)', fontSize: '10px' }}>
-                        {idx + 1}
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700', color: '#0284C7' }}>
-                        {log.event}
-                      </td>
-                      <td>
-                        <span className={`sheets-badge ${log.success ? 'sheets-badge-emerald' : 'sheets-badge-red'}`}>
-                          {log.httpStatus ? `HTTP ${log.httpStatus}` : (log.success ? '200 OK' : 'FAILED')}
-                        </span>
-                      </td>
-                      <td>
-                        <span style={{ fontSize: '11px', fontWeight: log.attempts > 1 ? '700' : 'normal', color: log.attempts > 1 ? '#D97706' : 'inherit' }}>
-                          {log.attempts === 1 ? '1 / 1 (Instant)' : `${log.attempts} / 3 (Retried)`}
-                        </span>
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-code)', color: '#059669', fontWeight: '700' }}>
-                        {log.latencyMs ? `${log.latencyMs}ms` : '< 1s'}
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-code)', fontSize: '10px', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.targetUrl}>
-                        {log.targetUrl}
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-code)', color: 'var(--text-muted)', fontSize: '10px', whiteSpace: 'nowrap' }}>
-                        {new Date(log.createdAt).toLocaleTimeString()}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+          <WebhookLogsTable
+            logs={webhookLogs}
+            loading={loadingWebhookLogs}
+            copyToClipboard={copyToClipboard}
+            showToast={showToast}
+          />
         )}
       </div>
 
@@ -478,14 +419,6 @@ function WebhooksView({ t, session, setSession, jwtToken, copyToClipboard, showT
               style={{ fontSize: '10px', padding: '2px 8px', fontWeight: '700' }}
             >
               Copy JSON
-            </button>
-            <button
-              type="button"
-              className="sheets-btn"
-              onClick={() => setIsWebhookSampleOpen(!isWebhookSampleOpen)}
-              style={{ fontSize: '10px', padding: '2px 8px' }}
-            >
-              {isWebhookSampleOpen ? 'Collapse' : 'Expand'}
             </button>
           </div>
         </div>

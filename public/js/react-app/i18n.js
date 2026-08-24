@@ -26,6 +26,7 @@ const OTP88_I18N = {
     navWhatsAppOtp: 'WhatsApp OTP',
     
     signOut: 'Logout',
+    signOutConfirm: 'Are you sure you want to log out?',
     adminLive: 'Admin Online',
     userLive: 'Online',
     
@@ -57,6 +58,8 @@ const OTP88_I18N = {
     recipient: 'Recipient',
     carrierRoute: 'Channel',
     avgDelivery: 'Delivery Time',
+    latencyHeader: 'Latency',
+    latencyTooltip: 'Turnaround delivery speed from API dispatch to upstream carrier network acknowledgment.',
     unitCost: 'Cost',
     status: 'Status',
     timestamp: 'Date & Time',
@@ -170,6 +173,7 @@ const OTP88_I18N = {
     navWhatsAppOtp: 'WhatsApp OTP',
     
     signOut: '退出登录',
+    signOutConfirm: '确定要退出登录吗？',
     adminLive: '管理员在线',
     userLive: '在线',
     
@@ -201,6 +205,8 @@ const OTP88_I18N = {
     recipient: '接收方',
     carrierRoute: '通道',
     avgDelivery: '送达用时',
+    latencyHeader: '延迟',
+    latencyTooltip: '从 API 请求发送到上游运营商网络接收并派发的交付耗时。',
     unitCost: '单价',
     status: '状态',
     timestamp: '日期时间',

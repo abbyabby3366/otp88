@@ -497,7 +497,15 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
               <th>Fallback</th>
               <th>Cost</th>
               <th>Status</th>
-              <th>Latency</th>
+              <th>
+                <span className="header-tooltip-wrapper">
+                  Latency
+                  <span className="header-tooltip-icon" title="Turnaround delivery speed from API dispatch to upstream WhatsApp gateway.">i</span>
+                  <span className="header-tooltip-bubble">
+                    Turnaround delivery speed from API dispatch to upstream WhatsApp gateway.
+                  </span>
+                </span>
+              </th>
               <th>Date & Time</th>
             </tr>
           </thead>

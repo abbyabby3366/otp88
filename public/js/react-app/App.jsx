@@ -18,8 +18,27 @@ import SidebarView from './SidebarView.jsx';
 import PageLoader from './PageLoader.jsx';
 
 export default function App() {
-  const [session, setSession] = useState(null);
-  const [jwtToken, setJwtToken] = useState('');
+  const [session, setSession] = useState(() => {
+    try {
+      const savedUser = typeof localStorage !== 'undefined' ? localStorage.getItem('otp88_session') : null;
+      if (!savedUser) return null;
+      const parsed = JSON.parse(savedUser);
+      if (parsed && parsed.role === 'ADMIN' && parsed.name === 'System Administrator') {
+        parsed.name = parsed.email || 'admin';
+      }
+      return parsed;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const [jwtToken, setJwtToken] = useState(() => {
+    try {
+      return (typeof localStorage !== 'undefined' ? localStorage.getItem('otp88_jwt') : '') || '';
+    } catch (e) {
+      return '';
+    }
+  });
   
   // Theme & Language
   const [theme, setTheme] = useState(() => localStorage.getItem('otp88_console_theme') || 'light');
@@ -48,8 +67,8 @@ export default function App() {
   const getTabFromPath = (path) => {
     const clean = (path || (typeof window !== 'undefined' ? window.location.pathname : '') || '/').toLowerCase().replace(/\/$/, '');
     if (clean === '/admin' || clean === '/admin/dashboard') return 'dashboard';
-    if (clean === '/admin/logs' || clean === '/admin-logs' || clean === '/admin/otp-logs' || clean === '/admin/otp-audit-logs') return 'admin-logs';
-    if (clean === '/logs' || clean === '/otp-logs') return 'logs';
+    if (clean === '/admin/otp-logs' || clean === '/admin/otp-audit-logs') return 'admin-logs';
+    if (clean === '/otp-logs') return 'logs';
     if (clean === '/admin/api' || clean === '/admin/keys' || clean === '/admin/api-keys') return 'admin-api';
     if (clean === '/api' || clean === '/keys' || clean === '/developer' || clean === '/api-keys') return 'api';
     if (clean === '/admin/webhooks' || clean === '/admin-webhooks') return 'admin-webhooks';
@@ -61,13 +80,15 @@ export default function App() {
     if (clean === '/admin/rates' || clean === '/admin-rates' || clean === '/rates' || clean === '/pricing' || clean === '/carrier-rates') return 'rates';
     if (clean === '/admin/sms360' || clean === '/sms360' || clean === '/admin-sms360' || clean === '/admin/sms-otp' || clean === '/sms-otp') return 'sms360';
     if (clean === '/admin/whatsapp-otp' || clean === '/whatsapp-otp' || clean === '/admin-whatsapp-otp') return 'whatsapp-otp';
+    const savedTab = typeof localStorage !== 'undefined' ? localStorage.getItem('otp88_active_tab') : null;
+    if (savedTab) return savedTab;
     return 'dashboard';
   };
 
   const getPathFromTab = (tab, role = (session ? session.role : null)) => {
     switch (tab) {
-      case 'logs': return role === 'ADMIN' ? '/admin/logs' : '/logs';
-      case 'admin-logs': return '/admin/logs';
+      case 'logs': return role === 'ADMIN' ? '/admin/otp-logs' : '/otp-logs';
+      case 'admin-logs': return '/admin/otp-logs';
       case 'api': return role === 'ADMIN' ? '/admin/api' : '/api';
       case 'admin-api': return '/admin/api';
       case 'webhooks': return role === 'ADMIN' ? '/admin/webhooks' : '/webhooks';
@@ -98,6 +119,9 @@ export default function App() {
 
   const navigateToTab = (tab, replace = false) => {
     _setActiveTab(tab);
+    try {
+      localStorage.setItem('otp88_active_tab', tab);
+    } catch (e) {}
     if (typeof window !== 'undefined') {
       const targetPath = getPathFromTab(tab, session?.role);
       if (window.location.pathname !== targetPath) {
@@ -140,7 +164,13 @@ export default function App() {
   const [newPassword, setNewPassword] = useState('');
 
   // Status & Notification
-  const [initialBooting, setInitialBooting] = useState(true);
+  const [initialBooting, setInitialBooting] = useState(() => {
+    try {
+      return !localStorage.getItem('otp88_session');
+    } catch (e) {
+      return true;
+    }
+  });
   const [loading, setLoading] = useState(false);
   const [loadingRates, setLoadingRates] = useState(false);
   const [loadingLogs, setLoadingLogs] = useState(false);
@@ -194,7 +224,7 @@ export default function App() {
   const fetchLogs = () => {
     if (!jwtToken) return;
     setLoadingLogs(true);
-    fetch('/api/logs', {
+    fetch('/api/otp-logs', {
       headers: { 'Authorization': `Bearer ${jwtToken}` }
     })
       .then(res => res.json())
@@ -350,21 +380,23 @@ export default function App() {
         setJwtToken(savedToken);
         fetchUserProfile(savedToken);
         setTheme(localStorage.getItem('otp88_console_theme') || 'light');
-        const initialTab = getTabFromPath(window.location.pathname);
-        _setActiveTab(initialTab);
-        if (window.location.pathname === '/' || window.location.pathname.includes('login')) {
-          const defaultPath = parsedUser && parsedUser.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard';
-          window.history.replaceState({ tab: 'dashboard' }, '', defaultPath);
+        const savedTab = localStorage.getItem('otp88_active_tab');
+        const currentPath = window.location.pathname;
+        let initialTab = getTabFromPath(currentPath);
+        if ((currentPath === '/' || currentPath === '/login' || currentPath === '/login.html') && savedTab) {
+          initialTab = savedTab;
         }
-      } catch (e) {
-        localStorage.removeItem('otp88_session');
-        localStorage.removeItem('otp88_jwt');
-      }
+        _setActiveTab(initialTab);
+        const destinationPath = getPathFromTab(initialTab, parsedUser.role);
+        if (window.location.pathname === '/' || window.location.pathname.includes('login')) {
+          window.history.replaceState({ tab: initialTab }, '', destinationPath);
+        }
+      } catch (e) {}
     }
     setInitialBooting(false);
   }, []);
 
-  // Fetch live logs and telemetry whenever session/jwtToken changes & live interval
+  // Fetch logs, profile, and telemetry on load or tab change
   useEffect(() => {
     if (jwtToken) {
       fetchLogs();
@@ -373,14 +405,6 @@ export default function App() {
       if (session && session.role === 'ADMIN') {
         fetchAdminUsers();
       }
-
-      // Live dynamic refresh interval (every 3.5s) to update stats in real-time
-      const liveTimer = setInterval(() => {
-        fetchAdminMetrics(jwtToken);
-        fetchLogs();
-      }, 3500);
-
-      return () => clearInterval(liveTimer);
     }
   }, [jwtToken, session?.role, activeTab]);
 
@@ -427,6 +451,7 @@ export default function App() {
         localStorage.setItem('otp88_console_theme', 'light');
         const targetTab = getTabFromPath(window.location.pathname);
         _setActiveTab(targetTab);
+        try { localStorage.setItem('otp88_active_tab', targetTab); } catch (e) {}
         const destinationPath = targetTab !== 'dashboard' ? getPathFromTab(targetTab, data.user.role) : (data.user.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard');
         window.history.pushState({ tab: targetTab }, '', destinationPath);
         showToast(`${lang === 'zh' ? '欢迎回来' : 'Welcome'}, ${data.user.name || data.user.email}!`);
@@ -470,6 +495,7 @@ export default function App() {
         localStorage.setItem('otp88_console_theme', 'light');
         const targetTab = getTabFromPath(window.location.pathname);
         _setActiveTab(targetTab);
+        try { localStorage.setItem('otp88_active_tab', targetTab); } catch (e) {}
         const destinationPath = targetTab !== 'dashboard' ? getPathFromTab(targetTab, data.user.role) : (data.user.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard');
         window.history.pushState({ tab: targetTab }, '', destinationPath);
         showToast(lang === 'zh' ? `注册成功！欢迎加入 OTP88, ${data.user.name}` : `Welcome to OTP88, ${data.user.name}!`);
@@ -549,8 +575,13 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    const confirmMsg = t.signOutConfirm || (lang === 'zh' ? '确定要退出登录吗？' : 'Are you sure you want to log out?');
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
     localStorage.removeItem('otp88_session');
     localStorage.removeItem('otp88_jwt');
+    localStorage.removeItem('otp88_active_tab');
     setSession(null);
     setJwtToken('');
     setLogs([]);
@@ -903,9 +934,11 @@ export default function App() {
                   {activeTab === 'logs' && t.navLogs}
                   {activeTab === 'services' && t.navServices}
                   {activeTab === 'rates' && (t.navRates || 'Carrier Rates')}
-                  {activeTab === 'api' && t.navApi}
+                  {activeTab === 'admin-rates' && (t.navAdminRates || 'OTP Pricing')}
+                  {activeTab === 'api' && (t.navApi || 'API & Keys')}
+                  {(activeTab === 'webhooks' || activeTab === 'admin-webhooks') && (t.navWebhooks || t.navAdminWebhooks || 'Webhooks')}
                   {activeTab === 'billing' && t.navBilling}
-                  {activeTab === 'users' && t.navUsers}
+                  {activeTab === 'users' && (t.navUsers || 'Manage Users')}
                   {activeTab === 'admin-logs' && (t.navAdminOtpLogs || 'OTP Logs')}
                   {activeTab === 'admin-api' && (t.navAdminApi || t.navApi || 'API & Keys')}
                   {activeTab === 'admin-billing' && (t.navAdminBilling || t.navBilling || 'Billing & Top-up')}

@@ -395,14 +395,6 @@ function ApiView({ t, session, setSession, jwtToken, revealedApiKey, setRevealed
                 Verify OTP
               </button>
             </div>
-            <button
-              type="button"
-              className="sheets-btn"
-              onClick={() => setIsApiCodeOpen(!isApiCodeOpen)}
-              style={{ fontSize: '10px', padding: '2px 8px' }}
-            >
-              {isApiCodeOpen ? 'Collapse' : 'Expand'}
-            </button>
           </div>
         </div>
 
