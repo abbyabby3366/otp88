@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import WebhookLogsTable from './WebhookLogsTable.jsx';
 
 // Format date-time helper (YYYY-MM-DD HH:mm:ss)
 function formatDateTime(val) {
@@ -112,7 +111,7 @@ echo json_encode(['received' => true]);
 }
 
 // Dedicated Webhooks View Component
-function WebhooksView({ t, session, setSession, jwtToken, copyToClipboard, showToast }) {
+function WebhooksView({ t, session, setSession, jwtToken, copyToClipboard, showToast, setActiveTab, onNavigateToLogs }) {
   const [webhookUrlInput, setWebhookUrlInput] = useState(session?.webhookUrl || '');
   const [isSavingWebhook, setIsSavingWebhook] = useState(false);
   const [isTestingWebhook, setIsTestingWebhook] = useState(false);
@@ -122,8 +121,10 @@ function WebhooksView({ t, session, setSession, jwtToken, copyToClipboard, showT
 
   const [webhookLogs, setWebhookLogs] = useState([]);
   const [loadingWebhookLogs, setLoadingWebhookLogs] = useState(false);
-  const [isWebhookLogsOpen, setIsWebhookLogsOpen] = useState(true);
   const [isWebhookSampleOpen, setIsWebhookSampleOpen] = useState(true);
+
+  const [copiedJson, setCopiedJson] = useState(false);
+  const [copiedHandler, setCopiedHandler] = useState(false);
 
   const fetchWebhookLogs = async () => {
     if (!jwtToken) return;
@@ -279,31 +280,28 @@ function WebhooksView({ t, session, setSession, jwtToken, copyToClipboard, showT
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
       {/* 1. Webhook URL Configuration Card */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '12px', background: '#FFFFFF' }}>
-        <div style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span>🔗 Webhook URL Endpoint</span>
-          <span className="sheets-badge sheets-badge-emerald" style={{ fontSize: '9px', padding: '1px 5px' }}>
-            ● Real-time DLR Callbacks
-          </span>
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '14px', background: '#FFFFFF' }}>
+        <div style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '4px' }}>
+          <span>Webhook URL Endpoint</span>
         </div>
-        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
           {t.webhookUrlDesc || 'Configure your HTTPS endpoint to receive real-time delivery receipts (DLR) and message status event callbacks.'}
         </div>
-        <div style={{ display: 'flex', gap: '6px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <input
             type="text"
             className="sheets-input sheets-input-code"
             placeholder="https://your-api.com/api/webhooks/otp88"
             value={webhookUrlInput}
             onChange={(e) => setWebhookUrlInput(e.target.value)}
-            style={{ fontWeight: '600', color: '#0284C7' }}
+            style={{ fontWeight: '600', color: '#0284C7', flex: '1 1 300px' }}
           />
           <button
             type="button"
             className="sheets-btn"
             onClick={handleTestWebhook}
             disabled={isTestingWebhook || !webhookUrlInput.trim()}
-            style={{ minWidth: '95px' }}
+            style={{ minWidth: '100px' }}
           >
             {isTestingWebhook ? 'Testing...' : 'Test Webhook'}
           </button>
@@ -312,76 +310,44 @@ function WebhooksView({ t, session, setSession, jwtToken, copyToClipboard, showT
             className="sheets-btn sheets-btn-primary"
             onClick={handleSaveWebhook}
             disabled={isSavingWebhook}
-            style={{ minWidth: '105px' }}
+            style={{ minWidth: '110px' }}
           >
             {isSavingWebhook ? 'Saving...' : (t.saveWebhook || 'Save Webhook')}
           </button>
         </div>
       </div>
 
-      {/* 2. Webhook Delivery History & Retry Logs Card (Collapsible) */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-        <div
-          onClick={() => setIsWebhookLogsOpen(!isWebhookLogsOpen)}
-          style={{
-            background: '#F8FAFC',
-            padding: '8px 12px',
-            borderBottom: isWebhookLogsOpen ? '1px solid var(--border-subtle)' : 'none',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            cursor: 'pointer',
-            userSelect: 'none'
-          }}
-        >
-          <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ display: 'inline-block', transition: 'transform 0.2s ease', transform: isWebhookLogsOpen ? 'rotate(90deg)' : 'rotate(0deg)', fontSize: '10px' }}>
-              ▶
-            </span>
+      {/* 2. Webhook Delivery Logs Navigation Action Card */}
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '12px 14px', background: '#FFFFFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+        <div>
+          <div style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
             <span>Webhook Delivery History & Retry Telemetry</span>
-            <span className="sheets-badge sheets-badge-emerald" style={{ fontSize: '9px', padding: '1px 5px' }}>
+            <span className="sheets-badge sheets-badge-emerald" style={{ fontSize: '9px', padding: '1px 6px' }}>
               {webhookLogs.length} events
             </span>
           </div>
-
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              className="sheets-btn"
-              disabled={loadingWebhookLogs}
-              onClick={fetchWebhookLogs}
-              title={t.refreshLogs || "Refresh Logs"}
-              aria-label="Refresh Logs"
-              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '3px 6px', fontSize: '11px' }}
-            >
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ animation: loadingWebhookLogs ? 'spin 0.8s linear infinite' : 'none', display: 'block' }}
-              >
-                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-                <path d="M21 3v5h-5" />
-                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-                <path d="M3 21v-5h5" />
-              </svg>
-            </button>
+          <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+            Inspect full execution audit history, HTTP responses, retry telemetry, latency metrics, and JSON payloads.
           </div>
         </div>
 
-        {isWebhookLogsOpen && (
-          <WebhookLogsTable
-            logs={webhookLogs}
-            loading={loadingWebhookLogs}
-            copyToClipboard={copyToClipboard}
-            showToast={showToast}
-          />
-        )}
+        <div>
+          <button
+            type="button"
+            className="sheets-btn sheets-btn-primary"
+            onClick={() => {
+              if (onNavigateToLogs) {
+                onNavigateToLogs();
+              } else if (setActiveTab) {
+                setActiveTab('webhook-logs');
+              }
+            }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: '700', padding: '6px 14px' }}
+          >
+            <span>View Webhook Logs</span>
+            <span>→</span>
+          </button>
+        </div>
       </div>
 
       {/* 3. Sample Webhook Payload & Event Schema Card (Collapsible) */}
@@ -390,7 +356,7 @@ function WebhooksView({ t, session, setSession, jwtToken, copyToClipboard, showT
           onClick={() => setIsWebhookSampleOpen(!isWebhookSampleOpen)}
           style={{
             background: '#F8FAFC',
-            padding: '8px 12px',
+            padding: '10px 14px',
             borderBottom: isWebhookSampleOpen ? '1px solid var(--border-subtle)' : 'none',
             display: 'flex',
             justifyContent: 'space-between',
@@ -401,94 +367,86 @@ function WebhooksView({ t, session, setSession, jwtToken, copyToClipboard, showT
             userSelect: 'none'
           }}
         >
-          <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ display: 'inline-block', transition: 'transform 0.2s ease', transform: isWebhookSampleOpen ? 'rotate(90deg)' : 'rotate(0deg)', fontSize: '10px' }}>
               ▶
             </span>
             <span>Sample Webhook Payload & Events</span>
-            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'normal' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 'normal' }}>
               (POST body sent to your Webhook URL)
             </span>
-          </div>
-
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              className="sheets-btn"
-              onClick={() => copyToClipboard(sampleWebhookJson, 'Sample Webhook Payload JSON')}
-              style={{ fontSize: '10px', padding: '2px 8px', fontWeight: '700' }}
-            >
-              Copy JSON
-            </button>
           </div>
         </div>
 
         {/* Collapsible Content */}
         {isWebhookSampleOpen && (
           <>
-            {/* Filters for Sample Payload */}
-            <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '8px', background: '#FAFAFA' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', width: '55px' }}>Channel:</span>
-                {[
-                  { id: 'whatsapp', label: 'WhatsApp' },
-                  { id: 'sms', label: 'SMS' },
-                  { id: 'telegram', label: 'Telegram' }
-                ].map(ch => (
-                  <button
-                    key={ch.id}
-                    type="button"
-                    className={`sheets-btn ${webhookSampleChannel === ch.id ? 'sheets-btn-primary' : ''}`}
-                    onClick={() => setWebhookSampleChannel(ch.id)}
-                    style={{ fontSize: '10px', padding: '2px 8px' }}
-                  >
-                    {ch.label}
-                  </button>
-                ))}
+            {/* Filters / Control Bar for Sample Payload & Receiver */}
+            <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', background: '#F8FAFC', alignItems: 'center' }}>
+              {/* Channel Selector */}
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '5px' }}>
+                  Channel:
+                </div>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {[
+                    { id: 'whatsapp', label: 'WhatsApp' },
+                    { id: 'sms', label: 'SMS' },
+                    { id: 'telegram', label: 'Telegram' }
+                  ].map(ch => (
+                    <button
+                      key={ch.id}
+                      type="button"
+                      className={`sheets-btn ${webhookSampleChannel === ch.id ? 'sheets-btn-primary' : ''}`}
+                      onClick={() => setWebhookSampleChannel(ch.id)}
+                      style={{ fontSize: '11px', padding: '3px 8px', flex: 1 }}
+                    >
+                      {ch.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {/* Dynamic Status / Event Buttons based on Channel */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', width: '55px' }}>Event:</span>
-                {availableEvents.map(ev => (
-                  <button
-                    key={ev.id}
-                    type="button"
-                    className={`sheets-btn ${webhookSampleEvent === ev.id ? 'sheets-btn-primary' : ''}`}
-                    onClick={() => setWebhookSampleEvent(ev.id)}
-                    style={{ fontSize: '10px', padding: '2px 8px' }}
-                  >
-                    {ev.label}
-                  </button>
-                ))}
+              {/* Event Selector (Clean Dropdown) */}
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '5px' }}>
+                  Event Type:
+                </div>
+                <select
+                  className="sheets-input"
+                  value={webhookSampleEvent}
+                  onChange={(e) => setWebhookSampleEvent(e.target.value)}
+                  style={{ fontSize: '11px', padding: '4px 8px', width: '100%', fontWeight: '600', color: 'var(--text-primary)' }}
+                >
+                  {availableEvents.map(ev => (
+                    <option key={ev.id} value={ev.id}>
+                      {ev.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', width: '55px' }}>Receiver:</span>
-                {[
-                  { id: 'node', label: 'Node.js (Express)' },
-                  { id: 'python', label: 'Python (FastAPI)' },
-                  { id: 'php', label: 'PHP' }
-                ].map(lang => (
-                  <button
-                    key={lang.id}
-                    type="button"
-                    className={`sheets-btn ${webhookReceiverLang === lang.id ? 'sheets-btn-primary' : ''}`}
-                    onClick={() => setWebhookReceiverLang(lang.id)}
-                    style={{ fontSize: '10px', padding: '2px 8px' }}
-                  >
-                    {lang.label}
-                  </button>
-                ))}
-                <div style={{ marginLeft: 'auto' }}>
-                  <button
-                    type="button"
-                    className="sheets-btn"
-                    onClick={() => copyToClipboard(activeReceiverSnippet, `${webhookReceiverLang.toUpperCase()} webhook listener snippet`)}
-                    style={{ fontSize: '10px', padding: '2px 8px' }}
-                  >
-                    Copy Handler Code
-                  </button>
+              {/* Receiver Language Selector */}
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '5px' }}>
+                  Listener Language:
+                </div>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {[
+                    { id: 'node', label: 'Node.js' },
+                    { id: 'python', label: 'Python' },
+                    { id: 'php', label: 'PHP' }
+                  ].map(lang => (
+                    <button
+                      key={lang.id}
+                      type="button"
+                      className={`sheets-btn ${webhookReceiverLang === lang.id ? 'sheets-btn-primary' : ''}`}
+                      onClick={() => setWebhookReceiverLang(lang.id)}
+                      style={{ fontSize: '11px', padding: '3px 8px', flex: 1 }}
+                    >
+                      {lang.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -496,21 +454,111 @@ function WebhooksView({ t, session, setSession, jwtToken, copyToClipboard, showT
             {/* Code Views Side-by-Side on Desktop */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', background: '#0F172A' }}>
               {/* Left: JSON Payload */}
-              <div style={{ padding: '12px', borderRight: '1px solid #1E293B' }}>
-                <div style={{ color: '#94A3B8', fontSize: '10px', fontWeight: '700', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  // Webhook JSON Payload
+              <div style={{ padding: '12px', borderRight: '1px solid #1E293B', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ color: '#94A3B8', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    // Webhook JSON Payload
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (copyToClipboard) {
+                        copyToClipboard(sampleWebhookJson, 'Sample Webhook Payload JSON');
+                      } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                        navigator.clipboard.writeText(sampleWebhookJson);
+                      }
+                      setCopiedJson(true);
+                      setTimeout(() => setCopiedJson(false), 2000);
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      background: copiedJson ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                      border: `1px solid ${copiedJson ? '#10B981' : 'rgba(255, 255, 255, 0.15)'}`,
+                      color: copiedJson ? '#10B981' : '#F1F5F9',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      fontSize: '10px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    {copiedJson ? (
+                      <>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg>
+                        <span>Copy JSON</span>
+                      </>
+                    )}
+                  </button>
                 </div>
-                <pre style={{ margin: 0, color: '#38BDF8', fontFamily: 'var(--font-code)', fontSize: '11px', lineHeight: 1.45, overflowX: 'auto' }}>
+                <pre style={{ margin: 0, color: '#38BDF8', fontFamily: 'var(--font-code)', fontSize: '11px', lineHeight: 1.45, overflowX: 'auto', flexGrow: 1 }}>
                   {sampleWebhookJson}
                 </pre>
               </div>
 
               {/* Right: Handler Implementation */}
-              <div style={{ padding: '12px' }}>
-                <div style={{ color: '#94A3B8', fontSize: '10px', fontWeight: '700', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  // Backend Webhook Handler ({webhookReceiverLang.toUpperCase()})
+              <div style={{ padding: '12px', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ color: '#94A3B8', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    // Backend Webhook Handler ({webhookReceiverLang.toUpperCase()})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (copyToClipboard) {
+                        copyToClipboard(activeReceiverSnippet, `${webhookReceiverLang.toUpperCase()} webhook listener snippet`);
+                      } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                        navigator.clipboard.writeText(activeReceiverSnippet);
+                      }
+                      setCopiedHandler(true);
+                      setTimeout(() => setCopiedHandler(false), 2000);
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      background: copiedHandler ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                      border: `1px solid ${copiedHandler ? '#10B981' : 'rgba(255, 255, 255, 0.15)'}`,
+                      color: copiedHandler ? '#10B981' : '#F1F5F9',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      fontSize: '10px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    {copiedHandler ? (
+                      <>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg>
+                        <span>Copy Code</span>
+                      </>
+                    )}
+                  </button>
                 </div>
-                <pre style={{ margin: 0, color: '#A7F3D0', fontFamily: 'var(--font-code)', fontSize: '11px', lineHeight: 1.45, overflowX: 'auto' }}>
+                <pre style={{ margin: 0, color: '#A7F3D0', fontFamily: 'var(--font-code)', fontSize: '11px', lineHeight: 1.45, overflowX: 'auto', flexGrow: 1 }}>
                   {activeReceiverSnippet}
                 </pre>
               </div>

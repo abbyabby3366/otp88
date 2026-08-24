@@ -526,15 +526,11 @@ h1, h2, h3, h4, h5, h6 {
 .app-auth-icon {
   width: 44px;
   height: 44px;
-  background: var(--grad-emerald-cyan);
-  border-radius: 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #04130d;
-  font-weight: 800;
-  font-size: 18px;
   margin-bottom: 8px;
+  filter: drop-shadow(0 4px 12px rgba(16, 185, 129, 0.3));
 }
 
 .app-auth-title {

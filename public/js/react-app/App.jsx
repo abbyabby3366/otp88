@@ -4,6 +4,7 @@ import DashboardView from './DashboardView.jsx';
 import ServicesView from './ServicesView.jsx';
 import ApiView from './ApiView.jsx';
 import WebhooksView from './WebhooksView.jsx';
+import WebhookLogsView from './WebhookLogsView.jsx';
 import BillingView from './BillingView.jsx';
 import UsersView from './UsersView.jsx';
 import RatesView from './RatesView.jsx';
@@ -72,6 +73,8 @@ export default function App() {
     if (clean === '/admin/api' || clean === '/admin/keys' || clean === '/admin/api-keys') return 'admin-api';
     if (clean === '/api' || clean === '/keys' || clean === '/developer' || clean === '/api-keys') return 'api';
     if (clean === '/admin/webhooks' || clean === '/admin-webhooks') return 'admin-webhooks';
+    if (clean === '/admin/webhook-logs' || clean === '/admin-webhook-logs') return 'webhook-logs';
+    if (clean === '/webhook-logs' || clean === '/webhooks/logs') return 'webhook-logs';
     if (clean === '/webhooks' || clean === '/webhook') return 'webhooks';
     if (clean === '/admin/billing' || clean === '/admin/topup' || clean === '/admin/invoices') return 'admin-billing';
     if (clean === '/billing' || clean === '/topup' || clean === '/invoices') return 'billing';
@@ -93,6 +96,7 @@ export default function App() {
       case 'admin-api': return '/admin/api';
       case 'webhooks': return role === 'ADMIN' ? '/admin/webhooks' : '/webhooks';
       case 'admin-webhooks': return '/admin/webhooks';
+      case 'webhook-logs': return role === 'ADMIN' ? '/admin/webhook-logs' : '/webhook-logs';
       case 'billing': return role === 'ADMIN' ? '/admin/billing' : '/billing';
       case 'admin-billing': return '/admin/billing';
       case 'users': return '/admin/users';
@@ -937,6 +941,7 @@ export default function App() {
                   {activeTab === 'admin-rates' && (t.navAdminRates || 'OTP Pricing')}
                   {activeTab === 'api' && (t.navApi || 'API & Keys')}
                   {(activeTab === 'webhooks' || activeTab === 'admin-webhooks') && (t.navWebhooks || t.navAdminWebhooks || 'Webhooks')}
+                  {activeTab === 'webhook-logs' && (t.navWebhookLogs || 'Webhook Delivery Logs')}
                   {activeTab === 'billing' && t.navBilling}
                   {activeTab === 'users' && (t.navUsers || 'Manage Users')}
                   {activeTab === 'admin-logs' && (t.navAdminOtpLogs || 'OTP Logs')}
@@ -1031,6 +1036,21 @@ export default function App() {
                   jwtToken={jwtToken}
                   copyToClipboard={copyToClipboard}
                   showToast={showToast}
+                  setActiveTab={setActiveTab}
+                  onNavigateToLogs={() => setActiveTab('webhook-logs')}
+                />
+              )}
+
+              {/* WEBHOOK LOGS DEDICATED PAGE */}
+              {activeTab === 'webhook-logs' && (WebhookLogsView || window.WebhookLogsView) && (
+                <WebhookLogsView
+                  t={t}
+                  session={session}
+                  jwtToken={jwtToken}
+                  copyToClipboard={copyToClipboard}
+                  showToast={showToast}
+                  setActiveTab={setActiveTab}
+                  onBack={() => setActiveTab(session?.role === 'ADMIN' ? 'admin-webhooks' : 'webhooks')}
                 />
               )}
 
