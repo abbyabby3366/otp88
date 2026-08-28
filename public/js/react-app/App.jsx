@@ -417,6 +417,60 @@ export default function App() {
     setTimeout(() => setToast(prev => ({ ...prev, show: false })), 3500);
   };
 
+  const handleSessionExpired = (message) => {
+    localStorage.removeItem('otp88_session');
+    localStorage.removeItem('otp88_jwt');
+    localStorage.removeItem('otp88_active_tab');
+    setSession(null);
+    setJwtToken('');
+    setLogs([]);
+    setAdminMetrics(null);
+    setTheme('light');
+    _setAuthMode('login');
+    if (typeof window !== 'undefined') {
+      window.history.replaceState({ authMode: 'login' }, '', '/login');
+    }
+    const expiryMsg = message || (lang === 'zh' ? '登录状态已失效，请重新登录。' : 'Invalid or expired credentials. Please sign in again.');
+    setErrorMessage(expiryMsg);
+    showToast(expiryMsg, 'error');
+  };
+
+  // Global Auth Token Expiration Interceptor
+  useEffect(() => {
+    const handleAuthExpiredEvent = (e) => {
+      handleSessionExpired(e?.detail?.message);
+    };
+    window.addEventListener('auth:expired', handleAuthExpiredEvent);
+
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      const response = await originalFetch(...args);
+      try {
+        const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
+        const isAuthEndpoint = url.includes('/api/auth/login') || url.includes('/api/auth/register') || url.includes('/api/auth/reset-password');
+        
+        if (url.startsWith('/api/') && !isAuthEndpoint && (response.status === 401 || response.status === 403)) {
+          const clone = response.clone();
+          clone.json().then(data => {
+            if (
+              data?.error === 'Invalid or expired credentials.' ||
+              data?.error === 'API key or Authorization header required.' ||
+              response.status === 401
+            ) {
+              window.dispatchEvent(new CustomEvent('auth:expired', { detail: { message: data?.error } }));
+            }
+          }).catch(() => {});
+        }
+      } catch (err) {}
+      return response;
+    };
+
+    return () => {
+      window.removeEventListener('auth:expired', handleAuthExpiredEvent);
+      window.fetch = originalFetch;
+    };
+  }, [lang]);
+
   const switchLanguage = (newLang) => {
     setLang(newLang);
     localStorage.setItem('otp88_console_lang', newLang);
