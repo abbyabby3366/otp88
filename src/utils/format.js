@@ -31,13 +31,52 @@ function normalizePhoneNumber(phone, defaultDialCode = '60') {
 
   const cleanDefaultCode = defaultDialCode.replace(/[^0-9]/g, '') || '60';
 
-  // If starts with '0' (e.g. 0122273341) and didn't have '+', convert leading 0 to country code (e.g. +60122273341)
-  if (!hadPlus && digits.startsWith('0')) {
+  // 1. If already had '+', return '+' + digits
+  if (hadPlus) {
+    return '+' + digits;
+  }
+
+  // 2. If starts with '0' (e.g. 0122273341, 01155092049) -> convert leading 0 to defaultDialCode (e.g. +60122273341)
+  if (digits.startsWith('0')) {
     const withoutZero = digits.replace(/^0+/, '');
     return '+' + cleanDefaultCode + withoutZero;
   }
 
-  // If already had '+' or country code without '+', return '+<digits>'
+  // 3. If starts with explicit country dial code
+  if (
+    (digits.startsWith('60') && digits.length >= 10) || // Malaysia (10-12 digits)
+    (digits.startsWith('65') && digits.length === 10) || // Singapore (65 + 8 digits)
+    (digits.startsWith('62') && digits.length >= 10) || // Indonesia (10-13 digits)
+    (digits.startsWith('66') && digits.length >= 10) || // Thailand (10-11 digits)
+    (digits.startsWith('84') && digits.length >= 10) || // Vietnam (10-11 digits)
+    (digits.startsWith('63') && digits.length >= 11) || // Philippines (11-12 digits)
+    (digits.startsWith('852') && digits.length === 11) || // Hong Kong (852 + 8 digits)
+    (digits.startsWith('886') && digits.length >= 11) || // Taiwan (11-12 digits)
+    (digits.startsWith('91') && digits.length === 12) || // India (91 + 10 digits)
+    (digits.startsWith('44') && digits.length >= 11) || // UK (11-12 digits)
+    (digits.startsWith('61') && digits.length >= 10) || // Australia (10-11 digits)
+    (digits.startsWith('971') && digits.length >= 11) || // UAE (11-12 digits)
+    (digits.startsWith('81') && digits.length >= 11) || // Japan (11-12 digits)
+    (digits.startsWith('1') && digits.length === 11) // US/Canada (1 + 10 digits)
+  ) {
+    return '+' + digits;
+  }
+
+  // 4. Local Malaysian mobile without 0 or 60 (e.g. 122273341, 1155092049 - length 9 to 10 digits starting with 1)
+  if (digits.startsWith('1') && (digits.length === 9 || digits.length === 10)) {
+    return '+60' + digits;
+  }
+
+  // 5. Local Singapore mobile without 65 (e.g. 81234567, 91234567 - length 8 digits starting with 8 or 9)
+  if ((digits.startsWith('8') || digits.startsWith('9')) && digits.length === 8) {
+    return '+65' + digits;
+  }
+
+  // 6. Default fallback
+  if (digits.length <= 10 && cleanDefaultCode) {
+    return '+' + cleanDefaultCode + digits;
+  }
+
   return '+' + digits;
 }
 

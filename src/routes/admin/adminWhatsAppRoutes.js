@@ -131,7 +131,7 @@ router.post('/api/admin/whatsapp/test-send', verifyJwtMiddleware, requireAdmin, 
     };
   }
 
-  const messageId = apiResult.id || ('VW_OTP_' + Math.floor(1000 + Math.random() * 9000));
+  const messageId = apiResult.message_id || apiResult.id || apiResult.msgid || ('VW_OTP_' + Math.floor(1000 + Math.random() * 9000));
   const newLog = {
     id: messageId,
     recipient: payload.recipient,

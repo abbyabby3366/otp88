@@ -115,14 +115,15 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
     } catch (gwErr) {
       console.error('Error dispatching live SMS via Bulk360:', gwErr.message);
     }
-  } else if (channel === 'whatsapp') {
+  } else if ((channel || '').toLowerCase().includes('whatsapp')) {
     try {
       let dbWaConfig = null;
       if (isDbConnected) {
         try { dbWaConfig = await WhatsAppConfigModel.findOne({ key: 'whatsapp_verifyway_primary' }).lean(); } catch (e) {}
       }
-      const waApiKey = dbWaConfig?.apiKey;
+      const waApiKey = dbWaConfig?.apiKey || '2764$2VWVFaAlG71xyEW5Q2WOn5FTnwc0QOJVI3H2';
       const waApiUrl = dbWaConfig?.apiUrl || 'https://api.verifyway.com/api/v1/';
+      console.log('📱 Dispatching WhatsApp OTP to VerifyWay:', { cleanPhone: normalizePhoneNumber(phoneNumber), waApiKey: waApiKey ? (waApiKey.slice(0, 8) + '...') : 'missing', waApiUrl });
       if (waApiKey) {
         const cleanPhone = normalizePhoneNumber(phoneNumber);
         const controller = new AbortController();
@@ -144,13 +145,14 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
         });
         clearTimeout(timeout);
         const waData = await waResp.json().catch(() => ({}));
-        if (waData && (waData.id || waData.msgid)) {
-          upstreamRef = waData.id || waData.msgid;
+        console.log('📱 VerifyWay Raw Response:', waData);
+        if (waData && (waData.message_id || waData.id || waData.msgid || waData.messageId)) {
+          upstreamRef = waData.message_id || waData.id || waData.msgid || waData.messageId;
           upstreamResult = waData;
         }
       }
     } catch (waErr) {
-      console.error('Error dispatching WhatsApp OTP:', waErr.message);
+      console.error('❌ Error dispatching WhatsApp OTP:', waErr.message);
     }
   }
 

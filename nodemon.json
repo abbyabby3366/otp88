@@ -1,4 +1,4 @@
 {
-  "watch": ["server.js", ".env"],
+  "watch": ["server.js", "src", ".env"],
   "ignore": ["data/*", "public/*", "node_modules/*", ".git/*"]
 }
