@@ -6,6 +6,7 @@ const { getIsDbConnected } = require('../config/db');
 const { UserModel, OtpLogModel, Sms360ConfigModel, WhatsAppConfigModel } = require('../models');
 const { detectCountryCode, normalizePhoneNumber } = require('../utils/format');
 const { getOtpChannelCost, deductUserBalanceAndRecordTx } = require('../services/balanceService');
+const { forwardDlrToClientWebhook } = require('../services/webhookService');
 
 // 3. API: Live Interactive OTP Gateway & Real Upstream Dispatch (Writes to MongoDB + Live Balance Deduction)
 router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
@@ -212,6 +213,17 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
       console.error('Error saving OTP log to MongoDB:', err.message);
     }
   }
+
+  // Trigger client webhook notification for the dispatched OTP
+  forwardDlrToClientWebhook({
+    msgId: txId,
+    phoneNumber,
+    channel: finalChannel,
+    status: 'DELIVERED',
+    errorCode: '0',
+    cost: unitCost,
+    userId: finalUserId
+  });
 
   res.json({
     success: true,

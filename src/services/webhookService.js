@@ -16,6 +16,7 @@ async function deliverWebhookWithRetry({ targetUrl, payload, event, userId, msgI
     attempt++;
     const startT = Date.now();
     try {
+      console.log(`📡 [Webhook Dispatch] Attempt ${attempt} -> ${targetUrl} (Event: ${event})`);
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 6000);
       const resp = await fetch(targetUrl, {
@@ -33,6 +34,7 @@ async function deliverWebhookWithRetry({ targetUrl, payload, event, userId, msgI
       durationMs = Date.now() - startT;
       lastHttpStatus = resp.status;
       lastStatusText = resp.statusText || (resp.ok ? 'OK' : `HTTP ${resp.status}`);
+      console.log(`✅ [Webhook Response] Status: ${resp.status} ${resp.statusText}`);
 
       if (resp.ok) {
         success = true;
@@ -45,6 +47,7 @@ async function deliverWebhookWithRetry({ targetUrl, payload, event, userId, msgI
       lastHttpStatus = err.name === 'AbortError' ? 408 : 503;
       lastStatusText = err.name === 'AbortError' ? 'Request Timeout' : 'Connection Refused / Network Error';
       lastError = err.message || 'Network request failed';
+      console.warn(`❌ [Webhook Attempt ${attempt} Error]:`, lastError);
     }
 
     if (!success && attempt < maxAttempts) {
@@ -105,7 +108,12 @@ async function forwardDlrToClientWebhook({ msgId, phoneNumber, channel, status, 
       }
     }
 
-    if (!targetUrl) return;
+    if (!targetUrl) {
+      console.log('⚠️ [forwardDlrToClientWebhook] No targetUrl found for userId:', userId, 'or phone:', phoneNumber);
+      return;
+    }
+
+    console.log('🎯 [forwardDlrToClientWebhook] Forwarding webhook to:', targetUrl);
 
     const event = status === 'DELIVERED' ? 'otp.delivered' : (status === 'FAILED' ? 'otp.failed' : (status === 'READ' ? 'otp.read' : 'otp.status_update'));
     const normalizedChannel = (channel || 'whatsapp').toLowerCase().replace('direct', '').replace('telco', '').trim();
