@@ -7,7 +7,7 @@ const {
   WhatsAppConfigModel
 } = require('../../models');
 const { verifyJwtMiddleware, requireAdmin } = require('../../middleware/auth');
-const { formatDateTime } = require('../../utils/format');
+const { formatDateTime, normalizePhoneNumber } = require('../../utils/format');
 
 router.get('/api/admin/whatsapp/config', verifyJwtMiddleware, requireAdmin, async (req, res) => {
   try {
@@ -21,7 +21,7 @@ router.get('/api/admin/whatsapp/config', verifyJwtMiddleware, requireAdmin, asyn
         const dbLogs = await OtpLogModel.find({ channel: { $regex: /whatsapp/i } }).sort({ createdAt: -1 }).limit(20).lean();
         realLogs = dbLogs.map(l => ({
           id: l.msgId || ('VW-' + l._id.toString().slice(-8).toUpperCase()),
-          recipient: l.phoneNumber,
+          recipient: normalizePhoneNumber(l.phoneNumber),
           channel: (l.channel || 'whatsapp').toLowerCase().replace('_verifyway', ''),
           code: l.otpCode || '-',
           fallback: l.fallback || 'no',
@@ -78,6 +78,8 @@ router.post('/api/admin/whatsapp/test-send', verifyJwtMiddleware, requireAdmin, 
     return res.status(400).json({ success: false, error: 'Recipient phone number and OTP code are required.' });
   }
 
+  const normalizedRecipient = normalizePhoneNumber(recipient);
+
   let dbConfig = null;
   if (getIsDbConnected()) {
     dbConfig = await WhatsAppConfigModel.findOne({ key: 'whatsapp_verifyway_primary' }).lean();
@@ -90,7 +92,7 @@ router.post('/api/admin/whatsapp/test-send', verifyJwtMiddleware, requireAdmin, 
   }
 
   const payload = {
-    recipient: recipient.trim(),
+    recipient: normalizedRecipient,
     type: 'otp',
     channel: channel || 'whatsapp',
     fallback: fallback || 'no',

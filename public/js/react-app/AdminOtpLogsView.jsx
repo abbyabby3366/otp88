@@ -267,7 +267,9 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
                       {log.userName || 'System / Direct API'}
                     </span>
                   </td>
-                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>{log.to}</td>
+                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>
+                    {log.to ? (log.to.startsWith('+') ? log.to : '+' + log.to.replace(/[^0-9]/g, '')) : '-'}
+                  </td>
                   <td>
                     <span className={`sheets-badge ${
                       (log.channel || '').toUpperCase().includes('WHATSAPP') ? 'sheets-badge-emerald' :

@@ -20,6 +20,27 @@ function formatDateTime(dt) {
   return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
 }
 
+function normalizePhoneNumber(phone, defaultDialCode = '60') {
+  if (!phone) return '';
+  const str = String(phone).trim();
+  if (!str) return '';
+
+  const hadPlus = str.startsWith('+');
+  const digits = str.replace(/[^0-9]/g, '');
+  if (!digits) return '';
+
+  const cleanDefaultCode = defaultDialCode.replace(/[^0-9]/g, '') || '60';
+
+  // If starts with '0' (e.g. 0122273341) and didn't have '+', convert leading 0 to country code (e.g. +60122273341)
+  if (!hadPlus && digits.startsWith('0')) {
+    const withoutZero = digits.replace(/^0+/, '');
+    return '+' + cleanDefaultCode + withoutZero;
+  }
+
+  // If already had '+' or country code without '+', return '+<digits>'
+  return '+' + digits;
+}
+
 function detectCountryCode(phone) {
   if (!phone) return 'MY';
   const clean = phone.replace(/[^0-9]/g, '');
@@ -35,6 +56,7 @@ function detectCountryCode(phone) {
   if (clean.startsWith('91')) return 'IN';
   if (clean.startsWith('971')) return 'AE';
   if (clean.startsWith('81')) return 'JP';
+  if (clean.startsWith('0')) return 'MY';
   return 'MY';
 }
 
@@ -75,5 +97,6 @@ async function detectPublicIp() {
 module.exports = {
   formatDateTime,
   detectCountryCode,
+  normalizePhoneNumber,
   detectPublicIp
 };

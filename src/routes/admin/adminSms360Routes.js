@@ -7,7 +7,7 @@ const {
   Sms360ConfigModel
 } = require('../../models');
 const { verifyJwtMiddleware, requireAdmin } = require('../../middleware/auth');
-const { formatDateTime, detectPublicIp } = require('../../utils/format');
+const { formatDateTime, detectPublicIp, normalizePhoneNumber } = require('../../utils/format');
 
 router.get('/api/admin/sms360/my-ip', verifyJwtMiddleware, requireAdmin, async (req, res) => {
   try {
@@ -40,7 +40,7 @@ router.get('/api/admin/sms360/stats', verifyJwtMiddleware, requireAdmin, async (
         const dbLogs = await OtpLogModel.find({ channel: { $regex: /sms/i } }).sort({ createdAt: -1 }).limit(10).lean();
         realLogs = dbLogs.map(l => ({
           id: l.msgId || ('78-' + l._id.toString().slice(-8)),
-          recipient: l.phoneNumber,
+          recipient: normalizePhoneNumber(l.phoneNumber),
           message: l.messageText || (l.otpCode ? `Your OTP88 verification code is ${l.otpCode}. Valid for 5 minutes.` : 'OTP88 authentication SMS'),
           senderId: l.senderId || dbConfig?.senderId || '66688',
           telco: 'Bulk360',
@@ -183,10 +183,13 @@ router.post('/api/admin/sms360/live-balance', verifyJwtMiddleware, requireAdmin,
 });
 
 router.post('/api/admin/sms360/test-send', verifyJwtMiddleware, requireAdmin, async (req, res) => {
-  const { phoneNumber, senderId = '66688', message, detail = 1 } = req.body;
-  if (!phoneNumber || !message) {
+  const { phoneNumber: rawPhone, senderId = '66688', message, detail = 1 } = req.body;
+  if (!rawPhone || !message) {
     return res.status(400).json({ success: false, error: 'Phone number and message are required.' });
   }
+
+  const normalizedPhone = normalizePhoneNumber(rawPhone);
+  const cleanPhone = normalizedPhone.replace(/[^0-9,]/g, '');
 
   let dbConfig = null;
   if (getIsDbConnected()) {
@@ -194,7 +197,6 @@ router.post('/api/admin/sms360/test-send', verifyJwtMiddleware, requireAdmin, as
   }
   const user = req.body.appKey || dbConfig?.appKey;
   const pass = req.body.appSecret || dbConfig?.appSecret;
-  const cleanPhone = phoneNumber.replace(/[^0-9,]/g, '');
   const apiUrl = dbConfig?.apiUrl || 'https://sms.360.my/gw/bulk360/v3_0/send.php';
 
   if (!user || !pass) {
@@ -229,12 +231,12 @@ router.post('/api/admin/sms360/test-send', verifyJwtMiddleware, requireAdmin, as
   const messageId = gwResult.ref || ('S360_MSG_' + Math.floor(1000 + Math.random() * 9000));
   const newLog = {
     id: messageId,
-    recipient: cleanPhone,
+    recipient: normalizedPhone,
     message: message.trim(),
     senderId,
     telco: 'Bulk360',
     segments: Math.ceil(message.length / 160) || 1,
-    cost: `MYR ${sms360Config.ratePerSms || '0.0210'}`,
+    cost: `MYR ${sms360Config?.ratePerSms || dbConfig?.ratePerSms || '0.0210'}`,
     status: gwResult.code === 200 || gwResult.code === '200' ? 'SENT' : 'PENDING',
     latency: '0.39s',
     timestamp: formatDateTime()
@@ -246,14 +248,14 @@ router.post('/api/admin/sms360/test-send', verifyJwtMiddleware, requireAdmin, as
   if (getIsDbConnected()) {
     try {
       await OtpLogModel.create({
-        phoneNumber: cleanPhone,
+        phoneNumber: normalizedPhone,
         channel: 'SMS360_V3',
         otpCode: message.match(/\b\d{4,8}\b/) ? message.match(/\b\d{4,8}\b/)[0] : '882049',
         messageText: message.trim(),
         senderId: senderId || '66688',
         segments: Math.ceil(message.length / 160) || 1,
         latency: '0.39s',
-        cost: `MYR ${sms360Config.ratePerSms || '0.0210'}`,
+        cost: `MYR ${sms360Config?.ratePerSms || dbConfig?.ratePerSms || '0.0210'}`,
         status: 'SENT',
         msgId: messageId,
         errorCode: '0',
@@ -261,7 +263,7 @@ router.post('/api/admin/sms360/test-send', verifyJwtMiddleware, requireAdmin, as
       });
       await OtpAuditLogModel.create({
         auditId: 'AUD_' + Math.floor(1000 + Math.random() * 9000),
-        target: cleanPhone,
+        target: normalizedPhone,
         channel: 'SMS360_V3',
         action: 'SMS_GATEWAY_DISPATCH',
         actor: req.user.email || req.user.username || 'ADMIN',

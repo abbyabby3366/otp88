@@ -4,7 +4,7 @@ const { ADMIN_PASSWORD } = require('../config/constants');
 const { getIsDbConnected } = require('../config/db');
 const { UserModel, OtpLogModel, OtpAuditLogModel } = require('../models');
 const { verifyJwtMiddleware, requireAdmin } = require('../middleware/auth');
-const { formatDateTime } = require('../utils/format');
+const { formatDateTime, normalizePhoneNumber } = require('../utils/format');
 
 // Live OTP Logs Endpoint
 router.get(['/api/logs', '/api/otp-logs', '/api/admin/logs'], verifyJwtMiddleware, async (req, res) => {
@@ -39,7 +39,7 @@ router.get(['/api/logs', '/api/otp-logs', '/api/admin/logs'], verifyJwtMiddlewar
 
     const formatted = rawLogs.map((l) => ({
       id: l.msgId || ('LOG_' + l._id.toString().slice(-6).toUpperCase()),
-      to: l.phoneNumber,
+      to: normalizePhoneNumber(l.phoneNumber),
       channel: normalizeLogChannel(l.channel),
       otpCode: l.otpCode || '',
       message: l.messageText || (l.otpCode ? `Your ${l.senderId || 'Alibaba'} verification code is ${l.otpCode}. Valid for 5 minutes.` : 'Authentication OTP Message'),
@@ -65,7 +65,7 @@ router.get('/api/admin/otp-audit-logs', verifyJwtMiddleware, requireAdmin, async
     const rawLogs = await OtpAuditLogModel.find().sort({ createdAt: -1 }).limit(100).lean();
     const formatted = rawLogs.map(l => ({
       id: l.auditId || l._id.toString().slice(-6),
-      target: l.target,
+      target: normalizePhoneNumber(l.target),
       channel: l.channel,
       action: l.action,
       actor: l.actor,

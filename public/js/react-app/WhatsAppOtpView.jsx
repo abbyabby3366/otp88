@@ -142,10 +142,18 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
     }
   };
 
+  const normalizePhone = (p) => {
+    if (!p) return '';
+    const str = String(p).trim(), digits = str.replace(/[^0-9]/g, '');
+    if (!digits) return '';
+    return (!str.startsWith('+') && digits.startsWith('0')) ? ('+60' + digits.replace(/^0+/, '')) : ('+' + digits);
+  };
+
   // 1. Dispatch WhatsApp OTP via VerifyWay API v1
   const handleSendOtp = async (e) => {
     e.preventDefault();
     if (!recipient.trim() || !otpCode.trim()) return;
+    const normalizedRecipient = normalizePhone(recipient);
     setSendingOtp(true);
     try {
       if (jwtToken) {
@@ -153,7 +161,7 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
           body: JSON.stringify({
-            recipient: recipient.trim(),
+            recipient: normalizedRecipient,
             code: otpCode.trim(),
             channel,
             lang,
@@ -164,7 +172,7 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
         });
         const data = await res.json();
         setApiResponse(data.response || data);
-        if (showToast) showToast(`WhatsApp OTP dispatched to ${recipient}!`);
+        if (showToast) showToast(`WhatsApp OTP dispatched to ${normalizedRecipient}!`);
         loadData();
       }
     } catch (err) {
@@ -519,7 +527,7 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
                 <tr key={l.id || i}>
                   <td style={{ fontFamily: 'var(--font-code)', fontSize: '10px', color: 'var(--text-muted)' }}>{i + 1}</td>
                   <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>{l.id}</td>
-                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>{l.recipient}</td>
+                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>{normalizePhone(l.recipient) || l.recipient}</td>
                   <td><span style={{ fontFamily: 'var(--font-code)', fontSize: '10px', background: '#DCFCE7', color: '#166534', padding: '2px 4px', borderRadius: '3px' }}>{l.channel}</span></td>
                   <td><strong style={{ fontFamily: 'var(--font-code)' }}>{l.code}</strong></td>
                   <td>{l.fallback}</td>

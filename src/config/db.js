@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { MONGODB_URI, ADMIN_USERNAME, ADMIN_PASSWORD, getGlobalRates, setGlobalRates, DEFAULT_GLOBAL_CARRIER_RATES } = require('./constants');
-const { RateModel, UserModel } = require('../models');
+const { RateModel, UserModel, OtpLogModel, OtpAuditLogModel, TransactionModel } = require('../models');
+const { normalizePhoneNumber } = require('../utils/format');
 
 let isDbConnected = false;
 
@@ -69,6 +70,39 @@ async function seedInitialAdmin() {
   }
 }
 
+// Auto-normalize existing DB records so historical logs display with standard international format (+...)
+async function normalizeExistingDbRecords() {
+  try {
+    const unnormalizedOtpLogs = await OtpLogModel.find({
+      phoneNumber: { $exists: true, $ne: null, $not: /^\+/ }
+    }).limit(500);
+
+    for (const log of unnormalizedOtpLogs) {
+      if (log.phoneNumber) {
+        const normalized = normalizePhoneNumber(log.phoneNumber);
+        if (normalized && normalized !== log.phoneNumber) {
+          await OtpLogModel.updateOne({ _id: log._id }, { $set: { phoneNumber: normalized } });
+        }
+      }
+    }
+
+    const unnormalizedAudits = await OtpAuditLogModel.find({
+      target: { $exists: true, $ne: null, $not: /^\+/ }
+    }).limit(500);
+
+    for (const aud of unnormalizedAudits) {
+      if (aud.target && aud.target.match(/[0-9]{7,}/)) {
+        const normalized = normalizePhoneNumber(aud.target);
+        if (normalized && normalized !== aud.target) {
+          await OtpAuditLogModel.updateOne({ _id: aud._id }, { $set: { target: normalized } });
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Error normalizing historical records:', e.message);
+  }
+}
+
 async function connectDb() {
   if (MONGODB_URI) {
     try {
@@ -77,6 +111,7 @@ async function connectDb() {
       console.log(' MongoDB Atlas Connected successfully to opt88-cluster database!');
       await seedInitialRates();
       await seedInitialAdmin();
+      await normalizeExistingDbRecords();
     } catch (err) {
       console.warn(' MongoDB Atlas connection warning (running in fallback mode):', err.message);
     }
@@ -90,5 +125,6 @@ module.exports = {
   connectDb,
   getIsDbConnected,
   seedInitialRates,
-  seedInitialAdmin
+  seedInitialAdmin,
+  normalizeExistingDbRecords
 };

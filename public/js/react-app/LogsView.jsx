@@ -156,7 +156,9 @@ function LogsView({ t, logs = [], loading = false }) {
                     {(currentPage - 1) * pageSize + idx + 1}
                   </td>
                   <td style={{ fontFamily: 'var(--font-code)', fontWeight: '600' }}>{log.id}</td>
-                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>{log.to}</td>
+                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>
+                    {log.to ? (log.to.startsWith('+') ? log.to : '+' + log.to.replace(/[^0-9]/g, '')) : '-'}
+                  </td>
                   <td>
                     <span className={`sheets-badge ${
                       (log.channel || '').toUpperCase().includes('WHATSAPP') ? 'sheets-badge-emerald' :

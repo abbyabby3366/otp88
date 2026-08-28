@@ -4,6 +4,7 @@ const { ADMIN_USERNAME, ADMIN_PASSWORD } = require('../config/constants');
 const { getIsDbConnected } = require('../config/db');
 const { UserModel, OtpAuditLogModel } = require('../models');
 const { generateJwtToken, loginOtpStore } = require('../middleware/auth');
+const { normalizePhoneNumber } = require('../utils/format');
 
 // User & Admin Login Endpoint
 router.post('/api/auth/login', async (req, res) => {
@@ -202,11 +203,12 @@ router.post('/api/auth/register', async (req, res) => {
 });
 
 router.post('/api/auth/send-otp', (req, res) => {
-  const { phoneNumber, channel = 'whatsapp' } = req.body;
-  if (!phoneNumber) {
+  const { phoneNumber: rawPhone, channel = 'whatsapp' } = req.body;
+  if (!rawPhone) {
     return res.status(400).json({ success: false, error: 'Phone number is required.' });
   }
 
+  const phoneNumber = normalizePhoneNumber(rawPhone);
   const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
   loginOtpStore.set(phoneNumber, {
     code: generatedOtp,
@@ -217,18 +219,20 @@ router.post('/api/auth/send-otp', (req, res) => {
     success: true,
     message: `Verification code sent via ${channel.toUpperCase()} to ${phoneNumber}`,
     channel,
+    phoneNumber,
     otpPreview: generatedOtp,
     expiresInSeconds: 300
   });
 });
 
 router.post('/api/auth/verify-otp', async (req, res) => {
-  const { phoneNumber, otpCode } = req.body;
-  if (!phoneNumber || !otpCode) {
+  const { phoneNumber: rawPhone, otpCode } = req.body;
+  if (!rawPhone || !otpCode) {
     return res.status(400).json({ success: false, error: 'Phone number and OTP code are required.' });
   }
 
-  const stored = loginOtpStore.get(phoneNumber);
+  const phoneNumber = normalizePhoneNumber(rawPhone);
+  const stored = loginOtpStore.get(phoneNumber) || loginOtpStore.get(rawPhone);
   const isValid = (stored && stored.code === otpCode && stored.expiresAt > Date.now()) || otpCode === '882049' || otpCode === '123456';
 
   if (!isValid) {
@@ -236,12 +240,13 @@ router.post('/api/auth/verify-otp', async (req, res) => {
   }
 
   loginOtpStore.delete(phoneNumber);
+  loginOtpStore.delete(rawPhone);
 
   let dbUser = null;
   const isDbConnected = getIsDbConnected();
   if (isDbConnected) {
     try {
-      dbUser = await UserModel.findOne({ phone: phoneNumber });
+      dbUser = await UserModel.findOne({ phone: { $in: [phoneNumber, rawPhone] } });
       if (!dbUser) {
         dbUser = await UserModel.create({
           phone: phoneNumber,
@@ -261,35 +266,37 @@ router.post('/api/auth/verify-otp', async (req, res) => {
   const token = generateJwtToken({
     id: userId,
     phone: phoneNumber,
-    role: (dbUser && dbUser.role) ? dbUser.role : 'USER'
+    role: dbUser ? dbUser.role : 'USER',
+    name: (dbUser && dbUser.name) ? dbUser.name : ('User (' + phoneNumber.slice(-4) + ')'),
+    email: (dbUser && dbUser.email) ? dbUser.email : (phoneNumber + '@otp88.internal')
   });
 
   res.json({
     success: true,
-    message: 'Phone verified successfully! Logged in to OTP88 Console.',
     token,
     user: {
       id: userId,
       phone: phoneNumber,
       name: (dbUser && dbUser.name) ? dbUser.name : ('User (' + phoneNumber.slice(-4) + ')'),
       email: (dbUser && dbUser.email) ? dbUser.email : (phoneNumber + '@otp88.internal'),
-      role: (dbUser && dbUser.role) ? dbUser.role : 'USER',
+      role: dbUser ? dbUser.role : 'USER',
       balanceUsd: dbUser ? dbUser.balanceUsd : 25.00,
-      apiKeyLive: dbUser ? dbUser.apiKeyLive : ('otp_live_' + Math.random().toString(36).substring(2, 16) + '88'),
-      monthlyVolumeRemaining: dbUser ? dbUser.monthlyVolumeRemaining : '50,000'
+      apiKeyLive: dbUser ? dbUser.apiKeyLive : ('otp88_api_' + Math.random().toString(36).substring(2, 16) + '88'),
+      monthlyVolumeRemaining: '50,000'
     }
   });
 });
 
 // Reset Password - Send OTP to Phone Number
 router.post('/api/auth/reset-password/send-otp', async (req, res) => {
-  const { phoneNumber } = req.body;
-  if (!phoneNumber) {
+  const { phoneNumber: rawPhone } = req.body;
+  if (!rawPhone) {
     return res.status(400).json({ success: false, error: 'Registered phone number is required.' });
   }
 
+  const phoneNumber = normalizePhoneNumber(rawPhone);
   const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-  loginOtpStore.set('reset_' + phoneNumber.trim(), {
+  loginOtpStore.set('reset_' + phoneNumber, {
     code: generatedOtp,
     expiresAt: Date.now() + 5 * 60 * 1000
   });
@@ -299,7 +306,7 @@ router.post('/api/auth/reset-password/send-otp', async (req, res) => {
     try {
       await OtpAuditLogModel.create({
         auditId: 'AUD_' + Math.floor(1000 + Math.random() * 9000),
-        target: phoneNumber.trim(),
+        target: phoneNumber,
         channel: 'WHATSAPP',
         action: 'PASSWORD_RESET_DISPATCH',
         actor: 'USER_SELF_SERVICE',
@@ -315,6 +322,7 @@ router.post('/api/auth/reset-password/send-otp', async (req, res) => {
   res.json({
     success: true,
     message: `Password reset verification code dispatched to ${phoneNumber}`,
+    phoneNumber,
     otpPreview: generatedOtp,
     expiresInSeconds: 300
   });
@@ -322,32 +330,34 @@ router.post('/api/auth/reset-password/send-otp', async (req, res) => {
 
 // Reset Password - Verify OTP & Set New Password
 router.post('/api/auth/reset-password/verify', async (req, res) => {
-  const { phoneNumber, otpCode, newPassword } = req.body;
-  if (!phoneNumber || !otpCode || !newPassword) {
+  const { phoneNumber: rawPhone, otpCode, newPassword } = req.body;
+  if (!rawPhone || !otpCode || !newPassword) {
     return res.status(400).json({ success: false, error: 'Phone number, OTP code, and new password are required.' });
   }
-  const stored = loginOtpStore.get('reset_' + phoneNumber.trim());
+  const phoneNumber = normalizePhoneNumber(rawPhone);
+  const stored = loginOtpStore.get('reset_' + phoneNumber) || loginOtpStore.get('reset_' + rawPhone.trim());
   const isValid = (stored && stored.code === otpCode && stored.expiresAt > Date.now()) || otpCode === '882049' || otpCode === '123456';
 
   if (!isValid) {
     return res.status(400).json({ success: false, error: 'Invalid or expired OTP code for password reset.' });
   }
 
-  loginOtpStore.delete('reset_' + phoneNumber.trim());
+  loginOtpStore.delete('reset_' + phoneNumber);
+  loginOtpStore.delete('reset_' + rawPhone.trim());
 
   const isDbConnected = getIsDbConnected();
   if (isDbConnected) {
     try {
       await UserModel.findOneAndUpdate(
-        { $or: [{ phone: phoneNumber.trim() }, { email: phoneNumber.trim() }] },
+        { $or: [{ phone: phoneNumber }, { phone: rawPhone.trim() }, { email: rawPhone.trim() }] },
         { password: newPassword }
       );
       await OtpAuditLogModel.create({
         auditId: 'AUD_' + Math.floor(1000 + Math.random() * 9000),
-        target: phoneNumber.trim(),
+        target: phoneNumber,
         channel: 'SYSTEM',
         action: 'PASSWORD_RESET_COMPLETED',
-        actor: phoneNumber.trim(),
+        actor: phoneNumber,
         status: 'SUCCESS',
         latency: '0.1s',
         time: new Date().toTimeString().split(' ')[0]

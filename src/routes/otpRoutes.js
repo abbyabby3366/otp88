@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../config/constants');
 const { getIsDbConnected } = require('../config/db');
 const { UserModel, OtpLogModel, Sms360ConfigModel, WhatsAppConfigModel } = require('../models');
-const { detectCountryCode } = require('../utils/format');
+const { detectCountryCode, normalizePhoneNumber } = require('../utils/format');
 const { getOtpChannelCost, deductUserBalanceAndRecordTx } = require('../services/balanceService');
 
 // 3. API: Live Interactive OTP Gateway & Real Upstream Dispatch (Writes to MongoDB + Live Balance Deduction)
@@ -30,7 +30,8 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
     codeLength = 6
   } = req.body;
 
-  const phoneNumber = reqPhoneNumber || reqPhone || reqTo || '+60123456789';
+  const rawPhoneNumber = reqPhoneNumber || reqPhone || reqTo || '+60123456789';
+  const phoneNumber = normalizePhoneNumber(rawPhoneNumber);
   const senderName = reqSenderName || reqSender_name || reqSenderId || reqSender_id || reqFrom || 'Alibaba';
   const expiryMinutes = parseInt(reqExpiryMinutes || reqExpiry_minutes || (reqExpirySeconds ? Math.round(reqExpirySeconds / 60) : null) || (reqExpiry_seconds ? Math.round(reqExpiry_seconds / 60) : null) || 5, 10);
 
@@ -123,7 +124,7 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
       const waApiKey = dbWaConfig?.apiKey;
       const waApiUrl = dbWaConfig?.apiUrl || 'https://api.verifyway.com/api/v1/';
       if (waApiKey) {
-        const cleanPhone = phoneNumber.startsWith('+') ? phoneNumber : '+' + phoneNumber.replace(/[^0-9]/g, '');
+        const cleanPhone = normalizePhoneNumber(phoneNumber);
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 8000);
         const waResp = await fetch(waApiUrl, {

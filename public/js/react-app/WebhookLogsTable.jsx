@@ -118,7 +118,7 @@ export function WebhookLogsTable({
                       </span>
                     </td>
                     <td style={{ fontFamily: 'var(--font-code)', fontSize: '11px', whiteSpace: 'nowrap' }}>
-                      {recipient}
+                      {recipient ? (recipient.startsWith('+') ? recipient : '+' + recipient.replace(/[^0-9]/g, '')) : '-'}
                     </td>
                     <td>
                       <span

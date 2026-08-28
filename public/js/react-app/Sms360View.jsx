@@ -885,7 +885,7 @@ function Sms360View({ t, jwtToken, showToast }) {
                 <tr key={l.id || i}>
                   <td style={{ fontFamily: 'var(--font-code)', fontSize: '10px', color: 'var(--text-muted)' }}>{i + 1}</td>
                   <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>{l.id}</td>
-                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>{l.recipient}</td>
+                  <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>{l.recipient ? (l.recipient.startsWith('+') ? l.recipient : '+' + l.recipient.replace(/[^0-9]/g, '')) : '-'}</td>
                   <td style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)', fontSize: '11px' }} title={l.message || l.text || 'Your OTP88 verification code is 882049. Valid for 5 minutes.'}>
                     {l.message || l.text || 'Your OTP88 verification code is 882049. Valid for 5 minutes.'}
                   </td>
