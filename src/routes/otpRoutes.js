@@ -32,7 +32,7 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
 
   const rawPhoneNumber = reqPhoneNumber || reqPhone || reqTo || '+60123456789';
   const phoneNumber = normalizePhoneNumber(rawPhoneNumber);
-  const senderName = reqSenderName || reqSender_name || reqSenderId || reqSender_id || reqFrom || 'Alibaba';
+  const senderName = reqSenderName || reqSender_name || reqSenderId || reqSender_id || reqFrom || 'OTP88';
   const expiryMinutes = parseInt(reqExpiryMinutes || reqExpiry_minutes || (reqExpirySeconds ? Math.round(reqExpirySeconds / 60) : null) || (reqExpiry_seconds ? Math.round(reqExpiry_seconds / 60) : null) || 5, 10);
 
   // Use provided OTP code or auto-generate
@@ -43,10 +43,16 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
     otpCode = Math.floor(min + Math.random() * (max - min + 1)).toString();
   }
 
-  const isWhatsApp = channel === 'whatsapp';
-  const messageText = isWhatsApp
-    ? `Your verification code is ${otpCode}.`
-    : `Your ${senderName} verification code is ${otpCode}. Valid for ${expiryMinutes} minutes.`;
+  const cleanChannel = (channel || 'whatsapp').toLowerCase();
+  const isWhatsApp = cleanChannel.includes('whatsapp');
+  let messageText = '';
+  if (isWhatsApp) {
+    messageText = `Your verification code is ${otpCode}.`;
+  } else if (cleanChannel.includes('sms')) {
+    messageText = `RM0 ${senderName}: Your verification code is ${otpCode}. Valid for ${expiryMinutes} minutes.`;
+  } else {
+    messageText = `Your ${senderName} verification code is ${otpCode}. Valid for ${expiryMinutes} minutes.`;
+  }
 
   // 1. Calculate dynamic cost based on destination country and channel
   const destCountry = detectCountryCode(phoneNumber);
@@ -84,19 +90,21 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
   let upstreamRef = null;
   let upstreamResult = null;
 
-  if (channel === 'sms') {
+  if (cleanChannel === 'sms') {
     // Dispatch real live SMS via Bulk360 API V3.0
     try {
       let dbSmsConfig = null;
       if (isDbConnected) {
         try { dbSmsConfig = await Sms360ConfigModel.findOne({ key: 'sms360_primary' }).lean(); } catch (e) {}
       }
-      const user = dbSmsConfig?.appKey;
-      const pass = dbSmsConfig?.appSecret;
+      const user = dbSmsConfig?.appKey || 'KGRb4qxdBL';
+      const pass = dbSmsConfig?.appSecret || 'NE4Ui9KcgxJJl8Y9NbJKhgCohsk6l71GzzBC1gya';
       const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
       const apiUrl = dbSmsConfig?.apiUrl || 'https://sms.360.my/gw/bulk360/v3_0/send.php';
+      const fromShortcode = dbSmsConfig?.senderId || '66688';
+
       if (user && pass) {
-        const sendUrl = `${apiUrl}?user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}&from=${encodeURIComponent(senderName)}&to=${encodeURIComponent(cleanPhone)}&text=${encodeURIComponent(messageText)}&detail=1`;
+        const sendUrl = `${apiUrl}?user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}&from=${encodeURIComponent(fromShortcode)}&to=${encodeURIComponent(cleanPhone)}&text=${encodeURIComponent(messageText)}&detail=1`;
 
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 8000);
