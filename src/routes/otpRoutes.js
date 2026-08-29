@@ -33,7 +33,7 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
 
   const rawPhoneNumber = reqPhoneNumber || reqPhone || reqTo || '+60123456789';
   const phoneNumber = normalizePhoneNumber(rawPhoneNumber);
-  const senderName = reqSenderName || reqSender_name || reqSenderId || reqSender_id || reqFrom || 'OTP88';
+  const senderName = reqSenderName || reqSender_name || reqSenderId || reqSender_id || reqFrom || 'FlashOTP';
   const expiryMinutes = parseInt(reqExpiryMinutes || reqExpiry_minutes || (reqExpirySeconds ? Math.round(reqExpirySeconds / 60) : null) || (reqExpiry_seconds ? Math.round(reqExpiry_seconds / 60) : null) || 5, 10);
 
   // Use provided OTP code or auto-generate

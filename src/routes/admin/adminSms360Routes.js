@@ -41,7 +41,7 @@ router.get('/api/admin/sms360/stats', verifyJwtMiddleware, requireAdmin, async (
         realLogs = dbLogs.map(l => ({
           id: l.msgId || ('78-' + l._id.toString().slice(-8)),
           recipient: normalizePhoneNumber(l.phoneNumber),
-          message: l.messageText || (l.otpCode ? `Your OTP88 verification code is ${l.otpCode}. Valid for 5 minutes.` : 'OTP88 authentication SMS'),
+          message: l.messageText || (l.otpCode ? `Your FlashOTP verification code is ${l.otpCode}. Valid for 5 minutes.` : 'FlashOTP authentication SMS'),
           senderId: l.senderId || dbConfig?.senderId || '66688',
           telco: 'Bulk360',
           segments: l.segments || 1,

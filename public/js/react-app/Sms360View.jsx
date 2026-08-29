@@ -34,7 +34,7 @@ function Sms360View({ t, jwtToken, showToast }) {
   // Send SMS MT state
   const [mtTo, setMtTo] = useState('60122273341');
   const [mtFrom, setMtFrom] = useState('66688');
-  const [mtText, setMtText] = useState('Your OTP88 verification code is 882049. Valid for 5 minutes.');
+  const [mtText, setMtText] = useState('Your FlashOTP verification code is 882049. Valid for 5 minutes.');
   const [mtDetail, setMtDetail] = useState(true);
   const [sendingMt, setSendingMt] = useState(false);
   const [mtResponse, setMtResponse] = useState(null);
@@ -836,7 +836,7 @@ function Sms360View({ t, jwtToken, showToast }) {
   -F "user=${config.user || 'YOUR_USER'}" \\
   -F "pass=${config.pass ? '••••••••' : 'YOUR_PASS'}" \\
   -F "to=+60123456789" \\
-  -F "text=RM0.00 OTP88: Your SMS verification code is 882910. Valid for 5 mins." \\
+  -F "text=RM0.00 FlashOTP: Your SMS verification code is 882910. Valid for 5 mins." \\
   -F "from=${config.from || 'OTP88'}" \\
   -F "detail=1"`}</pre>
               </div>
@@ -886,8 +886,8 @@ function Sms360View({ t, jwtToken, showToast }) {
                   <td style={{ fontFamily: 'var(--font-code)', fontSize: '10px', color: 'var(--text-muted)' }}>{i + 1}</td>
                   <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>{l.id}</td>
                   <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>{l.recipient ? (l.recipient.startsWith('+') ? l.recipient : '+' + l.recipient.replace(/[^0-9]/g, '')) : '-'}</td>
-                  <td style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)', fontSize: '11px' }} title={l.message || l.text || 'Your OTP88 verification code is 882049. Valid for 5 minutes.'}>
-                    {l.message || l.text || 'Your OTP88 verification code is 882049. Valid for 5 minutes.'}
+                  <td style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)', fontSize: '11px' }} title={l.message || l.text || 'Your FlashOTP verification code is 882049. Valid for 5 minutes.'}>
+                    {l.message || l.text || 'Your FlashOTP verification code is 882049. Valid for 5 minutes.'}
                   </td>
                   <td><span style={{ fontFamily: 'var(--font-code)', fontSize: '10px', background: '#F1F5F9', padding: '2px 4px', borderRadius: '3px' }}>{l.senderId}</span></td>
                   <td style={{ color: 'var(--text-secondary)' }}>{l.telco}</td>
