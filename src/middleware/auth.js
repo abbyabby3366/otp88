@@ -31,7 +31,8 @@ const verifyJwtMiddleware = async (req, res, next) => {
         }
       } catch (e) {}
     }
-    req.user = { id: 'usr_api_live', role: 'USER', email: 'api_user@otp88.com' };
+    const host = req.get('host') || 'localhost';
+    req.user = { id: 'usr_api_live', role: 'USER', email: `api_user@${host}` };
     return next();
   }
 

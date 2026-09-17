@@ -7,7 +7,7 @@ const WhatsAppConfigSchema = new mongoose.Schema({
   channel: { type: String, default: 'whatsapp' },
   fallback: { type: String, default: 'no' },
   lang: { type: String, default: 'en' },
-  webhookUrl: { type: String, default: 'https://api.otp88.com/api/webhooks/whatsapp/dlr' },
+  webhookUrl: { type: String, default: '/api/webhooks/whatsapp/dlr' },
   ratePerOtp: { type: String, default: '0.0075' },
   currency: { type: String, default: 'MYR' },
   status: { type: String, default: 'ACTIVE' }

@@ -17,9 +17,9 @@ export default function WhatsAppWebhookTab({
   const [simulatingDlr, setSimulatingDlr] = useState(false);
   const [simDlrResult, setSimDlrResult] = useState(null);
 
-  const currentOriginWebhook = typeof window !== 'undefined'
+  const currentOriginWebhook = (typeof window !== 'undefined' && window.location && window.location.origin)
     ? `${window.location.origin}/api/webhooks/whatsapp/dlr`
-    : 'https://api.otp88.com/api/webhooks/whatsapp/dlr';
+    : '/api/webhooks/whatsapp/dlr';
 
   const handleSetCurrentOriginWebhook = async () => {
     const updated = { ...config, webhookUrl: currentOriginWebhook };

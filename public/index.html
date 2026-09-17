@@ -428,16 +428,16 @@
               </button>
             </div>
             <div class="code-body">
-              <pre id="api-sample-code">curl -X POST https://api.otp88.com/v1/otp/send \
-  -H "Authorization: Bearer otp88_api_99882200aabbcc" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "to": "+60123456789",
-    "channel_strategy": "waterfall",
-    "channels": ["whatsapp", "telegram", "sms"],
-    "sender_name": "Alibaba",
-    "otp": "882910"
-  }'</pre>
+              <pre id="api-sample-code"></pre>
+              <script>
+                (function() {
+                  var c = document.getElementById('api-sample-code');
+                  var origin = (window.location && window.location.origin) ? window.location.origin : '';
+                  if (c) {
+                    c.innerText = 'curl -X POST ' + (origin ? (origin + '/v1/otp/send') : '/v1/otp/send') + ' \\\n  -H "Authorization: Bearer otp88_api_99882200aabbcc" \\\n  -H "Content-Type: application/json" \\\n  -d \'{\\n    "to": "+60123456789",\\n    "channel_strategy": "waterfall",\\n    "channels": ["whatsapp", "telegram", "sms"],\\n    "sender_name": "Alibaba",\\n    "otp": "882910"\\n  }\'';
+                  }
+                })();
+              </script>
             </div>
           </div>
         </div>

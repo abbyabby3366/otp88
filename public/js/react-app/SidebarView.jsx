@@ -35,13 +35,13 @@ function SidebarView({
                 <stop offset="100%" stopColor="#818CF8" />
               </linearGradient>
             </defs>
-            <path d="M20 3L35 8.5V19.5C35 28.2 28.6 34.5 20 37C11.4 34.5 5 28.2 5 19.5V8.5L20 3Z" fill="url(#sidebarShieldBg)" stroke="url(#sidebarBrandGrad)" strokeWidth="2" strokeLinejoin="round"/>
-            <path d="M20 5V35" stroke="url(#sidebarBrandGrad)" strokeWidth="1" strokeOpacity="0.15" strokeDasharray="2 2"/>
-            <path d="M7 19.5H33" stroke="url(#sidebarBrandGrad)" strokeWidth="1" strokeOpacity="0.15"/>
-            <path d="M21.5 8.5L13 20H19.5L17.5 30.5L27 18H20.5L21.5 8.5Z" fill="url(#sidebarBoltGrad)" stroke="#060913" strokeWidth="0.8" strokeLinejoin="round"/>
-            <circle cx="21.5" cy="8.5" r="1.5" fill="#34D399"/>
-            <circle cx="27" cy="18" r="1.5" fill="#38BDF8"/>
-            <circle cx="17.5" cy="30.5" r="1.5" fill="#818CF8"/>
+            <path d="M20 3L35 8.5V19.5C35 28.2 28.6 34.5 20 37C11.4 34.5 5 28.2 5 19.5V8.5L20 3Z" fill="url(#sidebarShieldBg)" stroke="url(#sidebarBrandGrad)" strokeWidth="2" strokeLinejoin="round" />
+            <path d="M20 5V35" stroke="url(#sidebarBrandGrad)" strokeWidth="1" strokeOpacity="0.15" strokeDasharray="2 2" />
+            <path d="M7 19.5H33" stroke="url(#sidebarBrandGrad)" strokeWidth="1" strokeOpacity="0.15" />
+            <path d="M21.5 8.5L13 20H19.5L17.5 30.5L27 18H20.5L21.5 8.5Z" fill="url(#sidebarBoltGrad)" stroke="#060913" strokeWidth="0.8" strokeLinejoin="round" />
+            <circle cx="21.5" cy="8.5" r="1.5" fill="#34D399" />
+            <circle cx="27" cy="18" r="1.5" fill="#38BDF8" />
+            <circle cx="17.5" cy="30.5" r="1.5" fill="#818CF8" />
           </svg>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <div style={{ fontSize: '15px', fontWeight: '800', lineHeight: 1, letterSpacing: '-0.02em', color: 'var(--text-primary)', whiteSpace: 'nowrap', display: 'inline-block' }}>
@@ -58,7 +58,7 @@ function SidebarView({
               lineHeight: 1.2,
               letterSpacing: '0.02em'
             }}>
-              v1.0
+              v1.5
             </span>
           </div>
         </a>

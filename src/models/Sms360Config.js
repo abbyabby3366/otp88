@@ -8,7 +8,7 @@ const Sms360ConfigSchema = new mongoose.Schema({
   apiUrl: { type: String, default: 'https://sms.360.my/gw/bulk360/v3_0/send.php' },
   balanceUrl: { type: String, default: 'https://sms.360.my/api/balance/v3_0/getBalance' },
   senderId: { type: String, default: '66688' },
-  webhookUrl: { type: String, default: 'https://api.otp88.com/api/webhooks/sms360/dlr' },
+  webhookUrl: { type: String, default: '/api/webhooks/sms360/dlr' },
   ratePerSms: { type: String, default: '0.0210' },
   currency: { type: String, default: 'MYR' },
   status: { type: String, default: 'ACTIVE' },

@@ -24,7 +24,7 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
     fallback: 'no',
     lang: 'en',
     template: 'default_otp',
-    webhookUrl: 'https://api.otp88.com/api/webhooks/whatsapp/dlr',
+    webhookUrl: (typeof window !== 'undefined' && window.location && window.location.origin) ? `${window.location.origin}/api/webhooks/whatsapp/dlr` : '/api/webhooks/whatsapp/dlr',
     ratePerOtp: '0.0075',
     currency: 'MYR',
     status: 'ACTIVE'

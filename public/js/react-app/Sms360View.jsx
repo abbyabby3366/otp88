@@ -19,7 +19,7 @@ function Sms360View({ t, jwtToken, showToast }) {
   const [config, setConfig] = useState({
     appKey: 'KGRb4qxdBL', appSecret: 'NE4Ui9KcgxJJl8Y9NbJKhgCohsk6l71GzzBC1gya', apiKey: 'KGRb4qxdBL',
     apiUrl: 'https://sms.360.my/gw/bulk360/v3_0/send.php', balanceUrl: 'https://sms.360.my/api/balance/v3_0/getBalance',
-    senderId: '66688', webhookUrl: 'https://api.otp88.com/api/webhooks/sms360/dlr',
+    senderId: '66688', webhookUrl: (typeof window !== 'undefined' && window.location && window.location.origin) ? `${window.location.origin}/api/webhooks/sms360/dlr` : '/api/webhooks/sms360/dlr',
     ratePerSms: '0.0210', currency: 'MYR', status: 'ACTIVE', autoFallback: true
   });
   const [savingConfig, setSavingConfig] = useState(false);
@@ -271,7 +271,7 @@ function Sms360View({ t, jwtToken, showToast }) {
     }
   };
 
-  const currentOriginWebhook = typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/sms360/dlr` : 'https://api.otp88.com/api/webhooks/sms360/dlr';
+  const currentOriginWebhook = (typeof window !== 'undefined' && window.location && window.location.origin) ? `${window.location.origin}/api/webhooks/sms360/dlr` : '/api/webhooks/sms360/dlr';
 
   const handleSetCurrentOriginWebhook = async () => {
     const updated = { ...config, webhookUrl: currentOriginWebhook };
