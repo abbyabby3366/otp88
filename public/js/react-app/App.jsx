@@ -15,6 +15,7 @@ import AdminApiView from './AdminApiView.jsx';
 import AdminBillingView from './AdminBillingView.jsx';
 import Sms360View from './Sms360View.jsx';
 import WhatsAppOtpView from './WhatsAppOtpView.jsx';
+import EmailOtpView from './EmailOtpView.jsx';
 import SidebarView from './SidebarView.jsx';
 import PageLoader from './PageLoader.jsx';
 
@@ -83,6 +84,7 @@ export default function App() {
     if (clean === '/admin/rates' || clean === '/admin-rates' || clean === '/rates' || clean === '/pricing' || clean === '/carrier-rates') return 'rates';
     if (clean === '/admin/sms360' || clean === '/sms360' || clean === '/admin-sms360' || clean === '/admin/sms-otp' || clean === '/sms-otp') return 'sms360';
     if (clean === '/admin/whatsapp-otp' || clean === '/whatsapp-otp' || clean === '/admin-whatsapp-otp') return 'whatsapp-otp';
+    if (clean === '/admin/email-otp' || clean === '/email-otp' || clean === '/admin-email-otp') return 'email-otp';
     const savedTab = typeof localStorage !== 'undefined' ? localStorage.getItem('otp88_active_tab') : null;
     if (savedTab) return savedTab;
     return 'dashboard';
@@ -102,6 +104,7 @@ export default function App() {
       case 'users': return '/admin/users';
       case 'sms360': return '/admin/sms360';
       case 'whatsapp-otp': return '/admin/whatsapp-otp';
+      case 'email-otp': return '/admin/email-otp';
       case 'services': return '/services';
       case 'rates': return role === 'ADMIN' ? '/admin/rates' : '/rates';
       case 'admin-rates': return '/admin/rates';
@@ -1003,6 +1006,7 @@ export default function App() {
                   {activeTab === 'admin-billing' && (t.navAdminBilling || t.navBilling || 'Billing & Top-up')}
                   {activeTab === 'sms360' && (t.navSmsOtp || t.navSms360 || 'SMS OTP')}
                   {activeTab === 'whatsapp-otp' && (t.navWhatsAppOtp || 'WhatsApp OTP')}
+                  {activeTab === 'email-otp' && (t.navEmailOtp || 'Email OTP')}
                 </span>
                 <span style={{ color: 'var(--border-subtle)' }}>|</span>
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{session.role === 'ADMIN' ? 'Admin Panel' : 'Management Portal'}</span>
@@ -1168,6 +1172,11 @@ export default function App() {
               {/* ADMIN ONLY: WHATSAPP OTP GATEWAY TAB */}
               {activeTab === 'whatsapp-otp' && session.role === 'ADMIN' && (WhatsAppOtpView || window.WhatsAppOtpView) && (
                 <WhatsAppOtpView t={t} jwtToken={jwtToken} showToast={showToast} />
+              )}
+
+              {/* ADMIN ONLY: EMAIL OTP GATEWAY TAB */}
+              {activeTab === 'email-otp' && session.role === 'ADMIN' && (EmailOtpView || window.EmailOtpView) && (
+                <EmailOtpView t={t} jwtToken={jwtToken} showToast={showToast} />
               )}
 
             </div>

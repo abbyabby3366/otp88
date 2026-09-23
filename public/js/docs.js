@@ -54,13 +54,20 @@ function generateSendSnippet(lang = 'curl', channel = 'waterfall') {
       sender_name: 'Alibaba',
       otp: '882910'
     };
+  } else if (channel === 'email') {
+    payload = {
+      to: 'user@example.com',
+      channel_strategy: 'email',
+      sender_name: 'OTP88',
+      otp: '882910'
+    };
   } else {
     // waterfall
     payload = {
       to: '+60123456789',
       channel_strategy: 'waterfall',
-      channels: ['whatsapp', 'telegram', 'sms'],
-      sender_name: 'Alibaba',
+      channels: ['whatsapp', 'email', 'sms'],
+      sender_name: 'OTP88',
       otp: '882910'
     };
   }

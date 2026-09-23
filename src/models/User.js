@@ -10,6 +10,9 @@ const UserSchema = new mongoose.Schema({
   balanceUsd: { type: Number, default: 50.00 },
   apiKeyLive: { type: String },
   webhookUrl: { type: String, default: '' },
+  emailBrandHandle: { type: String, default: '' },
+  emailBrandName: { type: String, default: '' },
+  emailReplyTo: { type: String, default: '' },
   remark: { type: String, default: '' },
   monthlyVolumeRemaining: { type: String, default: '100,000' }
 }, { timestamps: true });

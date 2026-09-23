@@ -24,6 +24,7 @@ const OTP88_I18N = {
     navSmsOtp: 'SMS OTP',
     navSms360: 'SMS OTP',
     navWhatsAppOtp: 'WhatsApp OTP',
+    navEmailOtp: 'Email OTP',
     
     signOut: 'Logout',
     signOutConfirm: 'Are you sure you want to log out?',
@@ -171,6 +172,7 @@ const OTP88_I18N = {
     navSmsOtp: 'SMS OTP 短信通道',
     navSms360: 'SMS OTP 短信通道',
     navWhatsAppOtp: 'WhatsApp OTP',
+    navEmailOtp: 'Email OTP 邮件通道',
     
     signOut: '退出登录',
     signOutConfirm: '确定要退出登录吗？',

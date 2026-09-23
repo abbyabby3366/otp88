@@ -40,6 +40,9 @@ router.get('/api/user/profile', verifyJwtMiddleware, async (req, res) => {
           balanceUsd: user.balanceUsd !== undefined ? user.balanceUsd : 50.00,
           apiKeyLive: user.apiKeyLive || ('otp88_api_' + Math.random().toString(36).substring(2, 16) + '88'),
           webhookUrl: user.webhookUrl || '',
+          emailBrandHandle: user.emailBrandHandle || '',
+          emailBrandName: user.emailBrandName || '',
+          emailReplyTo: user.emailReplyTo || '',
           remark: user.remark || '',
           monthlyVolumeRemaining: user.monthlyVolumeRemaining || '100,000'
         }
@@ -56,7 +59,80 @@ router.get('/api/user/profile', verifyJwtMiddleware, async (req, res) => {
         balanceUsd: 50.00,
         apiKeyLive: req.user.role === 'ADMIN' ? 'otp88_api_88a90184bcedf88' : 'otp88_api_88a90184bcedf41',
         webhookUrl: '',
+        emailBrandHandle: '',
+        emailBrandName: '',
+        emailReplyTo: '',
         remark: ''
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Update Authenticated User Custom Email Brand Sender Sub-Alias
+router.post('/api/user/email-sender', verifyJwtMiddleware, async (req, res) => {
+  try {
+    const { brandName, brandHandle, replyTo } = req.body;
+    
+    // Clean brandHandle: strip @otp88.top or .otp88.top
+    let cleanHandle = (brandHandle || '').trim().toLowerCase();
+    cleanHandle = cleanHandle.replace(/@otp88\.top$/i, '').replace(/\.otp88\.top$/i, '');
+    cleanHandle = cleanHandle.replace(/[^a-z0-9_-]/g, '');
+
+    const cleanBrandName = (brandName || '').trim();
+    const cleanReplyTo = (replyTo || '').trim();
+
+    if (cleanReplyTo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanReplyTo)) {
+      return res.status(400).json({ success: false, error: 'Reply-To must be a valid email address.' });
+    }
+
+    if (cleanHandle && !/^[a-z0-9_-]{2,32}$/.test(cleanHandle)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Brand handle must be between 2 and 32 characters and contain only letters, numbers, hyphens, or underscores.'
+      });
+    }
+
+    // Reserved system names protection
+    const reservedHandles = ['root', 'postmaster', 'abuse', 'security', 'mailer-daemon'];
+    if (cleanHandle && reservedHandles.includes(cleanHandle) && req.user.role !== 'ADMIN') {
+      return res.status(400).json({
+        success: false,
+        error: `'${cleanHandle}' is a reserved system handle. Please choose another brand handle.`
+      });
+    }
+
+    const isDbConnected = getIsDbConnected();
+    if (isDbConnected && req.user && req.user.id) {
+      const updateData = {
+        emailBrandHandle: cleanHandle,
+        emailBrandName: cleanBrandName,
+        emailReplyTo: cleanReplyTo
+      };
+
+      if (mongoose.Types.ObjectId.isValid(req.user.id)) {
+        await UserModel.findByIdAndUpdate(req.user.id, { $set: updateData });
+      } else if (req.user.role === 'ADMIN') {
+        await UserModel.findOneAndUpdate(
+          { $or: [{ email: 'admin' }, { email: ADMIN_USERNAME.toLowerCase() }, { name: 'admin' }, { name: ADMIN_USERNAME }] },
+          { $set: updateData }
+        );
+      }
+    }
+
+    const previewSender = cleanHandle
+      ? `${cleanBrandName || 'OTP88'} <${cleanHandle}@otp88.top>`
+      : `${cleanBrandName || 'OTP88'} <noreply@otp88.top>`;
+
+    res.json({
+      success: true,
+      message: 'Email brand sender updated successfully!',
+      sender: {
+        brandName: cleanBrandName,
+        brandHandle: cleanHandle,
+        replyTo: cleanReplyTo,
+        preview: previewSender
       }
     });
   } catch (err) {

@@ -8,6 +8,7 @@ const OtpAuditLogModel = require('./OtpAuditLog');
 const Sms360ConfigModel = require('./Sms360Config');
 const WhatsAppConfigModel = require('./WhatsAppConfig');
 const WebhookLogModel = require('./WebhookLog');
+const EmailConfigModel = require('./EmailConfig');
 
 module.exports = {
   RateModel,
@@ -19,5 +20,6 @@ module.exports = {
   OtpAuditLogModel,
   Sms360ConfigModel,
   WhatsAppConfigModel,
-  WebhookLogModel
+  WebhookLogModel,
+  EmailConfigModel
 };

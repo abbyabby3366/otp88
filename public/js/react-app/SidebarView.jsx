@@ -137,6 +137,10 @@ function SidebarView({
               <button className={`sheets-nav-item ${activeTab === 'whatsapp-otp' ? 'active' : ''}`} onClick={() => setActiveTab('whatsapp-otp')}>
                 <span>{t.navWhatsAppOtp || 'WhatsApp OTP'}</span>
               </button>
+
+              <button className={`sheets-nav-item ${activeTab === 'email-otp' ? 'active' : ''}`} onClick={() => setActiveTab('email-otp')}>
+                <span>{t.navEmailOtp || 'Email OTP'}</span>
+              </button>
             </>
           )}
         </div>

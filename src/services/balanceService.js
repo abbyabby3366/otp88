@@ -1,6 +1,6 @@
 const { getIsDbConnected } = require('../config/db');
 const { getGlobalRates } = require('../config/constants');
-const { RateModel, UserModel, TransactionModel } = require('../models');
+const { RateModel, UserModel, TransactionModel, EmailConfigModel } = require('../models');
 
 async function getOtpChannelCost(countryCode, channel) {
   const code = (countryCode || 'MY').toUpperCase();
@@ -39,8 +39,17 @@ async function getOtpChannelCost(countryCode, channel) {
     unitCostNum = 0.0090;
   } else if (channel === 'email') {
     finalChannel = 'Email';
-    deliveryTimeMs = 400;
-    unitCostNum = 0.0010;
+    deliveryTimeMs = 480;
+    let emailRate = 0.0020;
+    if (isDbConnected) {
+      try {
+        const emailCfg = await EmailConfigModel.findOne({ key: 'email_resend_primary' }).lean();
+        if (emailCfg && emailCfg.ratePerOtp && !isNaN(parseFloat(emailCfg.ratePerOtp))) {
+          emailRate = parseFloat(emailCfg.ratePerOtp);
+        }
+      } catch (e) {}
+    }
+    unitCostNum = emailRate;
   } else {
     finalChannel = 'WHATSAPP API';
     deliveryTimeMs = 620;

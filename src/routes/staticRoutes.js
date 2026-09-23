@@ -18,7 +18,8 @@ router.get([
   '/api', '/keys', '/billing', '/users', '/admin', '/admin/dashboard',
   '/admin/users', '/admin/otp-logs', '/admin/rates', '/admin/api', '/admin/keys',
   '/admin/billing', '/admin/invoices', '/admin/topup',
-  '/sms360', '/admin/sms360', '/admin-sms360', '/whatsapp-otp', '/admin/whatsapp-otp', '/console'
+  '/sms360', '/admin/sms360', '/admin-sms360', '/whatsapp-otp', '/admin/whatsapp-otp',
+  '/email-otp', '/admin/email-otp', '/console'
 ], (req, res) => {
   res.sendFile(path.join(publicDir, 'login.html'));
 });

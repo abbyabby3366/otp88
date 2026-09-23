@@ -3,10 +3,12 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../config/constants');
 const { getIsDbConnected } = require('../config/db');
-const { UserModel, OtpLogModel, Sms360ConfigModel, WhatsAppConfigModel } = require('../models');
+const { UserModel, OtpLogModel, Sms360ConfigModel, WhatsAppConfigModel, EmailConfigModel } = require('../models');
 const { detectCountryCode, normalizePhoneNumber } = require('../utils/format');
 const { getOtpChannelCost, deductUserBalanceAndRecordTx } = require('../services/balanceService');
 const { forwardDlrToClientWebhook } = require('../services/webhookService');
+const { sendOtpEmail, formatTenantSender } = require('../services/emailService');
+const { RESEND_API_KEY, DEFAULT_EMAIL_FROM } = require('../config/constants');
 
 // 3. API: Live Interactive OTP Gateway & Real Upstream Dispatch (Writes to MongoDB + Live Balance Deduction)
 router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
@@ -14,6 +16,9 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
     phoneNumber: reqPhoneNumber,
     phone: reqPhone,
     to: reqTo,
+    email: reqEmail,
+    recipient: reqRecipient,
+    subject: reqSubject,
     channel = 'whatsapp',
     otp: customOtpDirect,
     otpCode: customOtpCode,
@@ -23,6 +28,13 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
     senderId: reqSenderId,
     sender_id: reqSender_id,
     from: reqFrom,
+    brand_handle: reqBrandHandle,
+    brandHandle: reqBrandHandleCamel,
+    sender_handle: reqSenderHandle,
+    brand_name: reqBrandName,
+    brandName: reqBrandNameCamel,
+    reply_to: reqReplyTo,
+    replyTo: reqReplyToCamel,
     expiryMinutes: reqExpiryMinutes,
     expiry_minutes: reqExpiry_minutes,
     expirySeconds: reqExpirySeconds,
@@ -31,9 +43,14 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
     codeLength = 6
   } = req.body;
 
-  const rawPhoneNumber = reqPhoneNumber || reqPhone || reqTo || '+60123456789';
-  const phoneNumber = normalizePhoneNumber(rawPhoneNumber);
-  const senderName = reqSenderName || reqSender_name || reqSenderId || reqSender_id || reqFrom || 'FlashOTP';
+  const cleanChannel = (channel || 'whatsapp').toLowerCase();
+  const rawTarget = reqEmail || reqRecipient || reqPhoneNumber || reqPhone || reqTo || '';
+  const isEmail = cleanChannel.includes('email') || (rawTarget && rawTarget.includes('@'));
+  const destinationTarget = isEmail
+    ? rawTarget.trim().toLowerCase()
+    : normalizePhoneNumber(rawTarget || '+60123456789');
+  const phoneNumber = destinationTarget;
+  const senderName = reqSenderName || reqSender_name || reqSenderId || reqSender_id || reqFrom || (isEmail ? 'OTP88' : 'FlashOTP');
   const expiryMinutes = parseInt(reqExpiryMinutes || reqExpiry_minutes || (reqExpirySeconds ? Math.round(reqExpirySeconds / 60) : null) || (reqExpiry_seconds ? Math.round(reqExpiry_seconds / 60) : null) || 5, 10);
 
   // Use provided OTP code or auto-generate
@@ -44,10 +61,11 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
     otpCode = Math.floor(min + Math.random() * (max - min + 1)).toString();
   }
 
-  const cleanChannel = (channel || 'whatsapp').toLowerCase();
   const isWhatsApp = cleanChannel.includes('whatsapp');
   let messageText = '';
-  if (isWhatsApp) {
+  if (isEmail) {
+    messageText = `Your ${senderName} verification code is ${otpCode}. Valid for ${expiryMinutes} minutes.`;
+  } else if (isWhatsApp) {
     messageText = `Your verification code is ${otpCode}.`;
   } else if (cleanChannel.includes('sms')) {
     messageText = `RM0 ${senderName}: Your verification code is ${otpCode}. Valid for ${expiryMinutes} minutes.`;
@@ -56,11 +74,12 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
   }
 
   // 1. Calculate dynamic cost based on destination country and channel
-  const destCountry = detectCountryCode(phoneNumber);
-  const { finalChannel, deliveryTimeMs, unitCostNum, unitCost } = await getOtpChannelCost(destCountry, channel);
+  const destCountry = isEmail ? 'GLOBAL' : detectCountryCode(phoneNumber);
+  const { finalChannel, deliveryTimeMs, unitCostNum, unitCost } = await getOtpChannelCost(destCountry, isEmail ? 'email' : channel);
 
   // 2. Extract calling user ID from Auth Header or API Key
   let authUserId = null;
+  let authUser = null;
   const authHeader = req.headers['authorization'] || req.headers['x-api-key'];
   const isDbConnected = getIsDbConnected();
 
@@ -77,13 +96,21 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
               { apiKeyLive: token.replace(/^otp88_api_|^otp_live_|^api_/, '') }
             ]
           }).lean();
-          if (user) authUserId = user._id.toString();
+          if (user) {
+            authUser = user;
+            authUserId = user._id.toString();
+          }
         } catch (e) {}
       }
     } else {
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
-        if (decoded && decoded.id) authUserId = decoded.id;
+        if (decoded && decoded.id) {
+          authUserId = decoded.id;
+          if (isDbConnected) {
+            try { authUser = await UserModel.findById(authUserId).lean(); } catch (e) {}
+          }
+        }
       } catch (e) {}
     }
   }
@@ -163,6 +190,48 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
     } catch (waErr) {
       console.error('❌ Error dispatching WhatsApp OTP:', waErr.message);
     }
+  } else if (isEmail || cleanChannel === 'email') {
+    try {
+      let dbEmailConfig = null;
+      if (isDbConnected) {
+        try { dbEmailConfig = await EmailConfigModel.findOne({ key: 'email_resend_primary' }).lean(); } catch (e) {}
+      }
+      const effectiveApiKey = dbEmailConfig?.apiKey || RESEND_API_KEY;
+      const defaultFrom = dbEmailConfig?.fromEmail || DEFAULT_EMAIL_FROM;
+
+      // Custom Tenant Sub-Alias: resolve brand handle, name, and sender
+      const resolvedBrandHandle = reqBrandHandle || reqBrandHandleCamel || reqSenderHandle || authUser?.emailBrandHandle;
+      const resolvedBrandName = reqBrandName || reqBrandNameCamel || reqSenderName || reqSender_name || authUser?.emailBrandName || 'OTP88';
+      const resolvedReplyTo = reqReplyTo || reqReplyToCamel || authUser?.emailReplyTo || dbEmailConfig?.replyTo;
+
+      const formattedFrom = formatTenantSender({
+        brandName: resolvedBrandName,
+        brandHandle: resolvedBrandHandle,
+        explicitFrom: reqFrom,
+        defaultFrom
+      });
+
+      const effectiveSubject = reqSubject || `${resolvedBrandName} Verification Code: ${otpCode}`;
+
+      console.log('📧 Dispatching Email OTP via Resend to:', destinationTarget, 'From:', formattedFrom);
+      const emailResult = await sendOtpEmail({
+        to: destinationTarget,
+        otpCode,
+        subject: effectiveSubject,
+        senderName: resolvedBrandName,
+        expiryMinutes,
+        apiKey: effectiveApiKey,
+        fromEmail: formattedFrom,
+        replyTo: resolvedReplyTo
+      });
+
+      if (emailResult.messageId) {
+        upstreamRef = emailResult.messageId;
+      }
+      upstreamResult = emailResult.response || { status: emailResult.success ? 'sent' : 'failed', fromUsed: emailResult.fromUsed };
+    } catch (emlErr) {
+      console.error('❌ Error dispatching Email OTP via Resend:', emlErr.message);
+    }
   }
 
   const txId = upstreamRef || ('tx_' + Math.random().toString(36).substring(2, 11));
@@ -201,7 +270,7 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
         channel: finalChannel,
         otpCode,
         messageText,
-        senderId: isWhatsApp ? 'WhatsApp Business' : senderName,
+        senderId: isEmail ? (senderName || 'OTP88 Email') : (isWhatsApp ? 'WhatsApp Business' : senderName),
         msgId: txId,
         status: 'SENT',
         latency: `${(deliveryTimeMs / 1000).toFixed(1)}s`,
@@ -228,7 +297,7 @@ router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
   res.json({
     success: true,
     transactionId: txId,
-    phoneNumber,
+    ...(isEmail ? { email: destinationTarget, recipient: destinationTarget } : { phoneNumber }),
     otpCode,
     ...(isWhatsApp ? {} : { senderName, senderId: senderName, expiryMinutes }),
     messageText,

@@ -6,6 +6,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'otp88_jwt_secret_key_secure_2026';
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 const MONGODB_URI = process.env.MONGODB_URI;
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
+const DEFAULT_EMAIL_FROM = process.env.EMAIL_FROM || 'OTP88 <noreply@otp88.top>';
 
 // Default Global Carrier Rates
 const DEFAULT_GLOBAL_CARRIER_RATES = [
@@ -34,6 +36,8 @@ module.exports = {
   ADMIN_PASSWORD,
   MONGODB_URI,
   DEFAULT_GLOBAL_CARRIER_RATES,
+  RESEND_API_KEY,
+  DEFAULT_EMAIL_FROM,
   getGlobalRates,
   setGlobalRates
 };

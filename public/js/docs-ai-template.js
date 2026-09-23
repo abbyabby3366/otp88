@@ -45,9 +45,9 @@ Dispatches a one-time verification passcode using your chosen channel or waterfa
 #### Parameters:
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
-| \`to\` | string | **Yes** | — | Recipient phone in E.164 format (e.g. \`+60123456789\`) |
-| \`channel_strategy\` | string | No | \`waterfall\` | Routing: \`waterfall\`, \`whatsapp\`, \`telegram\`, \`sms\`, \`voice\` |
-| \`channels\` | string[] | No | \`["whatsapp","telegram","sms"]\` | Priority order for waterfall failover |
+| \`to\` | string | **Yes** | — | Recipient phone in E.164 format (e.g. \`+60123456789\`) or email address (e.g. \`user@example.com\`) |
+| \`channel_strategy\` | string | No | \`waterfall\` | Routing: \`waterfall\`, \`whatsapp\`, \`email\`, \`telegram\`, \`sms\`, \`voice\` |
+| \`channels\` | string[] | No | \`["whatsapp","email","sms"]\` | Priority order for waterfall failover |
 | \`sender_name\` | string | No | \`FlashOTP\` | Sender ID / Brand header (e.g. \`Alibaba\`) |
 | \`otp\` | string | No | Auto-gen | Specific code. If omitted, a secure 6-digit code is generated |
 | \`expiryMinutes\` | number | No | \`5\` | Validity duration in minutes |

@@ -1,274 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-
-// Code snippet helper for REST API calls (send / verify)
-function getCodeSnippet({ origin, apiKey, channel, lang, action, phone = '+60123456789' }) {
-  const isVerify = action === 'verify';
-  const url = isVerify ? `${origin}/v1/otp/verify` : `${origin}/v1/otp/send`;
-
-  let payloadObj = {};
-  if (isVerify) {
-    payloadObj = {
-      transaction_id: 'tx_live_8820a9bc4',
-      code: '882910'
-    };
-  } else {
-    if (channel === 'whatsapp') {
-      payloadObj = {
-        phoneNumber: phone,
-        channel: 'whatsapp',
-        otp: '882910'
-      };
-    } else if (channel === 'telegram') {
-      payloadObj = {
-        phoneNumber: phone,
-        channel: 'telegram',
-        senderName: 'Alibaba',
-        otp: '882910',
-        expiryMinutes: 5
-      };
-    } else {
-      payloadObj = {
-        phoneNumber: phone,
-        channel: 'sms',
-        senderName: 'Alibaba',
-        otp: '882910',
-        expiryMinutes: 5
-      };
-    }
-  }
-
-  const jsonStr = JSON.stringify(payloadObj, null, 2);
-
-  if (lang === 'curl') {
-    return `curl -X POST ${url} \\
-  -H "Authorization: Bearer ${apiKey}" \\
-  -H "Content-Type: application/json" \\
-  -d '${JSON.stringify(payloadObj)}'`;
-  }
-
-  if (lang === 'node') {
-    return `// Node.js (v18+ fetch / axios)
-async function sendOtp() {
-  const res = await fetch('${url}', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer ${apiKey}',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(${jsonStr})
-  });
-
-  const data = await res.json();
-  console.log('OTP Response:', data);
-}
-
-sendOtp();`;
-  }
-
-  if (lang === 'python') {
-    const pyPayload = JSON.stringify(payloadObj, null, 4)
-      .replace(/: true/g, ': True')
-      .replace(/: false/g, ': False');
-    return `# Python 3 (requests)
-import requests
-
-url = "${url}"
-headers = {
-    "Authorization": "Bearer ${apiKey}",
-    "Content-Type": "application/json"
-}
-payload = ${pyPayload}
-
-response = requests.post(url, json=payload, headers=headers)
-print("Status:", response.status_code)
-print("Response:", response.json())`;
-  }
-
-  if (lang === 'php') {
-    return `<?php
-// PHP cURL Example
-$ch = curl_init('${url}');
-
-$payload = json_encode(${JSON.stringify(payloadObj, null, 4)});
-
-curl_setopt_array($ch, [
-    CURLOPT_POST => true,
-    CURLOPT_POSTFIELDS => $payload,
-    CURLOPT_HTTPHEADER => [
-        'Authorization: Bearer ${apiKey}',
-        'Content-Type: application/json'
-    ],
-    CURLOPT_RETURNTRANSFER => true
-]);
-
-$response = curl_exec($ch);
-curl_close($ch);
-
-echo $response;
-?>`;
-  }
-
-  if (lang === 'go') {
-    return `// Go (net/http)
-package main
-
-import (
-\t"bytes"
-\t"encoding/json"
-\t"fmt"
-\t"io"
-\t"net/http"
-)
-
-func main() {
-\tpayload := map[string]interface{}{
-${Object.entries(payloadObj).map(([k, v]) => `\t\t"${k}": ${Array.isArray(v) ? `[]string{${v.map(x => `"${x}"`).join(', ')}}` : typeof v === 'string' ? `"${v}"` : v},`).join('\n')}
-\t}
-\tbody, _ := json.Marshal(payload)
-
-\treq, _ := http.NewRequest("POST", "${url}", bytes.NewBuffer(body))
-\treq.Header.Set("Authorization", "Bearer ${apiKey}")
-\treq.Header.Set("Content-Type", "application/json")
-
-\tclient := &http.Client{}
-\tresp, err := client.Do(req)
-\tif err != nil {
-\t\tpanic(err)
-\t}
-\tdefer resp.Body.Close()
-
-\trespBody, _ := io.ReadAll(resp.Body)
-\tfmt.Println("Response:", string(respBody))
-}`;
-  }
-
-  return '';
-}
-
-// Generate sample webhook payload object across all status events
-function getWebhookSamplePayload({ channel = 'whatsapp', event = 'otp.delivered' }) {
-  const costMap = { sms: '0.0210', telegram: '0.0035', whatsapp: '0.0500' };
-
-  let status = 'DELIVERED';
-  let errorCode = '0';
-  let errorDescription = undefined;
-  let latency = '0.8s';
-
-  if (event === 'otp.delivered') {
-    status = 'DELIVERED';
-    errorCode = '0';
-    latency = '0.8s';
-  } else if (event === 'otp.read') {
-    status = 'READ';
-    errorCode = '0';
-    latency = '1.4s';
-  } else if (event === 'otp.undelivered') {
-    status = 'UNDELIVERED';
-    errorCode = '20';
-    errorDescription = 'Subscriber handset is unreachable, offline, or out of cellular network coverage.';
-    latency = '30.0s';
-  } else if (event === 'otp.failed') {
-    status = 'FAILED';
-    errorCode = '1';
-    errorDescription = 'Network rejection: destination mobile number is invalid, barred, or unreachable.';
-    latency = '0.4s';
-  } else if (event === 'otp.expired') {
-    status = 'EXPIRED';
-    errorCode = '23';
-    errorDescription = 'OTP code validity period exceeded before recipient acknowledgment.';
-    latency = '300.0s';
-  } else if (event === 'otp.sent') {
-    status = 'SENT';
-    errorCode = '0';
-    latency = '0.2s';
-  }
-
-  return {
-    event,
-    msgId: 'msg_live_8820a9bc4',
-    channel,
-    phoneNumber: '+60123456789',
-    status,
-    errorCode,
-    remark: 'Login verification #1024',
-    errorDescription,
-    cost: costMap[channel] || '0.0500',
-    currency: 'USD',
-    latency,
-    timestamp: new Date().toISOString()
-  };
-}
-
-// Webhook listener code snippet generator
-function getWebhookReceiverSnippet(lang = 'node') {
-  if (lang === 'node') {
-    return `// Node.js (Express) Webhook Listener
-const express = require('express');
-const app = express();
-app.use(express.json());
-
-app.post('/api/webhooks/otp88', (req, res) => {
-  const { event, msgId, channel, phoneNumber, status, errorCode, remark } = req.body;
-  
-  console.log(\`Received [\${event}] for \${channel} to \${phoneNumber}: Status = \${status} (Remark: \${remark || 'N/A'})\`);
-
-  if (status === 'DELIVERED') {
-    // Handset received OTP successfully
-  } else if (status === 'READ') {
-    // Handset opened & read message (WhatsApp Blue Tick)
-  } else if (status === 'UNDELIVERED' || status === 'FAILED' || status === 'EXPIRED') {
-    // Delivery failed -> trigger multi-channel waterfall fallback
-  }
-
-  // Acknowledge receipt with HTTP 200 OK immediately
-  res.status(200).json({ received: true });
-});
-
-app.listen(3000, () => console.log('Webhook server listening on port 3000'));`;
-  }
-
-  if (lang === 'python') {
-    return `# Python (FastAPI) Webhook Listener
-from fastapi import FastAPI, Request
-
-app = FastAPI()
-
-@app.post("/api/webhooks/otp88")
-async def handle_otp88_webhook(request: Request):
-    payload = await request.json()
-    event = payload.get("event")
-    channel = payload.get("channel")
-    status = payload.get("status")
-    remark = payload.get("remark")
-    
-    print(f"Received [{event}] on {channel}: status={status}, remark={remark}")
-    
-    # Return 200 OK
-    return {"received": True}`;
-  }
-
-  if (lang === 'php') {
-    return `<?php
-// PHP Webhook Listener
-$rawBody = file_get_contents('php://input');
-$event = json_decode($rawBody, true);
-
-if ($event) {
-    $channel = $event['channel'] ?? 'unknown';
-    $status = $event['status'] ?? 'unknown';
-    $remark = $event['remark'] ?? '';
-    error_log("OTP88 Webhook: channel={$channel}, status={$status}, remark={$remark}");
-}
-
-// Acknowledge receipt with HTTP 200
-http_response_code(200);
-header('Content-Type: application/json');
-echo json_encode(['received' => true]);
-?>`;
-  }
-
-  return '';
-}
+import { getCodeSnippet } from './apiSnippets';
 
 // API & Keys Integration Spreadsheet View
 function ApiView({ t, session, setSession, jwtToken, revealedApiKey, setRevealedApiKey, copyToClipboard, showToast }) {
@@ -282,6 +13,78 @@ function ApiView({ t, session, setSession, jwtToken, revealedApiKey, setRevealed
 
   // Collapsible sections state
   const [isApiCodeOpen, setIsApiCodeOpen] = useState(true);
+
+  // Custom Email Brand Sender state
+  const [brandName, setBrandName] = useState(session?.emailBrandName || '');
+  const [brandHandle, setBrandHandle] = useState(session?.emailBrandHandle || '');
+  const [replyTo, setReplyTo] = useState(session?.emailReplyTo || '');
+  const [isSavingSender, setIsSavingSender] = useState(false);
+  const [senderStatusMsg, setSenderStatusMsg] = useState(null);
+
+  useEffect(() => {
+    if (session?.emailBrandName !== undefined) setBrandName(session.emailBrandName || '');
+    if (session?.emailBrandHandle !== undefined) setBrandHandle(session.emailBrandHandle || '');
+    if (session?.emailReplyTo !== undefined) setReplyTo(session.emailReplyTo || '');
+  }, [session?.emailBrandName, session?.emailBrandHandle, session?.emailReplyTo]);
+
+  const cleanHandle = useMemo(() => {
+    return (brandHandle || '')
+      .trim()
+      .toLowerCase()
+      .replace(/@otp88\.top$/i, '')
+      .replace(/\.otp88\.top$/i, '')
+      .replace(/[^a-z0-9_-]/g, '');
+  }, [brandHandle]);
+
+  const effectivePreviewSender = useMemo(() => {
+    const name = (brandName || '').trim() || 'SuperApp';
+    const handle = cleanHandle || 'superapp';
+    return `${name} <${handle}@otp88.top>`;
+  }, [brandName, cleanHandle]);
+
+  const handleSaveBrandSender = async (e) => {
+    if (e) e.preventDefault();
+    setIsSavingSender(true);
+    setSenderStatusMsg(null);
+    try {
+      const token = jwtToken || localStorage.getItem('otp88_jwt');
+      const res = await fetch('/api/user/email-sender', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          brandName,
+          brandHandle,
+          replyTo
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to update email sender');
+      }
+      setSenderStatusMsg({ type: 'success', text: `Saved! Outgoing sender: ${data.sender?.preview}` });
+      if (showToast) showToast('Email brand sender updated successfully!', 'success');
+      if (setSession) {
+        setSession(prev => {
+          const updated = {
+            ...(prev || {}),
+            emailBrandName: data.sender?.brandName,
+            emailBrandHandle: data.sender?.brandHandle,
+            emailReplyTo: data.sender?.replyTo
+          };
+          localStorage.setItem('otp88_session', JSON.stringify(updated));
+          return updated;
+        });
+      }
+    } catch (err) {
+      setSenderStatusMsg({ type: 'error', text: err.message });
+      if (showToast) showToast(err.message, 'error');
+    } finally {
+      setIsSavingSender(false);
+    }
+  };
 
   const rawKey = session?.apiKeyLive || 'otp88_api_88a90184bcedf41';
   const apiKey = useMemo(() => {
@@ -349,7 +152,115 @@ function ApiView({ t, session, setSession, jwtToken, revealedApiKey, setRevealed
         </div>
       </div>
 
-      {/* 2. API Code Examples & Channel Selectors Card (Collapsible) */}
+      {/* 2. Custom Tenant Sub-Alias Card */}
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '12px', background: '#FFFFFF' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+          <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>📧</span>
+            <span>Custom Email Brand Sender (Sub-Alias)</span>
+          </div>
+          <span style={{ fontSize: '10px', background: '#ECFDF5', color: '#065F46', border: '1px solid #A7F3D0', borderRadius: '12px', padding: '2px 8px', fontWeight: '600' }}>
+            Domain @otp88.top Verified • Zero DNS Setup Needed
+          </span>
+        </div>
+
+        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '10px', lineHeight: 1.4 }}>
+          Send branded Email OTPs directly using your custom brand handle (e.g. <code>superapp@otp88.top</code> or <code>superapp.otp88.top</code>). Delivered as: <strong>From: SuperApp &lt;superapp@otp88.top&gt;</strong>.
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginBottom: '10px' }}>
+          <div>
+            <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+              Brand Display Name
+            </label>
+            <input
+              type="text"
+              className="sheets-input"
+              placeholder="e.g. SuperApp"
+              value={brandName}
+              onChange={(e) => setBrandName(e.target.value)}
+              style={{ width: '100%' }}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+              Brand Handle / Sub-Alias
+            </label>
+            <input
+              type="text"
+              className="sheets-input"
+              placeholder="e.g. superapp or superapp@otp88.top"
+              value={brandHandle}
+              onChange={(e) => setBrandHandle(e.target.value)}
+              style={{ width: '100%' }}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+              Reply-To Email (Optional)
+            </label>
+            <input
+              type="email"
+              className="sheets-input"
+              placeholder="e.g. support@superapp.com"
+              value={replyTo}
+              onChange={(e) => setReplyTo(e.target.value)}
+              style={{ width: '100%' }}
+            />
+          </div>
+        </div>
+
+        {/* Live Delivered Email Preview */}
+        <div style={{ background: '#F8FAFC', border: '1px dashed var(--border-subtle)', borderRadius: '4px', padding: '8px 12px', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', marginRight: '6px' }}>
+              Delivered Email Header:
+            </span>
+            <code style={{ fontSize: '11px', color: '#0284C7', fontWeight: '700', background: '#E0F2FE', padding: '2px 6px', borderRadius: '3px' }}>
+              From: {effectivePreviewSender}
+            </code>
+            {replyTo && (
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginLeft: '8px' }}>
+                (Reply-To: {replyTo})
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: '10px', color: '#059669', fontWeight: '600' }}>
+            ✓ Ready for production dispatch ($0.0020 / OTP)
+          </div>
+        </div>
+
+        {/* Error / Success feedback */}
+        {senderStatusMsg && (
+          <div style={{
+            fontSize: '11px',
+            padding: '6px 10px',
+            borderRadius: '4px',
+            marginBottom: '8px',
+            background: senderStatusMsg.type === 'error' ? '#FEE2E2' : '#D1FAE5',
+            color: senderStatusMsg.type === 'error' ? '#991B1B' : '#065F46',
+            border: senderStatusMsg.type === 'error' ? '1px solid #FCA5A5' : '1px solid #6EE7B7'
+          }}>
+            {senderStatusMsg.text}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+          <button
+            type="button"
+            className="sheets-btn sheets-btn-primary"
+            onClick={handleSaveBrandSender}
+            disabled={isSavingSender}
+            style={{ minWidth: '120px' }}
+          >
+            {isSavingSender ? 'Saving...' : 'Save Brand Sender'}
+          </button>
+        </div>
+      </div>
+
+      {/* 3. API Code Examples & Channel Selectors Card (Collapsible) */}
       <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
         <div
           onClick={() => setIsApiCodeOpen(!isApiCodeOpen)}
@@ -409,7 +320,8 @@ function ApiView({ t, session, setSession, jwtToken, revealedApiKey, setRevealed
                   {[
                     { id: 'whatsapp', label: 'WhatsApp OTP' },
                     { id: 'sms', label: 'SMS OTP' },
-                    { id: 'telegram', label: 'Telegram OTP' }
+                    { id: 'telegram', label: 'Telegram OTP' },
+                    { id: 'email', label: 'Email OTP ($0.0020)' }
                   ].map(ch => (
                     <button
                       key={ch.id}
