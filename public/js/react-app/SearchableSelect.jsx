@@ -219,7 +219,7 @@ function SearchableSelect({
             zIndex: 9999,
             width: dropdownWidth || '260px',
             minWidth: '200px',
-            background: '#FFFFFF',
+            background: 'var(--bg-card)',
             border: '1px solid var(--border-main, #CBD5E1)',
             borderRadius: '6px',
             boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
@@ -230,7 +230,7 @@ function SearchableSelect({
           }}
         >
           {/* Embedded Search Input */}
-          <div style={{ padding: '6px', borderBottom: '1px solid var(--border-subtle, #E2E8F0)', background: '#F8FAFC' }}>
+          <div style={{ padding: '6px', borderBottom: '1px solid var(--border-subtle, #E2E8F0)', background: 'var(--bg-ribbon)' }}>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <svg
                 width="13"
@@ -262,7 +262,7 @@ function SearchableSelect({
                   border: '1px solid var(--border-main, #CBD5E1)',
                   borderRadius: '4px',
                   outline: 'none',
-                  background: '#FFFFFF',
+                  background: 'var(--bg-card)',
                   color: 'var(--text-primary, #0F172A)'
                 }}
                 onClick={(e) => e.stopPropagation()}

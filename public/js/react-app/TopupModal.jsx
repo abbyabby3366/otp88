@@ -30,7 +30,7 @@ export function TopupModal({
     >
       <div
         style={{
-          background: '#FFFFFF',
+          background: 'var(--bg-card)',
           borderRadius: '8px',
           border: '1px solid var(--border-subtle)',
           width: '100%',
@@ -47,7 +47,7 @@ export function TopupModal({
             justifyContent: 'space-between',
             padding: '14px 18px',
             borderBottom: '1px solid var(--border-subtle)',
-            background: '#F8FAFC'
+            background: 'var(--bg-ribbon)'
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -189,7 +189,7 @@ export function TopupModal({
         <div
           style={{
             padding: '10px 18px',
-            background: '#F8FAFC',
+            background: 'var(--bg-ribbon)',
             borderTop: '1px solid var(--border-subtle)',
             display: 'flex',
             justifyContent: 'flex-end'

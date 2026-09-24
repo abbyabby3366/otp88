@@ -1,142 +1,117 @@
 const express = require('express');
 const router = express.Router();
+const { getIsDbConnected } = require('../config/db');
 const { UserModel, OtpLogModel, TransactionModel } = require('../models');
-const { verifyJwtMiddleware } = require('../middleware/auth');
+const { verifyJwtMiddleware, loadAuthenticatedUser } = require('../middleware/auth');
 
-// Unified Live Metrics Endpoint (Calculated dynamically from MongoDB with Date Range support)
+const fmtDate = (d) => {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+function parseRange(fromDate, toDate) {
+  const now = new Date();
+  let rangeStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  rangeStart.setHours(0, 0, 0, 0);
+  let rangeEnd = new Date();
+  rangeEnd.setHours(23, 59, 59, 999);
+
+  if (fromDate) {
+    const p = new Date(fromDate);
+    if (!isNaN(p.getTime())) { p.setHours(0, 0, 0, 0); rangeStart = p; }
+  }
+  if (toDate) {
+    const p = new Date(toDate);
+    if (!isNaN(p.getTime())) { p.setHours(23, 59, 59, 999); rangeEnd = p; }
+  }
+  return { rangeStart, rangeEnd };
+}
+
+/**
+ * Usage metrics for the dashboard. Values that cannot be computed (no traffic yet)
+ * are returned as null so the UI can show an empty state instead of a made-up number.
+ */
 router.get(['/api/metrics', '/api/admin/metrics'], verifyJwtMiddleware, async (req, res) => {
   try {
-    const { fromDate, toDate } = req.query;
-    let logQuery = {};
-    let txQuery = { type: 'USAGE_OTP' };
-
-    if (req.user && req.user.role !== 'ADMIN') {
-      logQuery = { userId: req.user.id };
-      txQuery.userId = req.user.id;
-    }
-
-    const now = new Date();
-    const defaultStartOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    defaultStartOfMonth.setHours(0, 0, 0, 0);
-
-    let rangeStart = defaultStartOfMonth;
-    let rangeEnd = new Date();
-    rangeEnd.setHours(23, 59, 59, 999);
-
-    if (fromDate) {
-      const pFrom = new Date(fromDate);
-      if (!isNaN(pFrom.getTime())) {
-        pFrom.setHours(0, 0, 0, 0);
-        rangeStart = pFrom;
-      }
-    }
-
-    if (toDate) {
-      const pTo = new Date(toDate);
-      if (!isNaN(pTo.getTime())) {
-        pTo.setHours(23, 59, 59, 999);
-        rangeEnd = pTo;
-      }
-    }
-
-    const dateFilter = {
-      $gte: rangeStart,
-      $lte: rangeEnd
+    const { rangeStart, rangeEnd } = parseRange(req.query.fromDate, req.query.toDate);
+    const empty = {
+      totalMonthlyOtps: 0,
+      monthlyOtps: 0,
+      totalOtps: 0,
+      fromDate: fmtDate(rangeStart),
+      toDate: fmtDate(rangeEnd),
+      totalTenants: 0,
+      balanceUsd: null,
+      totalSpentUsd: '0.0000',
+      deliveryRate: null,
+      carrierSuccessRate: null,
+      avgLatency: null,
+      channelBreakdown: {}
     };
+    if (!getIsDbConnected()) return res.json({ success: true, metrics: empty });
 
-    const monthlyLogQuery = {
-      ...logQuery,
-      $or: [
-        { createdAt: dateFilter },
-        { createdAt: { $exists: false } }
-      ]
-    };
+    const isAdmin = req.user.role === 'ADMIN';
+    const logQuery = isAdmin ? {} : { userId: req.user.id };
+    const txQuery = isAdmin ? { type: 'USAGE_OTP' } : { type: 'USAGE_OTP', userId: req.user.id };
+    const dateFilter = { $gte: rangeStart, $lte: rangeEnd };
+    const rangeLogQuery = { ...logQuery, createdAt: dateFilter };
 
-    const userCount = await UserModel.countDocuments();
-    const logCount = await OtpLogModel.countDocuments(logQuery);
-    const monthlyLogCount = await OtpLogModel.countDocuments(monthlyLogQuery);
-    const deliveredCount = await OtpLogModel.countDocuments({ ...logQuery, status: { $in: ['DELIVERED', 'SENT'] } });
-    const successRate = logCount > 0 ? ((deliveredCount / logCount) * 100).toFixed(2) + '%' : '100.0%';
-
-    // Calculate actual average delivery latency from real logs
-    const recentLogs = await OtpLogModel.find(logQuery).sort({ createdAt: -1 }).limit(100).lean();
-    let avgLatency = '0.55s';
-    if (recentLogs.length > 0) {
-      const latencies = recentLogs.map(l => {
-        const m = (l.latency || '').match(/([0-9.]+)/);
-        return m ? parseFloat(m[1]) : 0.6;
-      });
-      const sum = latencies.reduce((a, b) => a + b, 0);
-      avgLatency = (sum / latencies.length).toFixed(2) + 's';
-    }
-
-    // Calculate actual spent total from Transaction Ledger or OTP Log costs for the selected date range
-    const txRangeQuery = {
-      ...txQuery,
-      createdAt: dateFilter
-    };
-    const spentResult = await TransactionModel.aggregate([
-      { $match: txRangeQuery },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]);
-    let totalSpent = spentResult.length > 0 ? Math.abs(spentResult[0].total) : 0;
-
-    // Fallback: If transaction total is 0 but we have OTP logs in date range, sum the log costs
-    if (totalSpent === 0 && monthlyLogCount > 0) {
-      const logsWithCost = await OtpLogModel.find(monthlyLogQuery).lean();
-      const calculatedSpent = logsWithCost.reduce((sum, l) => {
-        const costVal = typeof l.cost === 'string' ? parseFloat(l.cost.replace('$', '')) : (parseFloat(l.cost) || 0);
-        return sum + (isNaN(costVal) ? 0 : costVal);
-      }, 0);
-      if (calculatedSpent > 0) {
-        totalSpent = calculatedSpent;
-      }
-    }
-
-    // Get live user balance
-    let liveBalance = 50.00;
-    if (req.user && req.user.id) {
-      const dbUser = await UserModel.findById(req.user.id).lean();
-      if (dbUser && dbUser.balanceUsd !== undefined) liveBalance = dbUser.balanceUsd;
-    }
-
-    // Aggregate channel counts
-    const channelStats = await OtpLogModel.aggregate([
-      { $match: logQuery },
-      { $group: { _id: '$channel', count: { $sum: 1 } } }
+    const [userCount, logCount, rangeLogCount, statusAgg, latencyAgg, spentAgg, channelAgg, refundAgg] = await Promise.all([
+      UserModel.countDocuments(),
+      OtpLogModel.countDocuments(logQuery),
+      OtpLogModel.countDocuments(rangeLogQuery),
+      OtpLogModel.aggregate([{ $match: logQuery }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
+      OtpLogModel.find(logQuery).sort({ createdAt: -1 }).limit(100).select('latency').lean(),
+      TransactionModel.aggregate([{ $match: { ...txQuery, createdAt: dateFilter } }, { $group: { _id: null, total: { $sum: '$amount' } } }]),
+      OtpLogModel.aggregate([{ $match: logQuery }, { $group: { _id: '$channel', count: { $sum: 1 } } }]),
+      TransactionModel.aggregate([{ $match: { ...txQuery, type: 'REFUND', createdAt: dateFilter } }, { $group: { _id: null, total: { $sum: '$amount' } } }])
     ]);
 
-    let channelBreakdown = {};
-    if (logCount > 0 && channelStats.length > 0) {
-      channelStats.forEach(cs => {
-        const key = (cs._id || 'other').toLowerCase();
+    // Delivery rate: delivered, read or sent (awaiting receipt) over everything that was attempted
+    const statusCounts = Object.fromEntries(statusAgg.map(s => [String(s._id || '').toUpperCase(), s.count]));
+    const okCount = (statusCounts.DELIVERED || 0) + (statusCounts.READ || 0) + (statusCounts.SENT || 0);
+    const deliveryRate = logCount > 0 ? ((okCount / logCount) * 100).toFixed(2) + '%' : null;
+
+    let avgLatency = null;
+    if (latencyAgg.length > 0) {
+      const values = latencyAgg
+        .map(l => { const m = String(l.latency || '').match(/([0-9.]+)/); return m ? parseFloat(m[1]) : null; })
+        .filter(v => v !== null && !isNaN(v));
+      if (values.length > 0) avgLatency = (values.reduce((a, b) => a + b, 0) / values.length).toFixed(2) + 's';
+    }
+
+    const spent = spentAgg.length > 0 ? Math.abs(spentAgg[0].total) : 0;
+    const refunded = refundAgg.length > 0 ? Math.abs(refundAgg[0].total) : 0;
+    const totalSpent = Math.max(0, spent - refunded);
+
+    let balanceUsd = null;
+    const account = await loadAuthenticatedUser(req);
+    if (account && account.balanceUsd !== undefined) balanceUsd = account.balanceUsd;
+
+    const channelBreakdown = {};
+    if (logCount > 0) {
+      channelAgg.forEach(cs => {
+        const key = String(cs._id || 'other').toLowerCase().replace(/[^a-z]/g, '') || 'other';
         channelBreakdown[key] = `${Math.round((cs.count / logCount) * 100)}%`;
       });
-    } else {
-      channelBreakdown = { whatsapp: '100%' };
     }
-
-    const fmtDate = (d) => {
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}`;
-    };
 
     res.json({
       success: true,
       metrics: {
-        totalMonthlyOtps: monthlyLogCount,
-        monthlyOtps: monthlyLogCount,
+        ...empty,
+        totalMonthlyOtps: rangeLogCount,
+        monthlyOtps: rangeLogCount,
         totalOtps: logCount,
-        fromDate: fmtDate(rangeStart),
-        toDate: fmtDate(rangeEnd),
         totalTenants: userCount,
-        balanceUsd: liveBalance,
+        balanceUsd,
         totalSpentUsd: totalSpent.toFixed(4),
-        carrierSuccessRate: successRate,
-        deliveryRate: successRate,
+        deliveryRate,
+        carrierSuccessRate: deliveryRate,
         avgLatency,
+        statusCounts,
         channelBreakdown
       }
     });

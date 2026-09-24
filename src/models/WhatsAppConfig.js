@@ -9,7 +9,7 @@ const WhatsAppConfigSchema = new mongoose.Schema({
   lang: { type: String, default: 'en' },
   webhookUrl: { type: String, default: '/api/webhooks/whatsapp/dlr' },
   ratePerOtp: { type: String, default: '0.0075' },
-  currency: { type: String, default: 'MYR' },
+  currency: { type: String, default: 'USD' },
   status: { type: String, default: 'ACTIVE' }
 }, { timestamps: true });
 

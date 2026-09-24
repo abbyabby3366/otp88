@@ -2,16 +2,32 @@ const express = require('express');
 const router = express.Router();
 const { getIsDbConnected } = require('../config/db');
 const { getGlobalRates } = require('../config/constants');
-const { RateModel } = require('../models');
+const { RateModel, EmailConfigModel } = require('../models');
+const { DEFAULT_CHANNEL_RATES } = require('../config/constants');
+const { validateBody } = require('../middleware/validate');
+const { escapeRegex } = require('../utils/format');
 
 // 1. API: Get Global Rates & Country List (Live MongoDB or Local Storage)
+// The email channel is priced globally rather than per country
+async function getEmailRate() {
+  if (!getIsDbConnected()) return DEFAULT_CHANNEL_RATES.email;
+  try {
+    const cfg = await EmailConfigModel.findOne({ key: 'email_resend_primary' }).lean();
+    const parsed = parseFloat(cfg?.ratePerOtp);
+    return isNaN(parsed) ? DEFAULT_CHANNEL_RATES.email : parsed;
+  } catch (e) {
+    return DEFAULT_CHANNEL_RATES.email;
+  }
+}
+
 router.get('/api/rates', async (req, res) => {
   const { search } = req.query;
   const globalRates = getGlobalRates();
+  const emailRate = await getEmailRate();
   try {
     let query = {};
     if (search) {
-      const q = search.trim();
+      const q = escapeRegex(String(search).trim().slice(0, 60));
       query = {
         $or: [
           { country: { $regex: q, $options: 'i' } },
@@ -27,7 +43,8 @@ router.get('/api/rates', async (req, res) => {
           success: true,
           total: results.length,
           data: results,
-          source: 'mongodb-atlas'
+          emailRate,
+          source: 'database'
         });
       }
     }
@@ -45,15 +62,23 @@ router.get('/api/rates', async (req, res) => {
       success: true,
       total: fallbackData.length,
       data: fallbackData,
-      source: 'local-file'
+      emailRate,
+      source: 'memory'
     });
   } catch (err) {
-    res.json({ success: true, total: globalRates.length, data: globalRates, source: 'local-file' });
+    res.json({ success: true, total: globalRates.length, data: globalRates, emailRate, source: 'memory' });
   }
 });
 
 // 2. API: Dynamic Cost & Savings Calculator
-router.post('/api/calculate-cost', (req, res) => {
+router.post('/api/calculate-cost', validateBody({
+  countryCode: { maxLength: 5 },
+  monthlyVolume: { type: 'number', min: 0, max: 1000000000 },
+  whatsappPct: { type: 'number', min: 0, max: 100 },
+  telegramPct: { type: 'number', min: 0, max: 100 },
+  smsPct: { type: 'number', min: 0, max: 100 },
+  voicePct: { type: 'number', min: 0, max: 100 }
+}), (req, res) => {
   const globalRates = getGlobalRates();
   const {
     countryCode = 'MY',

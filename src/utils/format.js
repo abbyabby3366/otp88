@@ -128,12 +128,20 @@ async function detectPublicIp() {
           return ip;
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      // Try the next IP lookup service
+    }
   }
   return cachedServerIp || '127.0.0.1';
 }
 
+// Escapes a string for safe use inside a RegExp
+function escapeRegex(str) {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 module.exports = {
+  escapeRegex,
   formatDateTime,
   detectCountryCode,
   normalizePhoneNumber,

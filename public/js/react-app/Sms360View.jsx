@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TableLoader } from './TableLoader.jsx';
+import { apiFetch } from './api.js';
 
 // Admin Bulk360 SMS API V3.0 Complete Management & Interactive Explorer
 function Sms360View({ t, jwtToken, showToast }) {
@@ -7,20 +8,20 @@ function Sms360View({ t, jwtToken, showToast }) {
     try {
       const saved = localStorage.getItem('sms360_active_subtab');
       if (saved && ['send', 'balance', 'dn', 'keys', 'docs'].includes(saved)) return saved;
-    } catch (e) {}
+    } catch (e) { /* ignored: non-critical UI state */ }
     return 'send';
   });
 
   useEffect(() => {
-    try { if (activeSubTab) localStorage.setItem('sms360_active_subtab', activeSubTab); } catch (e) {}
+    try { if (activeSubTab) localStorage.setItem('sms360_active_subtab', activeSubTab); } catch (e) { /* ignored: non-critical UI state */ }
   }, [activeSubTab]);
 
   // Credentials & Config (Stored in MongoDB Atlas)
   const [config, setConfig] = useState({
-    appKey: 'KGRb4qxdBL', appSecret: 'NE4Ui9KcgxJJl8Y9NbJKhgCohsk6l71GzzBC1gya', apiKey: 'KGRb4qxdBL',
+    appKey: '', appSecret: '', apiKey: '', hasAppSecret: false,
     apiUrl: 'https://sms.360.my/gw/bulk360/v3_0/send.php', balanceUrl: 'https://sms.360.my/api/balance/v3_0/getBalance',
     senderId: '66688', webhookUrl: (typeof window !== 'undefined' && window.location && window.location.origin) ? `${window.location.origin}/api/webhooks/sms360/dlr` : '/api/webhooks/sms360/dlr',
-    ratePerSms: '0.0210', currency: 'MYR', status: 'ACTIVE', autoFallback: true
+    ratePerSms: '0.0210', currency: 'USD', status: 'ACTIVE', autoFallback: true
   });
   const [savingConfig, setSavingConfig] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
@@ -32,7 +33,7 @@ function Sms360View({ t, jwtToken, showToast }) {
   const editModalBackdropRef = useRef(false);
 
   // Send SMS MT state
-  const [mtTo, setMtTo] = useState('60122273341');
+  const [mtTo, setMtTo] = useState('');
   const [mtFrom, setMtFrom] = useState('66688');
   const [mtText, setMtText] = useState('Your FlashOTP verification code is 882049. Valid for 5 minutes.');
   const [mtDetail, setMtDetail] = useState(true);
@@ -48,7 +49,8 @@ function Sms360View({ t, jwtToken, showToast }) {
   // Delivery Notification (DN / DLR) Simulator State
   const [simDlrStatus, setSimDlrStatus] = useState('DELIVERED');
   const [simDlrErrorCode, setSimDlrErrorCode] = useState('0');
-  const [simDlrPhone, setSimDlrPhone] = useState('60122273341');
+  const [simDlrPhone, setSimDlrPhone] = useState('');
+  const [dlrToken, setDlrToken] = useState('');
   const [simDlrMsgId, setSimDlrMsgId] = useState('');
   const [simulatingDlr, setSimulatingDlr] = useState(false);
   const [simDlrResult, setSimDlrResult] = useState(null);
@@ -66,15 +68,15 @@ function Sms360View({ t, jwtToken, showToast }) {
   const checkGatewayHealth = async (silent = false, customConfig = null) => {
     if (!jwtToken) return;
     const targetConfig = customConfig || config;
-    if (!targetConfig.appKey || !targetConfig.appKey.trim()) {
+    if ((!targetConfig.appKey || !targetConfig.appKey.trim()) && !targetConfig.hasAppSecret) {
       setHealthStatus('unauthorized');
-      setHealthDetails({ message: 'App Key is required' });
+      setHealthDetails({ message: 'Bulk360 app key and secret are not configured' });
       return;
     }
     setHealthStatus('checking');
     try {
       const startTime = Date.now();
-      const res = await fetch('/api/admin/sms360/live-balance', {
+      const res = await apiFetch('/api/admin/sms360/live-balance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
         body: JSON.stringify({
@@ -122,7 +124,7 @@ function Sms360View({ t, jwtToken, showToast }) {
   const loadData = () => {
     if (jwtToken) {
       setLoadingData(true);
-      fetch('/api/admin/sms360/stats', { headers: { 'Authorization': `Bearer ${jwtToken}` } })
+      apiFetch('/api/admin/sms360/stats', { headers: { 'Authorization': `Bearer ${jwtToken}` } })
         .then(res => res.json())
         .then(data => {
           if (data.success) {
@@ -137,7 +139,7 @@ function Sms360View({ t, jwtToken, showToast }) {
             if (data.clientIp) setClientIp(data.clientIp);
           }
         })
-        .catch(() => {})
+        .catch(() => { /* keep the previous data; the status bar shows connectivity */ })
         .finally(() => setLoadingData(false));
     }
   };
@@ -145,7 +147,7 @@ function Sms360View({ t, jwtToken, showToast }) {
   const fetchMyIp = () => {
     if (!jwtToken) return;
     setLoadingIp(true);
-    fetch('/api/admin/sms360/my-ip', { headers: { 'Authorization': `Bearer ${jwtToken}` } })
+    apiFetch('/api/admin/sms360/my-ip', { headers: { 'Authorization': `Bearer ${jwtToken}` } })
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -181,7 +183,7 @@ function Sms360View({ t, jwtToken, showToast }) {
     const updated = { ...config, appKey: modalKey.trim(), appSecret: modalSecret.trim(), apiKey: modalKey.trim() };
     try {
       if (jwtToken) {
-        const res = await fetch('/api/admin/sms360/config', {
+        const res = await apiFetch('/api/admin/sms360/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
           body: JSON.stringify(updated)
@@ -206,7 +208,7 @@ function Sms360View({ t, jwtToken, showToast }) {
     setSavingConfig(true);
     try {
       if (jwtToken) {
-        const res = await fetch('/api/admin/sms360/config', {
+        const res = await apiFetch('/api/admin/sms360/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
           body: JSON.stringify(config)
@@ -230,7 +232,7 @@ function Sms360View({ t, jwtToken, showToast }) {
     setSendingMt(true);
     try {
       if (jwtToken) {
-        const res = await fetch('/api/admin/sms360/test-send', {
+        const res = await apiFetch('/api/admin/sms360/test-send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
           body: JSON.stringify({
@@ -240,7 +242,10 @@ function Sms360View({ t, jwtToken, showToast }) {
         });
         const data = await res.json();
         setMtResponse(data.response || data);
-        if (showToast) showToast(`SMS dispatched via Bulk360 API v3.0 to ${mtTo}!`);
+        if (showToast) {
+          if (data.success) showToast(`SMS accepted by Bulk360 for ${mtTo}`);
+          else showToast(data.error || 'Bulk360 rejected the message', 'error');
+        }
         loadData();
       }
     } catch (err) {
@@ -255,7 +260,7 @@ function Sms360View({ t, jwtToken, showToast }) {
     setCheckingBalance(true);
     try {
       if (jwtToken) {
-        const res = await fetch('/api/admin/sms360/live-balance', {
+        const res = await apiFetch('/api/admin/sms360/live-balance', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
           body: JSON.stringify({ country: inquiryCountry, appKey: config.appKey, appSecret: config.appSecret })
@@ -278,13 +283,15 @@ function Sms360View({ t, jwtToken, showToast }) {
     setConfig(updated);
     if (jwtToken) {
       try {
-        await fetch('/api/admin/sms360/config', {
+        await apiFetch('/api/admin/sms360/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
           body: JSON.stringify(updated)
         });
-        if (showToast) showToast(`✅ Webhook URL updated to: ${currentOriginWebhook}`);
-      } catch (e) {}
+        if (showToast) showToast(`Webhook URL updated to: ${currentOriginWebhook}`);
+      } catch (e) {
+        if (showToast) showToast('Could not save the webhook URL', 'error');
+      }
     }
   };
 
@@ -292,7 +299,7 @@ function Sms360View({ t, jwtToken, showToast }) {
     if (e) e.preventDefault();
     setSimulatingDlr(true);
     try {
-      const targetPhone = simDlrPhone.trim().replace(/[^0-9]/g, '') || (logs[0]?.recipient || '60122273341');
+      const targetPhone = simDlrPhone.trim().replace(/[^0-9]/g, '') || (logs[0]?.recipient || '60123456789');
       const targetMsgId = simDlrMsgId.trim() || (logs[0]?.id || '78-1633193001.0602-0');
       const payload = {
         status: simDlrStatus,
@@ -300,7 +307,7 @@ function Sms360View({ t, jwtToken, showToast }) {
         msisdn: targetPhone,
         msgid: targetMsgId
       };
-      const res = await fetch('/api/webhooks/sms360/dlr', {
+      const res = await fetch(`/api/webhooks/sms360/dlr${dlrToken ? `?token=${encodeURIComponent(dlrToken)}` : ''}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -308,6 +315,10 @@ function Sms360View({ t, jwtToken, showToast }) {
         },
         body: JSON.stringify(payload)
       });
+      if (res.status === 401) {
+        if (showToast) showToast('The DLR endpoint requires the DLR_WEBHOOK_SECRET token', 'error');
+        return;
+      }
       const data = await res.json().catch(() => ({ status: simDlrStatus }));
       setSimDlrResult({ payload, response: data });
       if (showToast) showToast(`✅ DN Webhook Processed! Updated status for ${targetPhone} to ${simDlrStatus}`);
@@ -319,7 +330,7 @@ function Sms360View({ t, jwtToken, showToast }) {
     }
   };
 
-  const currentIp = serverIp || '161.142.119.101';
+  const currentIp = serverIp || '—';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -368,7 +379,7 @@ function Sms360View({ t, jwtToken, showToast }) {
                 </span>
               )}
               {healthStatus === 'idle' && (
-                <span className="sheets-badge" style={{ fontSize: '10px', padding: '2px 7px', background: '#F1F5F9', color: 'var(--text-secondary)' }}>
+                <span className="sheets-badge" style={{ fontSize: '10px', padding: '2px 7px', background: 'var(--bg-main)', color: 'var(--text-secondary)' }}>
                   ● Ready
                 </span>
               )}
@@ -408,8 +419,8 @@ function Sms360View({ t, jwtToken, showToast }) {
       {/* SUB-TAB 1: SEND SMS MT API */}
       {activeSubTab === 'send' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '12px' }}>
-          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-            <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+            <div style={{ background: 'var(--bg-ribbon)', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '11px', fontWeight: '700' }}>DISPATCH SMS (NORMAL & UNICODE / UCS2)</span>
               <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>POST/GET /gw/bulk360/v3_0/send.php</span>
             </div>
@@ -421,7 +432,7 @@ function Sms360View({ t, jwtToken, showToast }) {
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>Recipient (`to` - Comma-separated for Bulk)</label>
-                  <input type="text" className="sheets-input" value={mtTo} onChange={(e) => setMtTo(e.target.value)} placeholder="60122273341" style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-code)' }} />
+                  <input type="text" className="sheets-input" value={mtTo} onChange={(e) => setMtTo(e.target.value)} placeholder="60123456789" style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-code)' }} />
                 </div>
               </div>
               <div>
@@ -442,8 +453,8 @@ function Sms360View({ t, jwtToken, showToast }) {
               </div>
             </form>
           </div>
-          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-            <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700' }}>
+          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+            <div style={{ background: 'var(--bg-ribbon)', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700' }}>
               REAL-TIME HTTP JSON RESPONSE INSPECTOR
             </div>
             <div style={{ padding: '12px' }}>
@@ -464,8 +475,8 @@ function Sms360View({ t, jwtToken, showToast }) {
       {/* SUB-TAB 2: BALANCE INQUIRY API */}
       {activeSubTab === 'balance' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '12px' }}>
-          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-            <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700' }}>
+          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+            <div style={{ background: 'var(--bg-ribbon)', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700' }}>
               QUERY ACCOUNT BALANCE & CREDITS
             </div>
             <form onSubmit={handleQueryBalance} style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -480,31 +491,31 @@ function Sms360View({ t, jwtToken, showToast }) {
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>Target Balance Endpoint</label>
-                <input type="text" className="sheets-input" value={config.balanceUrl} readOnly style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-code)', background: '#F8FAFC' }} />
+                <input type="text" className="sheets-input" value={config.balanceUrl} readOnly style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-code)', background: 'var(--bg-ribbon)' }} />
               </div>
               <button type="submit" disabled={checkingBalance} className="sheets-btn sheets-btn-primary" style={{ fontSize: '11px', padding: '6px 14px' }}>
                 {checkingBalance ? 'Querying...' : 'Query Live Balance via API'}
               </button>
             </form>
           </div>
-          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-            <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700' }}>
+          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+            <div style={{ background: 'var(--bg-ribbon)', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700' }}>
               LIVE BALANCE API RESPONSE
             </div>
             <div style={{ padding: '12px' }}>
               {balanceResult ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                    <div style={{ background: '#F8FAFC', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ background: 'var(--bg-ribbon)', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
                       <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Account Balance</div>
                       <div style={{ fontSize: '16px', fontWeight: '800', color: '#059669' }}>
-                        {balanceResult.description ? `${balanceResult.description.currency || 'MYR'} ${balanceResult.description.balance || '0.00'}` : 'MYR 935.04'}
+                        {balanceResult.description ? `${balanceResult.description.currency || ''} ${balanceResult.description.balance ?? '—'}` : '—'}
                       </div>
                     </div>
-                    <div style={{ background: '#F8FAFC', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ background: 'var(--bg-ribbon)', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
                       <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Available Country Credits</div>
                       <div style={{ fontSize: '16px', fontWeight: '800', color: '#0284C7' }}>
-                        {balanceResult.description ? `${balanceResult.description.credits || 11402} Credits` : '11,402 Credits'}
+                        {balanceResult.description && balanceResult.description.credits !== undefined ? `${balanceResult.description.credits} credits` : '—'}
                       </div>
                     </div>
                   </div>
@@ -526,8 +537,8 @@ function Sms360View({ t, jwtToken, showToast }) {
       {activeSubTab === 'dn' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {/* Webhook Configuration Card */}
-          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-            <div style={{ background: '#F8FAFC', padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+            <div style={{ background: 'var(--bg-ribbon)', padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '12px', fontWeight: '800' }}>🔔 DELIVERY NOTIFICATION (DN / DLR WEBHOOK) ENDPOINT</span>
               <span className="sheets-badge sheets-badge-emerald" style={{ fontSize: '9px', padding: '2px 6px' }}>● Live Endpoint</span>
             </div>
@@ -536,7 +547,7 @@ function Sms360View({ t, jwtToken, showToast }) {
                 Bulk360 & Telcos return the final handset delivery receipt (DN) in real-time to your webhook URL. When a receipt is received, OTP88 automatically updates the status of the corresponding message in MongoDB Atlas and the live logs.
               </p>
 
-              <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
+              <div style={{ background: 'var(--bg-ribbon)', padding: '12px', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-primary)' }}>Your Webhook Callback URL:</label>
                   <div style={{ display: 'flex', gap: '6px' }}>
@@ -585,8 +596,8 @@ function Sms360View({ t, jwtToken, showToast }) {
 
           {/* Interactive DLR Callback Tester & Simulator */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '12px' }}>
-            <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-              <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+              <div style={{ background: 'var(--bg-ribbon)', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>🧪 TEST & SIMULATE INCOMING TELCO DN WEBHOOK</span>
                 <span className="sheets-badge sheets-badge-blue" style={{ fontSize: '9px' }}>Simulator</span>
               </div>
@@ -603,7 +614,7 @@ function Sms360View({ t, jwtToken, showToast }) {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>Recipient MSISDN (`msisdn`)</label>
-                    <input type="text" className="sheets-input sheets-input-code" value={simDlrPhone} onChange={(e) => setSimDlrPhone(e.target.value)} placeholder="60122273341" style={{ width: '100%', fontSize: '11px' }} />
+                    <input type="text" className="sheets-input sheets-input-code" value={simDlrPhone} onChange={(e) => setSimDlrPhone(e.target.value)} placeholder="60123456789" style={{ width: '100%', fontSize: '11px' }} />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>Telco Error Code (`error-code`)</label>
@@ -621,15 +632,19 @@ function Sms360View({ t, jwtToken, showToast }) {
                   </div>
                   <input type="text" className="sheets-input sheets-input-code" value={simDlrMsgId} onChange={(e) => setSimDlrMsgId(e.target.value)} placeholder={logs[0]?.id || '78-1633193001.0602-0'} style={{ width: '100%', fontSize: '11px' }} />
                 </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>Webhook token (`DLR_WEBHOOK_SECRET`, if configured)</label>
+                  <input type="password" className="sheets-input sheets-input-code" value={dlrToken} onChange={(e) => setDlrToken(e.target.value)} placeholder="Leave blank in development" autoComplete="off" style={{ width: '100%', fontSize: '11px' }} />
+                </div>
                 <button type="submit" disabled={simulatingDlr} className="sheets-btn sheets-btn-primary" style={{ fontSize: '11px', padding: '7px 14px', marginTop: '4px' }}>
-                  {simulatingDlr ? 'Simulating Webhook...' : '🚀 Trigger Simulated Telco Callback'}
+                  {simulatingDlr ? 'Sending test callback…' : 'Send test delivery report'}
                 </button>
               </form>
             </div>
 
             {/* Payload Specification Display */}
-            <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-              <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700' }}>
+            <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+              <div style={{ background: 'var(--bg-ribbon)', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700' }}>
                 INCOMING TELCO DN JSON PAYLOAD SPECIFICATION
               </div>
               <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -654,8 +669,8 @@ function Sms360View({ t, jwtToken, showToast }) {
 
       {/* SUB-TAB 4: API CREDENTIALS & SETTINGS */}
       {activeSubTab === 'keys' && (
-        <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-          <div style={{ background: '#F8FAFC', padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+          <div style={{ background: 'var(--bg-ribbon)', padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '12px', fontWeight: '800' }}>BULK360 API CREDENTIALS & SETTINGS</span>
             <span className="sheets-badge sheets-badge-emerald" style={{ fontSize: '9px', padding: '1px 5px' }}>● Saved</span>
           </div>
@@ -668,7 +683,7 @@ function Sms360View({ t, jwtToken, showToast }) {
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>APP_SECRET (Password / `pass`)</label>
-                <input type="text" className="sheets-input" value={config.appSecret} onChange={(e) => setConfig({ ...config, appSecret: e.target.value })} style={{ width: '100%', fontSize: '12px', fontFamily: 'var(--font-code)' }} />
+                <input type="password" className="sheets-input" value={config.appSecret} onChange={(e) => setConfig({ ...config, appSecret: e.target.value })} placeholder={config.hasAppSecret ? 'Secret saved. Enter a new one to replace it.' : 'Enter the Bulk360 app secret'} autoComplete="new-password" style={{ width: '100%', fontSize: '12px', fontFamily: 'var(--font-code)' }} />
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -694,7 +709,7 @@ function Sms360View({ t, jwtToken, showToast }) {
                     disabled={healthStatus === 'checking'}
                     onClick={() => checkGatewayHealth(false)}
                     className="sheets-btn"
-                    style={{ fontSize: '9px', padding: '2px 8px', background: '#F1F5F9', border: '1px solid #CBD5E1', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: healthStatus === 'checking' ? 'not-allowed' : 'pointer' }}
+                    style={{ fontSize: '9px', padding: '2px 8px', background: 'var(--bg-main)', border: '1px solid #CBD5E1', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: healthStatus === 'checking' ? 'not-allowed' : 'pointer' }}
                   >
                     <span style={{ display: 'inline-block', animation: healthStatus === 'checking' ? 'spin 1s linear infinite' : 'none' }}>🔄</span>
                     {healthStatus === 'checking' ? 'Pinging Gateway...' : 'Test Connection'}
@@ -751,7 +766,7 @@ function Sms360View({ t, jwtToken, showToast }) {
                           🔴 Connection Failed
                         </span>
                       ) : (
-                        <span className="sheets-badge" style={{ fontSize: '10px', padding: '4px 9px', background: '#F1F5F9', color: 'var(--text-secondary)' }}>
+                        <span className="sheets-badge" style={{ fontSize: '10px', padding: '4px 9px', background: 'var(--bg-main)', color: 'var(--text-secondary)' }}>
                           ⚪ Ready to Test
                         </span>
                       )}
@@ -770,13 +785,13 @@ function Sms360View({ t, jwtToken, showToast }) {
                 Bulk360 firewall requires your public server IP to be whitelisted under <strong>Configurations &gt; Whitelist IPs</strong>. Outbound requests without whitelisting return <code>401 Unauthorized</code>.
               </div>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginTop: '2px' }}>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#FFFFFF', border: '1px solid #FCD34D', borderRadius: '3px', padding: '3px 8px' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--bg-card)', border: '1px solid #FCD34D', borderRadius: '3px', padding: '3px 8px' }}>
                   <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Detected Server IP:</span>
                   <code style={{ fontFamily: 'var(--font-code)', fontWeight: '800', color: '#059669', fontSize: '12px' }}>{currentIp}</code>
                   <button type="button" onClick={() => { navigator.clipboard.writeText(currentIp); if (showToast) showToast(`Copied: ${currentIp}`); }} className="sheets-btn" style={{ fontSize: '9px', padding: '1px 6px', background: '#ECFDF5', border: '1px solid #10B981', color: '#047857', fontWeight: '700' }}>📋 Copy IP</button>
                 </div>
                 {clientIp && clientIp !== serverIp && (
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '3px', padding: '3px 8px' }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--bg-card)', border: '1px solid #E2E8F0', borderRadius: '3px', padding: '3px 8px' }}>
                     <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Client / Browser IP:</span>
                     <code style={{ fontFamily: 'var(--font-code)', fontWeight: '700', color: '#0284C7', fontSize: '11px' }}>{clientIp}</code>
                   </div>
@@ -797,8 +812,8 @@ function Sms360View({ t, jwtToken, showToast }) {
 
       {/* SUB-TAB 5: API REFERENCE & ERROR CODES */}
       {activeSubTab === 'docs' && (
-        <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-          <div style={{ background: '#F8FAFC', padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', fontSize: '12px', fontWeight: '800' }}>
+        <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+          <div style={{ background: 'var(--bg-ribbon)', padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', fontSize: '12px', fontWeight: '800' }}>
             BULK360 SMS API V3.0 SPECIFICATION & RESPONSE CODES
           </div>
           <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -846,8 +861,8 @@ function Sms360View({ t, jwtToken, showToast }) {
       )}
 
       {/* Transmission & Delivery Logs Table */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-        <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+        <div style={{ background: 'var(--bg-ribbon)', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>BULK360 DISPATCH & DLR LOGS</span>
           <span style={{ color: 'var(--text-muted)' }}>{logs.length} entries</span>
         </div>
@@ -886,10 +901,10 @@ function Sms360View({ t, jwtToken, showToast }) {
                   <td style={{ fontFamily: 'var(--font-code)', fontSize: '10px', color: 'var(--text-muted)' }}>{i + 1}</td>
                   <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>{l.id}</td>
                   <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700' }}>{l.recipient ? (l.recipient.startsWith('+') ? l.recipient : '+' + l.recipient.replace(/[^0-9]/g, '')) : '-'}</td>
-                  <td style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)', fontSize: '11px' }} title={l.message || l.text || 'Your FlashOTP verification code is 882049. Valid for 5 minutes.'}>
-                    {l.message || l.text || 'Your FlashOTP verification code is 882049. Valid for 5 minutes.'}
+                  <td style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)', fontSize: '11px' }} title={l.message || l.text || '—'}>
+                    {l.message || l.text || '—'}
                   </td>
-                  <td><span style={{ fontFamily: 'var(--font-code)', fontSize: '10px', background: '#F1F5F9', padding: '2px 4px', borderRadius: '3px' }}>{l.senderId}</span></td>
+                  <td><span style={{ fontFamily: 'var(--font-code)', fontSize: '10px', background: 'var(--bg-main)', padding: '2px 4px', borderRadius: '3px' }}>{l.senderId}</span></td>
                   <td style={{ color: 'var(--text-secondary)' }}>{l.telco}</td>
                   <td>{l.segments}</td>
                   <td style={{ fontFamily: 'var(--font-code)' }}>{l.cost}</td>
@@ -935,8 +950,5 @@ function Sms360View({ t, jwtToken, showToast }) {
   );
 }
 
-if (typeof window !== 'undefined') {
-  window.Sms360View = Sms360View;
-}
 
 export default Sms360View;

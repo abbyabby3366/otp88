@@ -1,130 +1,131 @@
 const express = require('express');
 const router = express.Router();
 const { getIsDbConnected } = require('../../config/db');
-const {
-  OtpLogModel,
-  OtpAuditLogModel,
-  Sms360ConfigModel
-} = require('../../models');
+const { OtpLogModel, OtpAuditLogModel, Sms360ConfigModel } = require('../../models');
 const { verifyJwtMiddleware, requireAdmin } = require('../../middleware/auth');
+const { validateBody, PATTERNS } = require('../../middleware/validate');
 const { formatDateTime, detectPublicIp, normalizePhoneNumber } = require('../../utils/format');
+const { sendSms, getSmsConfig } = require('../../services/dispatchers/smsDispatcher');
 
-router.get('/api/admin/sms360/my-ip', verifyJwtMiddleware, requireAdmin, async (req, res) => {
+const adminOnly = [verifyJwtMiddleware, requireAdmin];
+
+function clientIpOf(req) {
+  const raw = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket.remoteAddress || '';
+  return String(raw).split(',')[0].trim().replace(/^::ffff:/, '');
+}
+
+// Never return the app secret to the browser; the console only needs to know whether it is set.
+function maskConfig(cfg) {
+  if (!cfg) return {};
+  const { appSecret, ...rest } = cfg;
+  return { ...rest, appSecret: '', hasAppSecret: Boolean(appSecret) };
+}
+
+router.get('/api/admin/sms360/my-ip', ...adminOnly, async (req, res) => {
   try {
     const serverIp = await detectPublicIp();
-    const rawClientIp = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket.remoteAddress || '';
-    const clientIp = rawClientIp.split(',')[0].trim().replace(/^::ffff:/, '');
-    res.json({
-      success: true,
-      serverIp,
-      clientIp: clientIp || serverIp,
-      detectedAt: new Date().toISOString()
-    });
+    const clientIp = clientIpOf(req);
+    res.json({ success: true, serverIp, clientIp: clientIp || serverIp, detectedAt: new Date().toISOString() });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-router.get('/api/admin/sms360/stats', verifyJwtMiddleware, requireAdmin, async (req, res) => {
+router.get('/api/admin/sms360/stats', ...adminOnly, async (req, res) => {
   try {
     const serverIp = await detectPublicIp();
-    const rawClientIp = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket.remoteAddress || '';
-    const clientIp = rawClientIp.split(',')[0].trim().replace(/^::ffff:/, '');
-    let realLogs = [];
-    let dbConfig = null;
+    const clientIp = clientIpOf(req);
+    const cfg = await getSmsConfig();
+    let logs = [];
 
     if (getIsDbConnected()) {
-      try {
-        dbConfig = await Sms360ConfigModel.findOne({ key: 'sms360_primary' }).lean();
-
-        const dbLogs = await OtpLogModel.find({ channel: { $regex: /sms/i } }).sort({ createdAt: -1 }).limit(10).lean();
-        realLogs = dbLogs.map(l => ({
-          id: l.msgId || ('78-' + l._id.toString().slice(-8)),
-          recipient: normalizePhoneNumber(l.phoneNumber),
-          message: l.messageText || (l.otpCode ? `Your FlashOTP verification code is ${l.otpCode}. Valid for 5 minutes.` : 'FlashOTP authentication SMS'),
-          senderId: l.senderId || dbConfig?.senderId || '66688',
-          telco: 'Bulk360',
-          segments: l.segments || 1,
-          cost: l.cost || `MYR ${dbConfig?.ratePerSms || '0.0210'}`,
-          status: l.status || 'SENT',
-          errorCode: l.errorCode || '0',
-          latency: l.latency || '0.39s',
-          timestamp: formatDateTime(l.createdAt)
-        }));
-      } catch (e) {
-        console.error('Error fetching SMS360 data from MongoDB:', e.message);
-      }
+      const dbLogs = await OtpLogModel.find({ channel: { $regex: /sms/i } }).sort({ createdAt: -1 }).limit(20).lean();
+      logs = dbLogs.map(l => ({
+        id: l.msgId || ('SMS-' + l._id.toString().slice(-8).toUpperCase()),
+        recipient: normalizePhoneNumber(l.phoneNumber),
+        message: l.messageText || '',
+        senderId: l.senderId || cfg.senderId,
+        telco: 'Bulk360',
+        segments: l.segments || 1,
+        cost: l.cost || '',
+        status: l.status || 'SENT',
+        errorCode: l.errorCode || '0',
+        latency: l.latency || '',
+        timestamp: formatDateTime(l.createdAt),
+        createdAt: l.createdAt
+      }));
     }
 
     res.json({
       success: true,
-      config: dbConfig || {},
+      config: maskConfig(cfg.raw || { appKey: cfg.appKey, appSecret: cfg.appSecret, senderId: cfg.senderId, apiUrl: cfg.sendUrl, balanceUrl: cfg.balanceUrl, status: cfg.status }),
+      configured: Boolean(cfg.appKey && cfg.appSecret),
       serverIp,
       clientIp: clientIp || serverIp,
-      logs: realLogs
+      logs
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-router.post('/api/admin/sms360/config', verifyJwtMiddleware, requireAdmin, async (req, res) => {
-  try {
-    const { appKey, appSecret, apiKey, apiUrl, balanceUrl, senderId, webhookUrl, ratePerSms, currency, status, autoFallback } = req.body;
-    const updateData = {};
-    if (appKey !== undefined) updateData.appKey = appKey.trim();
-    if (appSecret !== undefined) updateData.appSecret = appSecret.trim();
-    if (apiKey !== undefined) updateData.apiKey = apiKey.trim();
-    if (apiUrl !== undefined) updateData.apiUrl = apiUrl.trim();
-    if (balanceUrl !== undefined) updateData.balanceUrl = balanceUrl.trim();
-    if (senderId !== undefined) updateData.senderId = senderId.trim();
-    if (webhookUrl !== undefined) updateData.webhookUrl = webhookUrl.trim();
-    if (ratePerSms !== undefined) updateData.ratePerSms = ratePerSms.trim();
-    if (currency !== undefined) updateData.currency = currency.trim();
-    if (status !== undefined) updateData.status = status;
-    if (autoFallback !== undefined) updateData.autoFallback = autoFallback;
+router.post(
+  '/api/admin/sms360/config',
+  ...adminOnly,
+  validateBody({
+    appKey: { maxLength: 200 },
+    appSecret: { maxLength: 200 },
+    apiKey: { maxLength: 200 },
+    apiUrl: { pattern: PATTERNS.url, patternMessage: 'must be a valid URL', maxLength: 500 },
+    balanceUrl: { pattern: PATTERNS.url, patternMessage: 'must be a valid URL', maxLength: 500 },
+    senderId: { maxLength: 20 },
+    webhookUrl: { maxLength: 500 },
+    ratePerSms: { maxLength: 20 },
+    currency: { maxLength: 5 },
+    status: { enum: ['ACTIVE', 'PAUSED'] },
+    autoFallback: { type: 'boolean' }
+  }),
+  async (req, res) => {
+    try {
+      const allowed = ['appKey', 'appSecret', 'apiKey', 'apiUrl', 'balanceUrl', 'senderId', 'webhookUrl', 'ratePerSms', 'currency', 'status', 'autoFallback'];
+      const updateData = {};
+      for (const key of allowed) {
+        if (req.body[key] === undefined) continue;
+        // An empty secret from the console means "keep the existing one"
+        if (key === 'appSecret' && req.body[key] === '') continue;
+        updateData[key] = req.body[key];
+      }
 
-    if (getIsDbConnected()) {
+      if (!getIsDbConnected()) {
+        return res.status(503).json({ success: false, error: 'Database unavailable; settings were not saved.' });
+      }
       const saved = await Sms360ConfigModel.findOneAndUpdate(
         { key: 'sms360_primary' },
         { $set: updateData },
         { new: true, upsert: true }
-      );
-      return res.json({
-        success: true,
-        message: 'Bulk360 API keys & gateway parameters saved to MongoDB Atlas database.',
-        config: saved,
-        source: 'mongodb-atlas'
-      });
+      ).lean();
+      res.json({ success: true, message: 'Bulk360 gateway settings saved.', config: maskConfig(saved) });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
     }
-
-    res.json({
-      success: true,
-      message: 'SMS360 configuration saved.',
-      config: updateData
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
   }
-});
+);
 
-router.post('/api/admin/sms360/live-balance', verifyJwtMiddleware, requireAdmin, async (req, res) => {
+// Live credit balance on Bulk360
+router.post('/api/admin/sms360/live-balance', ...adminOnly, async (req, res) => {
   try {
-    let dbConfig = null;
-    if (getIsDbConnected()) {
-      dbConfig = await Sms360ConfigModel.findOne({ key: 'sms360_primary' }).lean();
-    }
-    const user = req.body.appKey || dbConfig?.appKey;
-    const pass = req.body.appSecret || dbConfig?.appSecret;
-    const country = req.body.country || 'MYS';
-    const balanceUrl = dbConfig?.balanceUrl || 'https://sms.360.my/api/balance/v3_0/getBalance';
+    const cfg = await getSmsConfig();
+    const user = req.body.appKey || cfg.appKey;
+    const pass = req.body.appSecret || cfg.appSecret;
+    const country = String(req.body.country || 'MYS').slice(0, 5);
 
     if (!user || !pass) {
       return res.status(400).json({ success: false, isLiveConnected: false, error: 'Bulk360 App Key and App Secret are required.' });
     }
 
-    const targetUrl = `${balanceUrl}?user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}&country=${encodeURIComponent(country)}`;
-    
+    const params = new URLSearchParams({ user, pass, country });
+    const targetUrl = `${cfg.balanceUrl}?${params.toString()}`;
+
     let apiResponse = null;
     let rawText = '';
     let httpStatus = 0;
@@ -139,20 +140,16 @@ router.post('/api/admin/sms360/live-balance', verifyJwtMiddleware, requireAdmin,
       clearTimeout(timeout);
       httpStatus = gwRes.status;
       rawText = await gwRes.text();
-      try {
-        apiResponse = JSON.parse(rawText);
-      } catch (pe) {
-        apiResponse = { raw: rawText };
-      }
+      try { apiResponse = JSON.parse(rawText); } catch (pe) { apiResponse = { raw: rawText }; }
 
-      if (gwRes.ok && (apiResponse?.status === 'success' || apiResponse?.description || (apiResponse && typeof apiResponse.credits !== 'undefined'))) {
+      if (gwRes.ok && (apiResponse?.status === 'success' || apiResponse?.description || typeof apiResponse?.credits !== 'undefined')) {
         isLiveConnected = true;
       } else {
         const lowerRaw = rawText.toLowerCase();
-        const lowerMsg = (apiResponse?.message || apiResponse?.notice || '').toLowerCase();
+        const lowerMsg = String(apiResponse?.message || apiResponse?.notice || '').toLowerCase();
         if (httpStatus === 401 || lowerRaw.includes('ip') || lowerMsg.includes('whitelist')) {
           errorType = 'ip_not_whitelisted';
-          errorMessage = 'IP Address not whitelisted on Bulk360';
+          errorMessage = 'IP address not whitelisted on Bulk360';
         } else if (lowerRaw.includes('auth') || lowerRaw.includes('user') || lowerRaw.includes('pass') || lowerRaw.includes('invalid')) {
           errorType = 'invalid_credentials';
           errorMessage = 'Invalid Bulk360 credentials';
@@ -163,14 +160,14 @@ router.post('/api/admin/sms360/live-balance', verifyJwtMiddleware, requireAdmin,
       }
     } catch (netErr) {
       errorType = netErr.name === 'AbortError' ? 'timeout' : 'network_error';
-      errorMessage = netErr.message || 'Connection to Bulk360 gateway timed out or failed';
+      errorMessage = netErr.message || 'Connection to Bulk360 timed out or failed';
     }
 
     res.json({
       success: isLiveConnected,
       isLiveConnected,
       httpStatus,
-      endpoint: targetUrl.replace(pass, '***'),
+      endpoint: targetUrl.replace(encodeURIComponent(pass), '***'),
       country,
       data: apiResponse,
       rawText,
@@ -182,107 +179,66 @@ router.post('/api/admin/sms360/live-balance', verifyJwtMiddleware, requireAdmin,
   }
 });
 
-router.post('/api/admin/sms360/test-send', verifyJwtMiddleware, requireAdmin, async (req, res) => {
-  const { phoneNumber: rawPhone, senderId = '66688', message, detail = 1 } = req.body;
-  if (!rawPhone || !message) {
-    return res.status(400).json({ success: false, error: 'Phone number and message are required.' });
-  }
+// Send a real test SMS through Bulk360 (admin tooling; not billed to a customer)
+router.post(
+  '/api/admin/sms360/test-send',
+  ...adminOnly,
+  validateBody({
+    phoneNumber: { required: true, pattern: PATTERNS.phone, patternMessage: 'must be a valid phone number' },
+    message: { required: true, minLength: 1, maxLength: 640 },
+    senderId: { maxLength: 20 },
+    appKey: { maxLength: 200 },
+    appSecret: { maxLength: 200 }
+  }),
+  async (req, res) => {
+    const { phoneNumber: rawPhone, senderId, message, appKey, appSecret } = req.body;
+    const normalizedPhone = normalizePhoneNumber(rawPhone);
+    const cfg = await getSmsConfig();
 
-  const normalizedPhone = normalizePhoneNumber(rawPhone);
-  const cleanPhone = normalizedPhone.replace(/[^0-9,]/g, '');
+    const result = await sendSms({ to: normalizedPhone, messageText: message, senderId, appKey, appSecret });
+    const messageId = result.ref || ('SMS_TEST_' + Math.floor(1000 + Math.random() * 9000));
+    const status = result.success ? 'SENT' : 'FAILED';
+    const latency = `${((result.latencyMs || 0) / 1000).toFixed(2)}s`;
+    const segments = Math.ceil(message.length / 160) || 1;
 
-  let dbConfig = null;
-  if (getIsDbConnected()) {
-    dbConfig = await Sms360ConfigModel.findOne({ key: 'sms360_primary' }).lean();
-  }
-  const user = req.body.appKey || dbConfig?.appKey;
-  const pass = req.body.appSecret || dbConfig?.appSecret;
-  const apiUrl = dbConfig?.apiUrl || 'https://sms.360.my/gw/bulk360/v3_0/send.php';
-
-  if (!user || !pass) {
-    return res.status(400).json({ success: false, error: 'Bulk360 App Key and App Secret are required.' });
-  }
-
-  const sendUrl = `${apiUrl}?user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}&from=${encodeURIComponent(senderId)}&to=${encodeURIComponent(cleanPhone)}&text=${encodeURIComponent(message)}&detail=${detail}`;
-
-  let gwResult = null;
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
-    const resp = await fetch(sendUrl, { signal: controller.signal });
-    clearTimeout(timeout);
-    const raw = await resp.text();
-    try {
-      gwResult = JSON.parse(raw);
-    } catch (e) {
-      gwResult = { raw };
+    if (getIsDbConnected()) {
+      try {
+        await OtpLogModel.create({
+          phoneNumber: normalizedPhone,
+          channel: 'SMS',
+          otpCode: (message.match(/\b\d{4,8}\b/) || [''])[0],
+          messageText: message,
+          senderId: senderId || cfg.senderId,
+          segments,
+          latency,
+          cost: '$0.0000',
+          status,
+          msgId: messageId,
+          errorCode: result.success ? '0' : 'GATEWAY_ERROR',
+          remark: 'Admin test send',
+          userId: req.user.id
+        });
+        await OtpAuditLogModel.create({
+          auditId: 'AUD_' + Math.floor(1000 + Math.random() * 9000),
+          target: normalizedPhone,
+          channel: 'SMS',
+          action: 'SMS_GATEWAY_TEST',
+          actor: req.user.email || req.user.username || 'ADMIN',
+          status,
+          latency,
+          time: formatDateTime(),
+          msgId: messageId
+        });
+      } catch (e) {
+        console.error('Error saving SMS test log:', e.message);
+      }
     }
-  } catch (netErr) {
-    gwResult = {
-      code: 200,
-      desc: 'OK',
-      to: cleanPhone,
-      ref: '78-' + Math.floor(1000000000 + Math.random() * 9000000000) + '.' + Math.floor(1000 + Math.random() * 9000),
-      currency: 'MYR',
-      balance: '935.0378'
-    };
-  }
 
-  const messageId = gwResult.ref || ('S360_MSG_' + Math.floor(1000 + Math.random() * 9000));
-  const newLog = {
-    id: messageId,
-    recipient: normalizedPhone,
-    message: message.trim(),
-    senderId,
-    telco: 'Bulk360',
-    segments: Math.ceil(message.length / 160) || 1,
-    cost: `MYR ${sms360Config?.ratePerSms || dbConfig?.ratePerSms || '0.0210'}`,
-    status: gwResult.code === 200 || gwResult.code === '200' ? 'SENT' : 'PENDING',
-    latency: '0.39s',
-    timestamp: formatDateTime()
-  };
-
-  SMS360_LOGS.unshift(newLog);
-  if (SMS360_LOGS.length > 50) SMS360_LOGS.pop();
-
-  if (getIsDbConnected()) {
-    try {
-      await OtpLogModel.create({
-        phoneNumber: normalizedPhone,
-        channel: 'SMS360_V3',
-        otpCode: message.match(/\b\d{4,8}\b/) ? message.match(/\b\d{4,8}\b/)[0] : '882049',
-        messageText: message.trim(),
-        senderId: senderId || '66688',
-        segments: Math.ceil(message.length / 160) || 1,
-        latency: '0.39s',
-        cost: `MYR ${sms360Config?.ratePerSms || dbConfig?.ratePerSms || '0.0210'}`,
-        status: 'SENT',
-        msgId: messageId,
-        errorCode: '0',
-        userId: req.user.id
-      });
-      await OtpAuditLogModel.create({
-        auditId: 'AUD_' + Math.floor(1000 + Math.random() * 9000),
-        target: normalizedPhone,
-        channel: 'SMS360_V3',
-        action: 'SMS_GATEWAY_DISPATCH',
-        actor: req.user.email || req.user.username || 'ADMIN',
-        status: 'SENT',
-        latency: '0.39s',
-        time: formatDateTime(),
-        msgId: messageId
-      });
-    } catch (e) {
-      console.error('Error saving SMS360 log to MongoDB:', e.message);
+    if (!result.success) {
+      return res.status(502).json({ success: false, error: result.error, messageId, response: result.raw });
     }
+    res.json({ success: true, message: 'Test SMS accepted by Bulk360.', messageId, latency, response: result.raw });
   }
-
-  res.json({
-    success: true,
-    message: `Message dispatched via Bulk360 SMS API v3.0`,
-    messageId,
-    response: gwResult
-  });
-});
+);
 
 module.exports = router;

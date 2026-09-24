@@ -20,7 +20,12 @@ const OTP88_I18N = {
     navAdminApi: 'API & Keys',
     navAdminWebhooks: 'Webhooks',
     navAdminBilling: 'Billing & Top-up',
-    navServicesSection: 'SERVICES',
+    navAdminSection: 'ADMIN',
+    navServicesSection: 'CHANNELS',
+    navWebhookLogs: 'Webhook Delivery Logs',
+    statusOnline: 'Connected',
+    statusOffline: 'Server unreachable',
+    dispatched: 'Sent',
     navSmsOtp: 'SMS OTP',
     navSms360: 'SMS OTP',
     navWhatsAppOtp: 'WhatsApp OTP',
@@ -46,11 +51,8 @@ const OTP88_I18N = {
     allTime: 'All Time',
     autoReload: '● Active',
     allGreen: '● Systems Operational',
-    singaporePipe: 'Region: Malaysia',
-    malaysiaPipe: 'Region: Malaysia',
-    growthRate: '+18.4% this month',
-    liveLogsTitle: 'RECENT LOGS',
-    pricingOverviewTitle: 'OTP PRICING & CHANNELS',
+    liveLogsTitle: 'RECENT ACTIVITY',
+    pricingOverviewTitle: 'CHANNELS & RATES',
     pricingOverviewSub: 'Live per-message delivery rates across all messaging routes',
     configurePricingBtn: '⚙️ Configure Pricing',
     searchRatesPlaceholder: 'Filter by country, ISO, or dial code (e.g. Malaysia, +60, SG)...',
@@ -168,7 +170,12 @@ const OTP88_I18N = {
     navAdminApi: 'API 密钥',
     navAdminWebhooks: 'Webhook 回调',
     navAdminBilling: '账单与充值',
+    navAdminSection: '管理',
     navServicesSection: '服务通道',
+    navWebhookLogs: 'Webhook 投递日志',
+    statusOnline: '已连接',
+    statusOffline: '无法连接服务器',
+    dispatched: '已发送',
     navSmsOtp: 'SMS OTP 短信通道',
     navSms360: 'SMS OTP 短信通道',
     navWhatsAppOtp: 'WhatsApp OTP',
@@ -194,9 +201,6 @@ const OTP88_I18N = {
     allTime: '全部时间',
     autoReload: '● 运行中',
     allGreen: '● 系统正常',
-    singaporePipe: '地区：马来西亚',
-    malaysiaPipe: '地区：马来西亚',
-    growthRate: '+18.4% 本月增长',
     liveLogsTitle: '近期日志',
     pricingOverviewTitle: 'OTP 通道与费率定价',
     pricingOverviewSub: '实时各通道单条验证码发送与送达费率',
@@ -298,9 +302,5 @@ const OTP88_I18N = {
   }
 };
 
-if (typeof window !== 'undefined') {
-  window.OTP88_I18N = OTP88_I18N;
-}
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = OTP88_I18N;
-}
+export { OTP88_I18N };
+export default OTP88_I18N;

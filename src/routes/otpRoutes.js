@@ -1,317 +1,268 @@
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
-const { JWT_SECRET } = require('../config/constants');
 const { getIsDbConnected } = require('../config/db');
-const { UserModel, OtpLogModel, Sms360ConfigModel, WhatsAppConfigModel, EmailConfigModel } = require('../models');
+const { SUPPORTED_CHANNELS } = require('../config/constants');
+const { OtpLogModel } = require('../models');
+const { verifyJwtMiddleware, loadAuthenticatedUser } = require('../middleware/auth');
 const { detectCountryCode, normalizePhoneNumber } = require('../utils/format');
-const { getOtpChannelCost, deductUserBalanceAndRecordTx } = require('../services/balanceService');
+const { getOtpChannelCost, deductUserBalanceAndRecordTx, refundUserBalance } = require('../services/balanceService');
 const { forwardDlrToClientWebhook } = require('../services/webhookService');
-const { sendOtpEmail, formatTenantSender } = require('../services/emailService');
-const { RESEND_API_KEY, DEFAULT_EMAIL_FROM } = require('../config/constants');
+const { dispatchOtp, normalizeChannel, CHANNEL_LABELS } = require('../services/dispatchers');
+const { sendLimiter } = require('../middleware/rateLimit');
 
-// 3. API: Live Interactive OTP Gateway & Real Upstream Dispatch (Writes to MongoDB + Live Balance Deduction)
-router.post(['/api/simulate-otp', '/v1/otp/send'], async (req, res) => {
-  const {
-    phoneNumber: reqPhoneNumber,
-    phone: reqPhone,
-    to: reqTo,
-    email: reqEmail,
-    recipient: reqRecipient,
-    subject: reqSubject,
-    channel = 'whatsapp',
-    otp: customOtpDirect,
-    otpCode: customOtpCode,
-    code: customCode,
-    senderName: reqSenderName,
-    sender_name: reqSender_name,
-    senderId: reqSenderId,
-    sender_id: reqSender_id,
-    from: reqFrom,
-    brand_handle: reqBrandHandle,
-    brandHandle: reqBrandHandleCamel,
-    sender_handle: reqSenderHandle,
-    brand_name: reqBrandName,
-    brandName: reqBrandNameCamel,
-    reply_to: reqReplyTo,
-    replyTo: reqReplyToCamel,
-    expiryMinutes: reqExpiryMinutes,
-    expiry_minutes: reqExpiry_minutes,
-    expirySeconds: reqExpirySeconds,
-    expiry_seconds: reqExpiry_seconds,
-    remark: reqRemark,
-    codeLength = 6
-  } = req.body;
+const DEFAULT_SENDER_NAME = 'FlashOTP';
+const DEFAULT_EXPIRY_MINUTES = 5;
 
-  const cleanChannel = (channel || 'whatsapp').toLowerCase();
-  const rawTarget = reqEmail || reqRecipient || reqPhoneNumber || reqPhone || reqTo || '';
-  const isEmail = cleanChannel.includes('email') || (rawTarget && rawTarget.includes('@'));
-  const destinationTarget = isEmail
-    ? rawTarget.trim().toLowerCase()
-    : normalizePhoneNumber(rawTarget || '+60123456789');
-  const phoneNumber = destinationTarget;
-  const senderName = reqSenderName || reqSender_name || reqSenderId || reqSender_id || reqFrom || (isEmail ? 'OTP88' : 'FlashOTP');
-  const expiryMinutes = parseInt(reqExpiryMinutes || reqExpiry_minutes || (reqExpirySeconds ? Math.round(reqExpirySeconds / 60) : null) || (reqExpiry_seconds ? Math.round(reqExpiry_seconds / 60) : null) || 5, 10);
+// Picks the first defined value from a list of request-body aliases.
+function pick(body, ...keys) {
+  for (const k of keys) {
+    if (body[k] !== undefined && body[k] !== null && body[k] !== '') return body[k];
+  }
+  return undefined;
+}
 
-  // Use provided OTP code or auto-generate
-  let otpCode = customOtpDirect || customOtpCode || customCode;
-  if (!otpCode) {
-    const min = Math.pow(10, codeLength - 1);
-    const max = Math.pow(10, codeLength) - 1;
-    otpCode = Math.floor(min + Math.random() * (max - min + 1)).toString();
+function generateOtp(length) {
+  const len = Math.min(8, Math.max(4, parseInt(length, 10) || 6));
+  const min = Math.pow(10, len - 1);
+  const max = Math.pow(10, len) - 1;
+  return Math.floor(min + Math.random() * (max - min + 1)).toString();
+}
+
+/**
+ * Reads the request body into one canonical shape. Canonical names are camelCase;
+ * the snake_case and legacy aliases documented in the API reference are accepted too.
+ */
+function parseSendRequest(body = {}) {
+  const channel = normalizeChannel(pick(body, 'channel', 'channel_strategy'));
+  const rawTo = pick(body, 'to', 'email', 'recipient', 'phoneNumber', 'phone_number', 'phone');
+  const looksLikeEmail = typeof rawTo === 'string' && rawTo.includes('@');
+
+  const expiryMinutesRaw = pick(body, 'expiryMinutes', 'expiry_minutes');
+  const expirySecondsRaw = pick(body, 'expirySeconds', 'expiry_seconds');
+  let expiryMinutes = parseInt(expiryMinutesRaw, 10);
+  if (isNaN(expiryMinutes) && expirySecondsRaw) expiryMinutes = Math.round(parseInt(expirySecondsRaw, 10) / 60);
+  if (isNaN(expiryMinutes) || expiryMinutes <= 0) expiryMinutes = DEFAULT_EXPIRY_MINUTES;
+
+  return {
+    channel: channel || (looksLikeEmail ? 'email' : null),
+    rawTo: typeof rawTo === 'string' ? rawTo.trim() : rawTo,
+    otp: pick(body, 'otp', 'otpCode', 'otp_code', 'code'),
+    codeLength: pick(body, 'codeLength', 'code_length'),
+    senderName: pick(body, 'senderName', 'sender_name', 'senderId', 'sender_id'),
+    brandName: pick(body, 'brandName', 'brand_name'),
+    brandHandle: pick(body, 'brandHandle', 'brand_handle', 'senderHandle', 'sender_handle'),
+    replyTo: pick(body, 'replyTo', 'reply_to'),
+    from: pick(body, 'from'),
+    subject: pick(body, 'subject'),
+    remark: pick(body, 'remark', 'reference'),
+    expiryMinutes
+  };
+}
+
+function buildMessageText({ channel, senderName, otpCode, expiryMinutes }) {
+  if (channel === 'whatsapp') return `Your verification code is ${otpCode}.`;
+  if (channel === 'sms') return `RM0 ${senderName}: Your verification code is ${otpCode}. Valid for ${expiryMinutes} minutes.`;
+  return `Your ${senderName} verification code is ${otpCode}. Valid for ${expiryMinutes} minutes.`;
+}
+
+async function writeOtpLog(fields) {
+  if (!getIsDbConnected()) return null;
+  try {
+    return await OtpLogModel.create(fields);
+  } catch (err) {
+    console.error('Error saving OTP log:', err.message);
+    return null;
+  }
+}
+
+/**
+ * POST /v1/otp/send
+ * Sends a one-time passcode over WhatsApp, SMS or Email.
+ * Requires an API key (Authorization: Bearer otp88_api_...) or a console session token.
+ */
+router.post('/v1/otp/send', verifyJwtMiddleware, sendLimiter, async (req, res) => {
+  const input = parseSendRequest(req.body);
+
+  // 1. Validate the request
+  if (!input.channel) {
+    return res.status(400).json({
+      success: false,
+      error: `Unsupported or missing "channel". Supported channels: ${SUPPORTED_CHANNELS.join(', ')}.`,
+      supportedChannels: SUPPORTED_CHANNELS
+    });
+  }
+  if (!input.rawTo) {
+    return res.status(400).json({ success: false, error: 'Recipient "to" is required (phone number in E.164 format, or an email address for the email channel).' });
   }
 
-  const isWhatsApp = cleanChannel.includes('whatsapp');
-  let messageText = '';
+  const isEmail = input.channel === 'email';
+  let destination;
   if (isEmail) {
-    messageText = `Your ${senderName} verification code is ${otpCode}. Valid for ${expiryMinutes} minutes.`;
-  } else if (isWhatsApp) {
-    messageText = `Your verification code is ${otpCode}.`;
-  } else if (cleanChannel.includes('sms')) {
-    messageText = `RM0 ${senderName}: Your verification code is ${otpCode}. Valid for ${expiryMinutes} minutes.`;
+    destination = String(input.rawTo).toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destination)) {
+      return res.status(400).json({ success: false, error: 'A valid recipient email address is required for the email channel.' });
+    }
   } else {
-    messageText = `Your ${senderName} verification code is ${otpCode}. Valid for ${expiryMinutes} minutes.`;
-  }
-
-  // 1. Calculate dynamic cost based on destination country and channel
-  const destCountry = isEmail ? 'GLOBAL' : detectCountryCode(phoneNumber);
-  const { finalChannel, deliveryTimeMs, unitCostNum, unitCost } = await getOtpChannelCost(destCountry, isEmail ? 'email' : channel);
-
-  // 2. Extract calling user ID from Auth Header or API Key
-  let authUserId = null;
-  let authUser = null;
-  const authHeader = req.headers['authorization'] || req.headers['x-api-key'];
-  const isDbConnected = getIsDbConnected();
-
-  if (authHeader) {
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-    if (token.startsWith('otp88_api_') || token.startsWith('otp_live_') || token.startsWith('api_')) {
-      if (isDbConnected) {
-        try {
-          const user = await UserModel.findOne({
-            $or: [
-              { apiKeyLive: token },
-              { apiKeyLive: token.replace('otp88_api_', 'otp_live_') },
-              { apiKeyLive: token.replace('otp_live_', 'otp88_api_') },
-              { apiKeyLive: token.replace(/^otp88_api_|^otp_live_|^api_/, '') }
-            ]
-          }).lean();
-          if (user) {
-            authUser = user;
-            authUserId = user._id.toString();
-          }
-        } catch (e) {}
-      }
-    } else {
-      try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        if (decoded && decoded.id) {
-          authUserId = decoded.id;
-          if (isDbConnected) {
-            try { authUser = await UserModel.findById(authUserId).lean(); } catch (e) {}
-          }
-        }
-      } catch (e) {}
+    destination = normalizePhoneNumber(input.rawTo);
+    if (!destination || destination.replace(/\D/g, '').length < 7) {
+      return res.status(400).json({ success: false, error: 'A valid recipient phone number is required (e.g. +60123456789).' });
     }
   }
 
-  let upstreamRef = null;
-  let upstreamResult = null;
-
-  if (cleanChannel === 'sms') {
-    // Dispatch real live SMS via Bulk360 API V3.0
-    try {
-      let dbSmsConfig = null;
-      if (isDbConnected) {
-        try { dbSmsConfig = await Sms360ConfigModel.findOne({ key: 'sms360_primary' }).lean(); } catch (e) {}
-      }
-      const user = dbSmsConfig?.appKey || 'KGRb4qxdBL';
-      const pass = dbSmsConfig?.appSecret || 'NE4Ui9KcgxJJl8Y9NbJKhgCohsk6l71GzzBC1gya';
-      const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
-      const apiUrl = dbSmsConfig?.apiUrl || 'https://sms.360.my/gw/bulk360/v3_0/send.php';
-      const fromShortcode = dbSmsConfig?.senderId || '66688';
-
-      if (user && pass) {
-        const sendUrl = `${apiUrl}?user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}&from=${encodeURIComponent(fromShortcode)}&to=${encodeURIComponent(cleanPhone)}&text=${encodeURIComponent(messageText)}&detail=1`;
-
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
-        const resp = await fetch(sendUrl, { signal: controller.signal });
-        clearTimeout(timeout);
-        const rawText = await resp.text();
-        try {
-          upstreamResult = JSON.parse(rawText);
-          if (upstreamResult && (upstreamResult.ref || upstreamResult.code === 200 || upstreamResult.code === '200')) {
-            upstreamRef = upstreamResult.ref;
-          }
-        } catch (pe) {
-          upstreamResult = { raw: rawText };
-        }
-      }
-    } catch (gwErr) {
-      console.error('Error dispatching live SMS via Bulk360:', gwErr.message);
-    }
-  } else if ((channel || '').toLowerCase().includes('whatsapp')) {
-    try {
-      let dbWaConfig = null;
-      if (isDbConnected) {
-        try { dbWaConfig = await WhatsAppConfigModel.findOne({ key: 'whatsapp_verifyway_primary' }).lean(); } catch (e) {}
-      }
-      const waApiKey = dbWaConfig?.apiKey || '2764$2VWVFaAlG71xyEW5Q2WOn5FTnwc0QOJVI3H2';
-      const waApiUrl = dbWaConfig?.apiUrl || 'https://api.verifyway.com/api/v1/';
-      console.log('📱 Dispatching WhatsApp OTP to VerifyWay:', { cleanPhone: normalizePhoneNumber(phoneNumber), waApiKey: waApiKey ? (waApiKey.slice(0, 8) + '...') : 'missing', waApiUrl });
-      if (waApiKey) {
-        const cleanPhone = normalizePhoneNumber(phoneNumber);
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
-        const waResp = await fetch(waApiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${waApiKey}`
-          },
-          body: JSON.stringify({
-            recipient: cleanPhone,
-            type: 'otp',
-            channel: 'whatsapp',
-            code: otpCode,
-            lang: 'en'
-          }),
-          signal: controller.signal
-        });
-        clearTimeout(timeout);
-        const waData = await waResp.json().catch(() => ({}));
-        console.log('📱 VerifyWay Raw Response:', waData);
-        if (waData && (waData.message_id || waData.id || waData.msgid || waData.messageId)) {
-          upstreamRef = waData.message_id || waData.id || waData.msgid || waData.messageId;
-          upstreamResult = waData;
-        }
-      }
-    } catch (waErr) {
-      console.error('❌ Error dispatching WhatsApp OTP:', waErr.message);
-    }
-  } else if (isEmail || cleanChannel === 'email') {
-    try {
-      let dbEmailConfig = null;
-      if (isDbConnected) {
-        try { dbEmailConfig = await EmailConfigModel.findOne({ key: 'email_resend_primary' }).lean(); } catch (e) {}
-      }
-      const effectiveApiKey = dbEmailConfig?.apiKey || RESEND_API_KEY;
-      const defaultFrom = dbEmailConfig?.fromEmail || DEFAULT_EMAIL_FROM;
-
-      // Custom Tenant Sub-Alias: resolve brand handle, name, and sender
-      const resolvedBrandHandle = reqBrandHandle || reqBrandHandleCamel || reqSenderHandle || authUser?.emailBrandHandle;
-      const resolvedBrandName = reqBrandName || reqBrandNameCamel || reqSenderName || reqSender_name || authUser?.emailBrandName || 'OTP88';
-      const resolvedReplyTo = reqReplyTo || reqReplyToCamel || authUser?.emailReplyTo || dbEmailConfig?.replyTo;
-
-      const formattedFrom = formatTenantSender({
-        brandName: resolvedBrandName,
-        brandHandle: resolvedBrandHandle,
-        explicitFrom: reqFrom,
-        defaultFrom
-      });
-
-      const effectiveSubject = reqSubject || `${resolvedBrandName} Verification Code: ${otpCode}`;
-
-      console.log('📧 Dispatching Email OTP via Resend to:', destinationTarget, 'From:', formattedFrom);
-      const emailResult = await sendOtpEmail({
-        to: destinationTarget,
-        otpCode,
-        subject: effectiveSubject,
-        senderName: resolvedBrandName,
-        expiryMinutes,
-        apiKey: effectiveApiKey,
-        fromEmail: formattedFrom,
-        replyTo: resolvedReplyTo
-      });
-
-      if (emailResult.messageId) {
-        upstreamRef = emailResult.messageId;
-      }
-      upstreamResult = emailResult.response || { status: emailResult.success ? 'sent' : 'failed', fromUsed: emailResult.fromUsed };
-    } catch (emlErr) {
-      console.error('❌ Error dispatching Email OTP via Resend:', emlErr.message);
-    }
+  let otpCode = input.otp !== undefined ? String(input.otp).trim() : '';
+  if (otpCode && !/^\d{4,8}$/.test(otpCode)) {
+    return res.status(400).json({ success: false, error: '"otp" must be 4 to 8 digits when supplied.' });
   }
+  if (!otpCode) otpCode = generateOtp(input.codeLength);
 
-  const txId = upstreamRef || ('tx_' + Math.random().toString(36).substring(2, 11));
+  const senderName = (input.senderName || (isEmail ? input.brandName : '') || DEFAULT_SENDER_NAME).toString().trim();
+  const messageText = buildMessageText({ channel: input.channel, senderName, otpCode, expiryMinutes: input.expiryMinutes });
 
-  // 3. Real Backend Balance Deduction & Transaction Ledger Creation
-  const balanceResult = await deductUserBalanceAndRecordTx({
-    userId: authUserId,
-    amount: unitCostNum,
+  // 2. Resolve the billing account
+  const account = await loadAuthenticatedUser(req);
+  if (!account) {
+    return res.status(getIsDbConnected() ? 401 : 503).json({
+      success: false,
+      error: getIsDbConnected() ? 'No billing account is linked to these credentials.' : 'Account service unavailable. Please retry shortly.'
+    });
+  }
+  if (account.status && account.status !== 'ACTIVE') {
+    return res.status(403).json({ success: false, error: `Account is ${account.status.toLowerCase()}. Contact support.` });
+  }
+  const accountId = account._id.toString();
+
+  // 3. Price the message and reserve the balance atomically
+  const destCountry = isEmail ? 'GLOBAL' : detectCountryCode(destination);
+  const cost = await getOtpChannelCost(destCountry, input.channel);
+  const channelLabel = CHANNEL_LABELS[input.channel] || cost.finalChannel;
+  const reservationRef = 'otp_' + Math.random().toString(36).substring(2, 12);
+
+  const billing = await deductUserBalanceAndRecordTx({
+    userId: accountId,
+    amount: cost.unitCostNum,
     type: 'USAGE_OTP',
-    category: finalChannel,
-    description: `${finalChannel} to ${phoneNumber}`,
-    referenceId: txId,
-    channel: channel.toUpperCase(),
-    recipient: phoneNumber,
+    category: `${channelLabel} OTP`,
+    description: `${channelLabel} OTP to ${destination}`,
+    referenceId: reservationRef,
+    channel: input.channel.toUpperCase(),
+    recipient: destination,
     status: 'SENT'
   });
 
-  if (!balanceResult.success) {
-    return res.status(402).json({
+  if (!billing.success) {
+    const status = billing.code === 'INSUFFICIENT_BALANCE' ? 402 : (billing.code === 'DB_UNAVAILABLE' ? 503 : 401);
+    return res.status(status).json({
       success: false,
-      error: balanceResult.error,
-      currentBalance: balanceResult.currentBalance,
-      required: balanceResult.required,
-      channel: finalChannel,
-      rate: unitCost
+      error: billing.error,
+      currentBalance: billing.currentBalance,
+      required: billing.required,
+      channel: input.channel,
+      rate: cost.unitCost
     });
   }
 
-  // Save OTP transaction record into MongoDB if connected
-  let createdLog = null;
-  const finalUserId = authUserId || (balanceResult.user ? balanceResult.user._id.toString() : null);
-  if (isDbConnected) {
-    try {
-      createdLog = await OtpLogModel.create({
-        phoneNumber,
-        channel: finalChannel,
-        otpCode,
-        messageText,
-        senderId: isEmail ? (senderName || 'OTP88 Email') : (isWhatsApp ? 'WhatsApp Business' : senderName),
-        msgId: txId,
-        status: 'SENT',
-        latency: `${(deliveryTimeMs / 1000).toFixed(1)}s`,
-        cost: unitCost,
-        remark: reqRemark || '',
-        userId: finalUserId
-      });
-    } catch (err) {
-      console.error('Error saving OTP log to MongoDB:', err.message);
-    }
+  // 4. Deliver through the upstream provider
+  const dispatch = await dispatchOtp(input.channel, {
+    to: destination,
+    otpCode,
+    messageText,
+    senderName,
+    expiryMinutes: input.expiryMinutes,
+    subject: input.subject,
+    brandName: input.brandName || (isEmail ? input.senderName : undefined) || account.emailBrandName || undefined,
+    brandHandle: input.brandHandle || account.emailBrandHandle || undefined,
+    replyTo: input.replyTo || account.emailReplyTo || undefined,
+    explicitFrom: input.from
+  });
+
+  const transactionId = dispatch.ref || reservationRef;
+  const latency = `${((dispatch.latencyMs || 0) / 1000).toFixed(2)}s`;
+
+  if (!dispatch.success) {
+    // Refund the reservation and keep a FAILED record for the customer's logs
+    const refund = await refundUserBalance({
+      userId: accountId,
+      amount: cost.unitCostNum,
+      referenceId: reservationRef,
+      channel: channelLabel,
+      recipient: destination,
+      reason: dispatch.error
+    });
+    await writeOtpLog({
+      phoneNumber: destination,
+      channel: channelLabel,
+      otpCode,
+      messageText,
+      senderId: senderName,
+      msgId: transactionId,
+      status: 'FAILED',
+      errorCode: 'GATEWAY_ERROR',
+      latency,
+      cost: '$0.0000',
+      remark: input.remark || '',
+      userId: accountId
+    });
+    console.error(`[OTP Send] ${channelLabel} to ${destination} failed: ${dispatch.error}`);
+    return res.status(502).json({
+      success: false,
+      error: `Delivery failed: ${dispatch.error || 'upstream gateway error'}. Your balance was not charged.`,
+      channel: input.channel,
+      transactionId,
+      status: 'FAILED',
+      newBalance: refund ? refund.balanceAfter : billing.balanceBefore,
+      gatewayResponse: dispatch.raw || undefined
+    });
   }
 
-  // Trigger client webhook notification for the dispatched OTP
-  forwardDlrToClientWebhook({
-    msgId: txId,
-    phoneNumber,
-    channel: finalChannel,
-    status: 'DELIVERED',
+  // 5. Record the successful dispatch and notify the customer's webhook
+  const createdLog = await writeOtpLog({
+    phoneNumber: destination,
+    channel: channelLabel,
+    otpCode,
+    messageText,
+    senderId: isEmail ? (dispatch.fromUsed || senderName) : senderName,
+    msgId: transactionId,
+    status: 'SENT',
     errorCode: '0',
-    cost: unitCost,
-    userId: finalUserId
+    latency,
+    cost: cost.unitCost,
+    remark: input.remark || '',
+    userId: accountId
+  });
+
+  forwardDlrToClientWebhook({
+    msgId: transactionId,
+    phoneNumber: destination,
+    channel: input.channel,
+    status: 'SENT',
+    errorCode: '0',
+    cost: cost.unitCostNum.toFixed(4),
+    userId: accountId
   });
 
   res.json({
     success: true,
-    transactionId: txId,
-    ...(isEmail ? { email: destinationTarget, recipient: destinationTarget } : { phoneNumber }),
+    transactionId,
+    to: destination,
+    ...(isEmail ? { email: destination } : { phoneNumber: destination }),
+    channel: input.channel,
+    channelUsed: channelLabel,
     otpCode,
-    ...(isWhatsApp ? {} : { senderName, senderId: senderName, expiryMinutes }),
+    expiryMinutes: input.expiryMinutes,
+    ...(isEmail ? { from: dispatch.fromUsed, subject: dispatch.subject } : { senderName }),
     messageText,
-    remark: reqRemark || undefined,
-    channelUsed: finalChannel,
-    latency: `${(deliveryTimeMs / 1000).toFixed(1)}s`,
-    cost: unitCost,
-    deducted: unitCostNum,
-    newBalance: balanceResult.balanceAfter,
-    transaction: balanceResult.transaction || undefined,
+    remark: input.remark || undefined,
     status: 'SENT',
-    gatewayResponse: upstreamResult || undefined,
+    latency,
+    cost: cost.unitCost,
+    deducted: cost.unitCostNum,
+    newBalance: billing.balanceAfter,
+    gatewayResponse: dispatch.raw || undefined,
     logId: createdLog ? createdLog._id : undefined
   });
 });
 
 module.exports = router;
+module.exports.parseSendRequest = parseSendRequest;
+module.exports.buildMessageText = buildMessageText;
+module.exports.generateOtp = generateOtp;

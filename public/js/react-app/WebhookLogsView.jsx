@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import WebhookLogsTable from './WebhookLogsTable.jsx';
+import { apiFetch } from './api.js';
 
 export default function WebhookLogsView({
   t = {},
@@ -20,7 +21,7 @@ export default function WebhookLogsView({
     if (!jwtToken) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/user/webhook/logs', {
+      const res = await apiFetch('/api/user/webhook/logs', {
         headers: { 'Authorization': `Bearer ${jwtToken}` }
       });
       const data = await res.json();
@@ -102,7 +103,7 @@ export default function WebhookLogsView({
             type="button"
             className="sheets-btn"
             onClick={handleBack}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: '600', padding: '6px 12px', background: '#FFFFFF' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: '600', padding: '6px 12px', background: 'var(--bg-card)' }}
           >
             <span>←</span>
             <span>{t.backToWebhooks || 'Back to Webhooks'}</span>
@@ -182,7 +183,7 @@ export default function WebhookLogsView({
       </div>
 
       {/* Filter Ribbon - Single Row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FFFFFF', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '6px 10px', gap: '8px', marginBottom: '10px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '6px 10px', gap: '8px', marginBottom: '10px' }}>
         {/* Channel Filter Pills on Left */}
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
           <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', marginRight: '4px' }}>Channel:</span>
@@ -229,7 +230,7 @@ export default function WebhookLogsView({
       </div>
 
       {/* Webhook Logs Table Card */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
         <WebhookLogsTable
           logs={filteredLogs}
           loading={loading}
@@ -241,6 +242,3 @@ export default function WebhookLogsView({
   );
 }
 
-if (typeof window !== 'undefined') {
-  window.WebhookLogsView = WebhookLogsView;
-}

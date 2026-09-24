@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import SearchableSelect from './SearchableSelect.jsx';
 import { TableLoader } from './TableLoader.jsx';
 import { PaginationBar } from './PaginationBar.jsx';
+import { apiFetch } from './api.js';
 
 // Admin Billing, Multi-Tenant Balance Management & Platform Transaction Ledger
 function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers }) {
@@ -25,14 +26,14 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
   const fetchInvoices = () => {
     if (!jwtToken) return;
     setLoading(true);
-    fetch('/api/admin/invoices', {
+    apiFetch('/api/admin/invoices', {
       headers: { 'Authorization': `Bearer ${jwtToken}` }
     })
       .then(res => res.json())
       .then(data => {
         if (data.success && data.invoices) setInvoices(data.invoices);
       })
-      .catch(() => {})
+      .catch(() => { /* keep the previous data; the status bar shows connectivity */ })
       .finally(() => setLoading(false));
   };
 
@@ -40,14 +41,14 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
   const fetchTransactions = () => {
     if (!jwtToken) return;
     setLoading(true);
-    fetch('/api/admin/billing/transactions', {
+    apiFetch('/api/admin/billing/transactions', {
       headers: { 'Authorization': `Bearer ${jwtToken}` }
     })
       .then(res => res.json())
       .then(data => {
         if (data.success && data.transactions) setTransactions(data.transactions);
       })
-      .catch(() => {})
+      .catch(() => { /* keep the previous data; the status bar shows connectivity */ })
       .finally(() => setLoading(false));
   };
 
@@ -75,7 +76,7 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
 
     setProcessing(true);
     try {
-      const res = await fetch('/api/admin/billing/adjust-balance', {
+      const res = await apiFetch('/api/admin/billing/adjust-balance', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -166,7 +167,7 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
       </div>
 
       {/* Edit User Balance Box (Credit & Debit stored in Transactions) */}
-      <div style={{ background: '#FFFFFF', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '14px' }}>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '14px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -176,7 +177,7 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
           </div>
 
           {/* Action Selector: Credit vs Debit */}
-          <div style={{ display: 'inline-flex', background: '#F1F5F9', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
+          <div style={{ display: 'inline-flex', background: 'var(--bg-main)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
             <button
               type="button"
               onClick={() => setAdjustmentAction('CREDIT')}
@@ -292,7 +293,7 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
         </form>
 
         {selectedUser && (
-          <div style={{ marginTop: '10px', fontSize: '11px', color: 'var(--text-secondary)', background: '#F8FAFC', padding: '8px 12px', borderRadius: '4px', border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ marginTop: '10px', fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-ribbon)', padding: '8px 12px', borderRadius: '4px', border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <div>
               Selected: <strong>{selectedUser.name || selectedUser.email}</strong> | Role: <span className="sheets-badge sheets-badge-blue">{selectedUser.role}</span> | Current Balance: <strong style={{ color: '#059669' }}>${(selectedUser.balanceUsd || 0).toFixed(4)}</strong>
             </div>
@@ -331,8 +332,8 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
 
       {/* VIEW 1: UNIFIED TRANSACTION & USAGE LEDGER */}
       {activeSubTab === 'transactions' && (
-        <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden', background: '#FFFFFF' }}>
-          <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+          <div style={{ background: 'var(--bg-ribbon)', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
               <button
                 className={`sheets-btn ${txFilter === 'ALL' ? 'sheets-btn-primary' : ''}`}
@@ -474,8 +475,8 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
 
       {/* VIEW 2: INVOICES TABLE */}
       {activeSubTab === 'invoices' && (
-        <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden', background: '#FFFFFF' }}>
-          <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+          <div style={{ background: 'var(--bg-ribbon)', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <span>ALL USER INVOICES & RECHARGE HISTORY ({filteredInvoices.length})</span>
             
             <input
@@ -553,9 +554,6 @@ function AdminBillingView({ t, usersList = [], jwtToken, showToast, refreshUsers
   );
 }
 
-if (typeof window !== 'undefined') {
-  window.AdminBillingView = AdminBillingView;
-}
 
 export default AdminBillingView;
 

@@ -1,33 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import SearchableSelect from './SearchableSelect.jsx';
 import { TableLoader } from './TableLoader.jsx';
-
-// Format date-time helper (YYYY-MM-DD HH:mm:ss)
-function formatDateTime(val) {
-  if (!val) return '-';
-  if (typeof val === 'string') {
-    const trimmed = val.trim();
-    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(:\d{2})?$/.test(trimmed)) {
-      return trimmed;
-    }
-    if (/^\d{2}:\d{2}(:\d{2})?$/.test(trimmed)) {
-      const d = new Date();
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd} ${trimmed}`;
-    }
-  }
-  const d = new Date(val);
-  if (isNaN(d.getTime())) return String(val);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  const hh = String(d.getHours()).padStart(2, '0');
-  const min = String(d.getMinutes()).padStart(2, '0');
-  const ss = String(d.getSeconds()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
-}
+import { apiFetch } from './api.js';
+import { formatDateTime } from './utils/format.js';
 
 // Admin All-Users OTP Logs & Audit View
 function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
@@ -48,12 +23,12 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
   const fetchAllLogs = () => {
     if (!jwtToken) return;
     setLoading(true);
-    fetch('/api/otp-logs', { headers: { 'Authorization': `Bearer ${jwtToken}` } })
+    apiFetch('/api/otp-logs', { headers: { 'Authorization': `Bearer ${jwtToken}` } })
       .then(res => res.json())
       .then(data => {
         if (data.success && data.logs) setLogs(data.logs);
       })
-      .catch(() => {})
+      .catch(() => { /* keep the previous data; the status bar shows connectivity */ })
       .finally(() => setLoading(false));
   };
 
@@ -66,7 +41,7 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
     setClearingLogs(true);
     setClearError('');
     try {
-      const res = await fetch('/api/admin/logs/clear', {
+      const res = await apiFetch('/api/admin/logs/clear', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -123,7 +98,7 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       
       {/* Filter Ribbon */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FFFFFF', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '6px 10px', gap: '8px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '6px 10px', gap: '8px', flexWrap: 'wrap' }}>
         
         {/* User and Channel Selectors */}
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -145,8 +120,8 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
           {[
             { id: 'ALL', label: 'All Channels' },
             { id: 'WHATSAPP', label: 'WhatsApp' },
-            { id: 'TELEGRAM', label: 'Telegram' },
-            { id: 'SMS', label: 'SMS' }
+            { id: 'SMS', label: 'SMS' },
+            { id: 'EMAIL', label: 'Email' }
           ].map(p => (
             <button
               key={p.id}
@@ -177,10 +152,13 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
             onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
             style={{ padding: '4px 6px', fontSize: '11px' }}
           >
-            <option value="ALL">All Statuses</option>
+            <option value="ALL">All statuses</option>
+            <option value="SENT">SENT</option>
             <option value="DELIVERED">DELIVERED</option>
+            <option value="READ">READ</option>
             <option value="PENDING">PENDING</option>
             <option value="FAILED">FAILED</option>
+            <option value="EXPIRED">EXPIRED</option>
           </select>
 
           <button
@@ -222,7 +200,7 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
       </div>
 
       {/* Spreadsheet Data Grid */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
         <table className="sheets-table">
           <thead>
             <tr>
@@ -302,7 +280,7 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
         </table>
 
         {/* Compact Pagination Bar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', padding: '6px 12px', borderTop: '1px solid var(--border-subtle)', fontSize: '11px', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-ribbon)', padding: '6px 12px', borderTop: '1px solid var(--border-subtle)', fontSize: '11px', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
             Showing {filteredLogs.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} to {Math.min(currentPage * pageSize, filteredLogs.length)} of {filteredLogs.length} total entries
           </div>
@@ -404,7 +382,7 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
                 )}
               </div>
 
-              <div className="sheets-modal-footer" style={{ padding: '10px 16px', background: '#F8FAFC', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <div className="sheets-modal-footer" style={{ padding: '10px 16px', background: 'var(--bg-ribbon)', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                 <button
                   type="button"
                   className="sheets-btn"
@@ -438,8 +416,5 @@ function AdminOtpLogsView({ t, jwtToken, showToast, usersList = [] }) {
   );
 }
 
-if (typeof window !== 'undefined') {
-  window.AdminOtpLogsView = AdminOtpLogsView;
-}
 
 export default AdminOtpLogsView;

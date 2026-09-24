@@ -19,8 +19,8 @@ function AdminApiView({ t, usersList = [], session, copyToClipboard, showToast, 
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       
       {/* User API Keys Directory */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-        <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+        <div style={{ background: 'var(--bg-ribbon)', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
           <span>USER API KEYS DIRECTORY ({filteredUsers.length} Users)</span>
           
           <input
@@ -70,7 +70,7 @@ function AdminApiView({ t, usersList = [], session, copyToClipboard, showToast, 
                       </span>
                     </td>
                     <td>
-                      <code style={{ fontFamily: 'var(--font-code)', fontWeight: '700', fontSize: '11px', background: '#F1F5F9', padding: '2px 6px', borderRadius: '3px' }}>
+                      <code style={{ fontFamily: 'var(--font-code)', fontWeight: '700', fontSize: '11px', background: 'var(--bg-main)', padding: '2px 6px', borderRadius: '3px' }}>
                         {keyVal}
                       </code>
                     </td>
@@ -106,8 +106,5 @@ function AdminApiView({ t, usersList = [], session, copyToClipboard, showToast, 
   );
 }
 
-if (typeof window !== 'undefined') {
-  window.AdminApiView = AdminApiView;
-}
 
 export default AdminApiView;

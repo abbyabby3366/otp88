@@ -9,14 +9,12 @@ function UsersView({
   handleCreateUser,
   handleUpdateUser,
   handleDeleteUser,
-  copyToClipboard,
-  newUserName,
-  setNewUserName,
-  newUserEmail,
-  setNewUserEmail,
-  newUserBalance,
-  setNewUserBalance
+  copyToClipboard
 }) {
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserBalance, setNewUserBalance] = useState('0');
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -78,17 +76,18 @@ function UsersView({
     backdropMouseDownRef.current = false;
   };
 
-  const handleDeleteClick = async () => {
+  const handleDeleteClick = () => {
     if (!editingUser || !handleDeleteUser) return;
-    const confirmMsg = t.deleteUserConfirm || `Are you sure you want to delete user "${editingUser.name || editingUser.email}"? This action cannot be undone.`;
-    if (window.confirm(confirmMsg)) {
-      setDeleting(true);
-      const success = await handleDeleteUser(editingUser._id);
-      setDeleting(false);
-      if (success) {
-        setEditingUser(null);
-      }
-    }
+    setConfirmingDelete(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!editingUser) return;
+    setDeleting(true);
+    const success = await handleDeleteUser(editingUser._id);
+    setDeleting(false);
+    setConfirmingDelete(false);
+    if (success) setEditingUser(null);
   };
 
   const handleSubmitEdit = async (e) => {
@@ -121,7 +120,7 @@ function UsersView({
           <h2 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', letterSpacing: '-0.2px' }}>
             {t.usersTitle || 'USERS DIRECTORY'}
           </h2>
-          <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-muted)', background: '#F1F5F9', border: '1px solid var(--border-subtle)', padding: '2px 8px', borderRadius: '12px' }}>
+          <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-muted)', background: 'var(--bg-main)', border: '1px solid var(--border-subtle)', padding: '2px 8px', borderRadius: '12px' }}>
             {(t.totalUsers || 'Total Users')}: {usersList.length}
           </span>
         </div>
@@ -191,7 +190,7 @@ function UsersView({
                         style={{
                           fontSize: '11px',
                           color: 'var(--text-primary)',
-                          background: '#F8FAFC',
+                          background: 'var(--bg-ribbon)',
                           border: '1px solid var(--border-subtle)',
                           padding: '2px 6px',
                           borderRadius: '3px',
@@ -218,7 +217,7 @@ function UsersView({
                     <div style={{ display: 'flex', gap: '4px' }}>
                       <button
                         className="sheets-btn"
-                        style={{ padding: '2px 6px', fontSize: '10px', background: '#F1F5F9' }}
+                        style={{ padding: '2px 6px', fontSize: '10px', background: 'var(--bg-main)' }}
                         onClick={() => handleOpenEdit(usr)}
                         title="Edit User"
                       >
@@ -413,6 +412,32 @@ function UsersView({
         </div>
       )}
 
+      {/* Delete confirmation */}
+      {confirmingDelete && editingUser && (
+        <div className="sheets-modal-backdrop" style={{ zIndex: 1100 }} onMouseDown={(e) => { if (e.target === e.currentTarget && !deleting) setConfirmingDelete(false); }}>
+          <div className="sheets-modal-dialog sheets-confirm-dialog" role="alertdialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="sheets-modal-header">
+              <span style={{ fontWeight: '800', fontSize: '13px', color: '#DC2626' }}>{t.deleteUser || 'Delete user'}</span>
+            </div>
+            <div className="sheets-modal-body">
+              <p>
+                {t.deleteUserConfirmNamed
+                  ? t.deleteUserConfirmNamed.replace('{name}', editingUser.name || editingUser.email)
+                  : <>Delete <strong>{editingUser.name || editingUser.email}</strong>? Their API key stops working immediately and this cannot be undone.</>}
+              </p>
+            </div>
+            <div className="sheets-modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button type="button" className="sheets-btn" onClick={() => setConfirmingDelete(false)} disabled={deleting} autoFocus>
+                {t.cancel || 'Cancel'}
+              </button>
+              <button type="button" className="sheets-btn sheets-btn-danger" onClick={handleConfirmDelete} disabled={deleting}>
+                {deleting ? (t.deleting || 'Deleting...') : (t.deleteUser || 'Delete user')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add User Modal Dialog */}
       {showAddModal && (
         <div
@@ -457,12 +482,14 @@ function UsersView({
                 name: newUserName.trim() || newUserEmail.split('@')[0],
                 email: newUserEmail.trim(),
                 role: 'USER',
-                balanceUsd: parseFloat(newUserBalance) || 100.00,
+                balanceUsd: parseFloat(newUserBalance) || 0,
                 remark: newRemark.trim()
               };
-              const success = await handleCreateUser(e, customPayload);
+              const success = await handleCreateUser(customPayload);
               setCreating(false);
-              if (success !== false) {
+              if (success) {
+                setNewUserName('');
+                setNewUserEmail('');
                 setNewRemark('');
                 setShowAddModal(false);
               }
@@ -550,8 +577,5 @@ function UsersView({
   );
 }
 
-if (typeof window !== 'undefined') {
-  window.UsersView = UsersView;
-}
 
 export default UsersView;

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OTP88 | Next-Gen Multi-Channel OTP & Authentication CPaaS</title>
-  <meta name="description" content="OTP88 provides ultra-reliable, transparent, multi-channel OTP verification across WhatsApp, Telegram, SMS Fallback, and Voice. Save up to 70% with intelligent waterfall routing.">
+  <meta name="description" content="OTP88 sends one-time passcodes over WhatsApp, SMS and Email through one API, with delivery webhooks and transparent per-message pricing.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -56,7 +56,7 @@
       <div class="header-actions">
         <div class="status-badge" id="header-status">
           <span class="live-dot"></span>
-          <span id="live-uptime-val">99.98% Operational</span>
+          <span id="live-uptime-val">All channels operational</span>
         </div>
         <a href="/login.html" class="btn btn-secondary btn-sm" id="btn-header-login">Log In</a>
         <a href="#" class="btn btn-primary btn-sm" data-open-modal="contact" id="btn-header-cta">Start Free</a>
@@ -87,8 +87,8 @@
               That Never Fails.
             </h1>
             <p class="hero-desc">
-              Deliver verification codes instantly via <strong>WhatsApp, Telegram, Direct SMS, and Voice</strong>. 
-              Our smart waterfall routing cuts OTP costs by up to <strong>70%</strong> while boosting deliverability to <strong>99.98%</strong> with zero hidden fees.
+              Deliver verification codes via <strong>WhatsApp, SMS and Email</strong> from one REST endpoint.
+              Pay per message from a prepaid balance, get delivery updates on your webhook, and only pay for messages the provider accepts.
             </p>
 
             <div class="hero-cta-group">
@@ -97,27 +97,27 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
               </a>
               <a href="/docs.html" class="btn btn-secondary btn-lg" id="hero-btn-docs">
-                <span>Explore API & SDKs</span>
+                <span>Read the API Reference</span>
               </a>
             </div>
 
             <!-- Trust Stats -->
             <div class="hero-trust-row">
               <div class="trust-item">
-                <span class="trust-value text-gradient">1.4s</span>
-                <span class="trust-label">Avg Delivery Speed</span>
+                <span class="trust-value text-gradient">3</span>
+                <span class="trust-label">Channels, one API</span>
               </div>
               <div class="trust-item">
-                <span class="trust-value text-gradient">99.98%</span>
-                <span class="trust-label">Global Delivery Rate</span>
+                <span class="trust-value text-gradient">$0.0020</span>
+                <span class="trust-label">Email OTP / message</span>
               </div>
               <div class="trust-item">
-                <span class="trust-value text-gradient">$0.0035</span>
-                <span class="trust-label">Starting Price / OTP</span>
+                <span class="trust-value text-gradient">$0.0075</span>
+                <span class="trust-label">WhatsApp OTP / message</span>
               </div>
               <div class="trust-item">
-                <span class="trust-value text-gradient">190+</span>
-                <span class="trust-label">Countries Connected</span>
+                <span class="trust-value text-gradient">$0</span>
+                <span class="trust-label">Charged on failed delivery</span>
               </div>
             </div>
           </div>
@@ -207,20 +207,20 @@
               <!-- Simulator Controls Card -->
               <div class="sim-controls-card">
                 <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;">
-                  <span>Interactive Simulator</span>
-                  <span id="sim-status-log" style="font-size:11px;color:var(--text-muted);">Ready to test</span>
+                  <span>Interactive demo</span>
+                  <span id="sim-status-log" style="font-size:11px;color:var(--text-muted);">No message is sent</span>
                 </div>
                 <input type="text" id="sim-phone-input" value="+60123456789" class="calc-select" style="padding:8px 12px;font-size:14px;margin-bottom:8px;" placeholder="+60123456789">
                 
                 <div class="sim-btn-group">
                   <button class="btn btn-primary btn-sm" data-sim-channel="whatsapp">WhatsApp</button>
-                  <button class="btn btn-secondary btn-sm" data-sim-channel="telegram">Telegram</button>
                   <button class="btn btn-secondary btn-sm" data-sim-channel="sms">SMS</button>
+                  <button class="btn btn-secondary btn-sm" data-sim-channel="email">Email</button>
                 </div>
                 
                 <button class="btn btn-primary btn-sm" id="sim-trigger-btn" style="width:100%;margin-top:10px;">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                  <span>Send Test OTP</span>
+                  <span>Run demo</span>
                 </button>
               </div>
             </div>
@@ -235,13 +235,13 @@
       <div class="container">
         <div class="section-header">
           <span class="badge-pill badge-cyan">Omnichannel Power</span>
-          <h2 class="section-title">Four Channels. One Unified API.</h2>
+          <h2 class="section-title">Three Channels. One Endpoint.</h2>
           <p class="section-desc">
-            Why rely only on expensive single-channel SMS? OTP88 intelligently dispatches verification codes across multiple low-cost, ultra-reliable delivery vectors.
+            Pick the channel per request. The request body, the response and the webhook events are the same for all three.
           </p>
         </div>
 
-        <div class="cards-grid-4">
+        <div class="cards-grid-3">
           <!-- WhatsApp -->
           <div class="glass-card">
             <div class="card-icon" style="color: #25D366; background: rgba(37, 211, 102, 0.12); border-color: rgba(37, 211, 102, 0.25);">
@@ -249,115 +249,86 @@
             </div>
             <h3 class="card-title">WhatsApp OTP</h3>
             <p class="card-desc">
-              High open rates and instant delivery via official Meta Cloud API. Save up to 70% compared to traditional SMS.
+              Codes arrive inside WhatsApp using an approved OTP template, with delivery and read receipts posted to your webhook.
             </p>
             <div class="card-meta-row">
               <span style="color:var(--text-emerald);font-weight:600;">From $0.0075</span>
-              <span class="card-tag-pill">Meta Official</span>
+              <span class="card-tag-pill">Global</span>
             </div>
           </div>
 
-          <!-- Telegram -->
-          <div class="glass-card card-cyan">
-            <div class="card-icon icon-cyan">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M21.68 3.658C21.328 3.376 20.85 3.332 20.45 3.518L2.45 10.984C1.944 11.194 1.636 11.71 1.698 12.254C1.76 12.798 2.176 13.228 2.72 13.31L7.544 14.038L9.508 19.79C9.696 20.34 10.224 20.696 10.804 20.664C11.384 20.632 11.874 20.218 12.008 19.65L13.796 16.148L17.784 19.346C18.118 19.614 18.558 19.71 18.974 19.608C19.39 19.506 19.73 19.218 19.894 18.828L22.28 4.992C22.418 4.516 22.032 3.94 21.68 3.658ZM17.654 7.158L8.798 14.596L8.318 13.186L17.654 7.158Z"/></svg>
-            </div>
-            <h3 class="card-title">Telegram Gateway</h3>
-            <p class="card-desc">
-              Zero carrier roaming charges. Super-fast sub-second code delivery with end-to-end cryptographic verification.
-            </p>
-            <div class="card-meta-row">
-              <span style="color:var(--text-cyan);font-weight:600;">From $0.0035</span>
-              <span class="card-tag-pill">&lt;1s Latency</span>
-            </div>
-          </div>
-
-          <!-- Direct SMS -->
+          <!-- SMS -->
           <div class="glass-card">
             <div class="card-icon">
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><line x1="9" y1="10" x2="15" y2="10"></line><line x1="12" y1="7" x2="12" y2="13"></line></svg>
             </div>
-            <h3 class="card-title">Direct Telco SMS</h3>
+            <h3 class="card-title">SMS OTP</h3>
             <p class="card-desc">
-              Tier-1 direct SS7/SMPP interconnects with Celcom, Digi, Maxis, Singtel, and 800+ global network operators.
+              Direct telco routes to Malaysian operators (Celcom, Digi, Maxis, U Mobile) with your brand name in the message and carrier delivery receipts.
             </p>
             <div class="card-meta-row">
-              <span style="color:var(--text-emerald);font-weight:600;">From $0.0210</span>
-              <span class="card-tag-pill">Direct SS7</span>
+              <span style="color:var(--text-emerald);font-weight:600;">$0.0210</span>
+              <span class="card-tag-pill">Malaysia</span>
             </div>
           </div>
 
-          <!-- Voice OTP -->
-          <div class="glass-card card-purple">
-            <div class="card-icon icon-purple">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path><path d="M14.05 2a9 9 0 0 1 8 7.94"></path><path d="M14.05 6A5 5 0 0 1 18 10"></path></svg>
+          <!-- Email -->
+          <div class="glass-card card-cyan">
+            <div class="card-icon icon-cyan">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><polyline points="3 7 12 13 21 7"></polyline></svg>
             </div>
-            <h3 class="card-title">Voice OTP Call</h3>
+            <h3 class="card-title">Email OTP</h3>
             <p class="card-desc">
-              Automated high-definition voice call fallback. Perfect for landlines, accessibility compliance, and urgent auth.
+              Branded verification emails sent from your own handle on the platform domain, such as <code>myapp@otp88.top</code>, with no DNS setup.
             </p>
             <div class="card-meta-row">
-              <span style="color:#C084FC;font-weight:600;">From $0.0240</span>
-              <span class="card-tag-pill">HD Audio</span>
+              <span style="color:var(--text-cyan);font-weight:600;">$0.0020</span>
+              <span class="card-tag-pill">Global</span>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Smart Waterfall Routing Section -->
+    <!-- Fallback with webhooks -->
     <section class="section" id="waterfall" style="background: rgba(11, 17, 32, 0.4);">
       <div class="container">
         <div class="waterfall-box">
           <div style="text-align:center;max-width:640px;margin:0 auto 20px auto;">
-            <span class="badge-pill badge-purple">Proprietary Routing Engine</span>
-            <h2 class="section-title" style="margin-top:12px;">Intelligent Waterfall Failover</h2>
+            <span class="badge-pill badge-purple">Delivery webhooks</span>
+            <h2 class="section-title" style="margin-top:12px;">Fall back to another channel when delivery fails</h2>
             <p class="section-desc">
-              Never lose a user due to telco congestion or roaming failure. If the primary channel doesn't deliver within 8 seconds, OTP88 automatically steps down to the next route.
+              Every send and every carrier receipt is posted to your webhook. When a message comes back <code>FAILED</code> or <code>EXPIRED</code>, resend the same code over the next channel with one more API call.
             </p>
           </div>
 
           <div class="waterfall-flow">
             <div class="flow-step active">
               <div class="flow-step-num">1</div>
-              <div class="flow-step-title">WhatsApp Priority</div>
-              <p style="font-size:13px;color:var(--text-secondary);">Delivers in 0.8s</p>
-              <div class="flow-step-meta">Cost: $0.0075</div>
+              <div class="flow-step-title">Send via WhatsApp</div>
+              <p style="font-size:13px;color:var(--text-secondary);">otp.sent, then otp.delivered</p>
+              <div class="flow-step-meta">$0.0075</div>
             </div>
 
-            <div class="flow-arrow">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-            </div>
+            <div class="flow-arrow"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></div>
 
             <div class="flow-step">
               <div class="flow-step-num">2</div>
-              <div class="flow-step-title">Telegram Fallback</div>
-              <p style="font-size:13px;color:var(--text-secondary);">If WhatsApp inactive</p>
-              <div class="flow-step-meta" style="color:var(--text-cyan);">Cost: $0.0035</div>
+              <div class="flow-step-title">On otp.failed, send via SMS</div>
+              <p style="font-size:13px;color:var(--text-secondary);">Same code, same remark</p>
+              <div class="flow-step-meta">$0.0210</div>
             </div>
 
-            <div class="flow-arrow">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-            </div>
+            <div class="flow-arrow"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></div>
 
             <div class="flow-step">
               <div class="flow-step-num">3</div>
-              <div class="flow-step-title">Direct Telco SMS</div>
-              <p style="font-size:13px;color:var(--text-secondary);">Guaranteed delivery</p>
-              <div class="flow-step-meta">Cost: $0.0210</div>
-            </div>
-
-            <div class="flow-arrow">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-            </div>
-
-            <div class="flow-step">
-              <div class="flow-step-num">4</div>
-              <div class="flow-step-title">Voice OTP Call</div>
-              <p style="font-size:13px;color:var(--text-secondary);">Final voice attempt</p>
-              <div class="flow-step-meta" style="color:#C084FC;">Cost: $0.0240</div>
+              <div class="flow-step-title">Or offer Email</div>
+              <p style="font-size:13px;color:var(--text-secondary);">For users without a working phone</p>
+              <div class="flow-step-meta" style="color:var(--text-cyan);">$0.0020</div>
             </div>
           </div>
+          <p style="text-align:center;font-size:13px;color:var(--text-muted);margin-top:16px;">Failed sends are refunded automatically, so a fallback never costs you twice.</p>
         </div>
       </div>
     </section>
@@ -369,14 +340,14 @@
           <div>
             <span class="badge-pill" style="background:rgba(244,63,94,0.1);border-color:rgba(244,63,94,0.3);color:#FB7185;">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-              Anti-Toll-Fraud Shield
+              Cost control
             </span>
             <h2 class="section-title" style="margin-top:16px;">
-              Stop Artificial Traffic Pumping (AIT) & Bot Scams
+              Predictable spend, no surprise bills
             </h2>
             <p class="section-desc" style="margin-top:14px;">
-              Traditional SMS APIs charge you for fraudulent bot requests and premium-rate SMS pumping attacks. 
-              OTP88 embeds real-time Phone Intelligence and Risk Scoring into every single dispatch.
+              Every send is authenticated with your API key, rate limited per key, and paid from a prepaid balance,
+              so a runaway client or a bot loop cannot generate an unbounded bill.
             </p>
 
             <div style="display:flex;flex-direction:column;gap:16px;margin-top:24px;">
@@ -385,8 +356,8 @@
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
                 <div>
-                  <strong>AIT Traffic Pumping Detection</strong>
-                  <p style="font-size:14px;color:var(--text-secondary);">Automatically blocks bot-generated loops targeting high-rate international destinations.</p>
+                  <strong>Per-key rate limits</strong>
+                  <p style="font-size:14px;color:var(--text-secondary);">120 sends per minute per API key. Excess requests get HTTP 429 with a Retry-After header instead of being billed.</p>
                 </div>
               </div>
 
@@ -395,8 +366,8 @@
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
                 <div>
-                  <strong>Virtual Number & VoIP Filtering</strong>
-                  <p style="font-size:14px;color:var(--text-secondary);">Identifies burner numbers, SIM farms, and disposable temporary SMS web services before sending.</p>
+                  <strong>Prepaid balance</strong>
+                  <p style="font-size:14px;color:var(--text-secondary);">Sends stop when the balance runs out, and provider rejections are refunded automatically.</p>
                 </div>
               </div>
 
@@ -405,8 +376,8 @@
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
                 <div>
-                  <strong>Adaptive IP & Geo-Fencing</strong>
-                  <p style="font-size:14px;color:var(--text-secondary);">Cross-checks device IP geolocations against SIM country codes to prevent spoofing.</p>
+                  <strong>Full audit trail</strong>
+                  <p style="font-size:14px;color:var(--text-secondary);">Every OTP, refund and webhook attempt is logged in the console with the reference you pass in <code>remark</code>.</p>
                 </div>
               </div>
             </div>
@@ -434,7 +405,7 @@
                   var c = document.getElementById('api-sample-code');
                   var origin = (window.location && window.location.origin) ? window.location.origin : '';
                   if (c) {
-                    c.innerText = 'curl -X POST ' + (origin ? (origin + '/v1/otp/send') : '/v1/otp/send') + ' \\\n  -H "Authorization: Bearer otp88_api_99882200aabbcc" \\\n  -H "Content-Type: application/json" \\\n  -d \'{\\n    "to": "+60123456789",\\n    "channel_strategy": "waterfall",\\n    "channels": ["whatsapp", "telegram", "sms"],\\n    "sender_name": "Alibaba",\\n    "otp": "882910"\\n  }\'';
+                    c.innerText = 'curl -X POST ' + (origin ? (origin + '/v1/otp/send') : '/v1/otp/send') + ' \\\n  -H "Authorization: Bearer otp88_api_YOUR_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d \'{\\n    "to": "+60123456789",\\n    "channel": "whatsapp",\\n    "otp": "882910",\\n    "remark": "login-4028"\\n  }\'';
                   }
                 })();
               </script>
@@ -472,7 +443,7 @@
               </tr>
               <tr>
                 <td><strong>Channel Waterfall</strong></td>
-                <td class="highlight-col" style="color:var(--text-emerald);">WhatsApp → Telegram → SMS → Voice</td>
+                <td class="highlight-col" style="color:var(--text-emerald);">WhatsApp, SMS and Email</td>
                 <td style="color:#F43F5E;">SMS Only (Fails during network load)</td>
                 <td style="color:#F43F5E;">Manual fallback logic required</td>
               </tr>
@@ -533,7 +504,7 @@
             <span>OTP<span class="text-gradient">88</span></span>
           </div>
           <p style="font-size:14px;color:var(--text-secondary);line-height:1.6;margin-bottom:20px;">
-            The clear, transparent, and ultra-reliable Multi-Channel OTP platform. Empowering developers and enterprises with WhatsApp, Telegram, Direct SMS, and Voice verification worldwide.
+            The developer-first OTP platform. One REST endpoint for WhatsApp, SMS and Email, delivery webhooks, and transparent per-message pricing.
           </p>
           <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-emerald);">
             <span class="live-dot"></span>
@@ -545,10 +516,9 @@
           <h4 class="footer-col-title">Products</h4>
           <ul class="footer-links">
             <li><a href="/products.html#whatsapp">WhatsApp OTP</a></li>
-            <li><a href="/products.html#telegram">Telegram Gateway</a></li>
-            <li><a href="/products.html#sms">Direct SMS Verify</a></li>
-            <li><a href="/products.html#voice">Voice OTP Calls</a></li>
-            <li><a href="/products.html#waterfall">Smart Waterfall Engine</a></li>
+            <li><a href="/products.html#sms">SMS OTP</a></li>
+            <li><a href="/products.html#email">Email OTP</a></li>
+            <li><a href="/docs.html#webhooks">Delivery Webhooks</a></li>
           </ul>
         </div>
 
@@ -556,7 +526,7 @@
           <h4 class="footer-col-title">Resources & Docs</h4>
           <ul class="footer-links">
             <li><a href="/docs.html">API Reference</a></li>
-            <li><a href="/docs.html#sdks">SDKs & Libraries</a></li>
+            <li><a href="/docs.html#email-otp">Email OTP Guide</a></li>
             <li><a href="/pricing.html">Global Rate Table</a></li>
             <li><a href="/pricing.html#calculator">ROI Cost Calculator</a></li>
             <li><a href="/about.html#security">Security & Compliance</a></li>
@@ -568,7 +538,7 @@
           <ul class="footer-links">
             <li><a href="/about.html">About OTP88</a></li>
             <li><a href="/about.html#carriers">Carrier Network Map</a></li>
-            <li><a href="/about.html#sla">99.98% SLA Policy</a></li>
+            <li><a href="/about.html#sla">Service Levels</a></li>
             <li><a href="#" data-open-modal="contact">Contact Sales</a></li>
             <li><a href="#" data-open-modal="contact">Developer Support (24/7)</a></li>
           </ul>
@@ -580,7 +550,7 @@
         <div style="display:flex;gap:20px;">
           <a href="/about.html#privacy">Privacy Policy</a>
           <a href="/about.html#terms">Terms of Service</a>
-          <a href="/about.html#security">ISO 27001 Certified</a>
+          <a href="/about.html#security">Security</a>
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TableLoader } from './TableLoader.jsx';
 import { TopupModal } from './TopupModal.jsx';
 import { PaginationBar } from './PaginationBar.jsx';
+import { apiFetch } from './api.js';
 
 // User Billing & Transaction Ledger View
 function BillingView({ t = {}, session, setSession, jwtToken, showToast, ratesList = [] }) {
@@ -28,24 +29,24 @@ function BillingView({ t = {}, session, setSession, jwtToken, showToast, ratesLi
     setLoading(true);
     
     // Fetch Invoices
-    fetch('/api/billing/invoices', {
+    apiFetch('/api/billing/invoices', {
       headers: { 'Authorization': `Bearer ${jwtToken}` }
     })
       .then(res => res.json())
       .then(data => {
         if (data.success && data.invoices) setInvoices(data.invoices);
       })
-      .catch(() => {});
+      .catch(() => { /* keep the previous data; the status bar shows connectivity */ });
 
     // Fetch Transactions Ledger
-    fetch('/api/billing/transactions', {
+    apiFetch('/api/billing/transactions', {
       headers: { 'Authorization': `Bearer ${jwtToken}` }
     })
       .then(res => res.json())
       .then(data => {
         if (data.success && data.transactions) setTransactions(data.transactions);
       })
-      .catch(() => {})
+      .catch(() => { /* keep the previous data; the status bar shows connectivity */ })
       .finally(() => setLoading(false));
   };
 
@@ -56,7 +57,7 @@ function BillingView({ t = {}, session, setSession, jwtToken, showToast, ratesLi
   const handleSimulateTopup = async (method) => {
     if (!jwtToken) return;
     try {
-      const res = await fetch('/api/billing/topup', {
+      const res = await apiFetch('/api/billing/topup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -192,8 +193,8 @@ function BillingView({ t = {}, session, setSession, jwtToken, showToast, ratesLi
 
       {/* VIEW 1: TRANSACTION & USAGE LEDGER */}
       {activeSubTab === 'transactions' && (
-        <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden', background: '#FFFFFF' }}>
-          <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+          <div style={{ background: 'var(--bg-ribbon)', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
               <button
                 className={`sheets-btn ${txFilter === 'ALL' ? 'sheets-btn-primary' : ''}`}
@@ -323,8 +324,8 @@ function BillingView({ t = {}, session, setSession, jwtToken, showToast, ratesLi
 
       {/* VIEW 2: INVOICES HISTORY */}
       {activeSubTab === 'invoices' && (
-        <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden', background: '#FFFFFF' }}>
-          <div style={{ background: '#F8FAFC', padding: '8px 12px', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+          <div style={{ background: 'var(--bg-ribbon)', padding: '8px 12px', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <span>{t.invoicesHistory || 'INVOICES & TOP-UP RECEIPTS'} ({invoices.length})</span>
             <input
               type="text"
@@ -389,8 +390,5 @@ function BillingView({ t = {}, session, setSession, jwtToken, showToast, ratesLi
   );
 }
 
-if (typeof window !== 'undefined') {
-  window.BillingView = BillingView;
-}
 
 export default BillingView;

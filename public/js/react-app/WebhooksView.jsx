@@ -1,114 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-
-// Format date-time helper (YYYY-MM-DD HH:mm:ss)
-function formatDateTime(val) {
-  if (!val) return '-';
-  const d = new Date(val);
-  if (isNaN(d.getTime())) return String(val);
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
-
-const EVENT_CONFIGS = {
-  'otp.delivered': { status: 'DELIVERED', errorCode: '0', latency: '0.8s' },
-  'otp.read': { status: 'READ', errorCode: '0', latency: '1.4s' },
-  'otp.undelivered': { status: 'UNDELIVERED', errorCode: '20', latency: '30.0s', errorDescription: 'Subscriber handset is unreachable, offline, or out of cellular network coverage.' },
-  'otp.failed': { status: 'FAILED', errorCode: '1', latency: '0.4s', errorDescription: 'Network rejection: destination mobile number is invalid, barred, or unreachable.' },
-  'otp.expired': { status: 'EXPIRED', errorCode: '23', latency: '300.0s', errorDescription: 'OTP code validity period exceeded before recipient acknowledgment.' },
-  'otp.sent': { status: 'SENT', errorCode: '0', latency: '0.2s' }
-};
-
-// Generate sample webhook payload object across all status events
-function getWebhookSamplePayload({ channel = 'whatsapp', event = 'otp.delivered' }) {
-  const costMap = { sms: '0.0210', telegram: '0.0035', whatsapp: '0.0500' };
-  const cfg = EVENT_CONFIGS[event] || EVENT_CONFIGS['otp.delivered'];
-
-  return {
-    event,
-    msgId: 'msg_live_8820a9bc4',
-    channel,
-    phoneNumber: '+60123456789',
-    status: cfg.status,
-    errorCode: cfg.errorCode,
-    remark: 'Login verification #1024',
-    errorDescription: cfg.errorDescription,
-    cost: costMap[channel] || '0.0500',
-    currency: 'USD',
-    latency: cfg.latency,
-    timestamp: new Date().toISOString()
-  };
-}
-
-// Webhook listener code snippet generator
-function getWebhookReceiverSnippet(lang = 'node') {
-  if (lang === 'node') {
-    return `// Node.js (Express) Webhook Listener
-const express = require('express');
-const app = express();
-app.use(express.json());
-
-app.post('/api/webhooks/otp88', (req, res) => {
-  const { event, msgId, channel, phoneNumber, status, errorCode, remark, cost } = req.body;
-  
-  console.log(\`Received [\${event}] for \${channel} to \${phoneNumber}: Status = \${status} (Remark: \${remark || 'N/A'})\`);
-
-  if (status === 'DELIVERED') {
-    // Handset received OTP successfully
-  } else if (status === 'READ') {
-    // Handset opened & read message (WhatsApp Blue Tick)
-  } else if (status === 'UNDELIVERED' || status === 'FAILED' || status === 'EXPIRED') {
-    // Delivery failed -> trigger multi-channel waterfall fallback
-  }
-
-  // Acknowledge receipt with HTTP 200 OK immediately
-  res.status(200).json({ received: true });
-});
-
-app.listen(3000, () => console.log('Webhook server listening on port 3000'));`;
-  }
-
-  if (lang === 'python') {
-    return `# Python (FastAPI) Webhook Listener
-from fastapi import FastAPI, Request
-
-app = FastAPI()
-
-@app.post("/api/webhooks/otp88")
-async def handle_otp88_webhook(request: Request):
-    payload = await request.json()
-    event = payload.get("event")
-    channel = payload.get("channel")
-    status = payload.get("status")
-    remark = payload.get("remark")
-    
-    print(f"Received [{event}] on {channel}: status={status}, remark={remark}")
-    
-    # Return 200 OK
-    return {"received": True}`;
-  }
-
-  if (lang === 'php') {
-    return `<?php
-// PHP Webhook Listener
-$rawBody = file_get_contents('php://input');
-$event = json_decode($rawBody, true);
-
-if ($event) {
-    $channel = $event['channel'] ?? 'unknown';
-    $status = $event['status'] ?? 'unknown';
-    $remark = $event['remark'] ?? '';
-    error_log("OTP88 Webhook: channel={$channel}, status={$status}, remark={$remark}");
-}
-
-// Acknowledge receipt with HTTP 200
-http_response_code(200);
-header('Content-Type: application/json');
-echo json_encode(['received' => true]);
-?>`;
-  }
-
-  return '';
-}
+import { apiFetch } from './api.js';
+import { formatDateTime } from './utils/format.js';
+import { getWebhookSamplePayload, getWebhookReceiverSnippet } from './apiSnippets.js';
 
 // Dedicated Webhooks View Component
 function WebhooksView({ t, session, setSession, jwtToken, copyToClipboard, showToast, setActiveTab, onNavigateToLogs }) {
@@ -130,7 +23,7 @@ function WebhooksView({ t, session, setSession, jwtToken, copyToClipboard, showT
     if (!jwtToken) return;
     setLoadingWebhookLogs(true);
     try {
-      const res = await fetch('/api/user/webhook/logs', {
+      const res = await apiFetch('/api/user/webhook/logs', {
         headers: { 'Authorization': `Bearer ${jwtToken}` }
       });
       const data = await res.json();
@@ -159,35 +52,29 @@ function WebhooksView({ t, session, setSession, jwtToken, copyToClipboard, showT
   const availableEvents = useMemo(() => {
     if (webhookSampleChannel === 'whatsapp') {
       return [
-        { id: 'otp.delivered', label: 'otp.delivered (Delivered - Handset ACK)' },
-        { id: 'otp.read', label: 'otp.read (Read - Blue Tick)' },
-        { id: 'otp.undelivered', label: 'otp.undelivered (Offline / Unreachable)' },
-        { id: 'otp.failed', label: 'otp.failed (Network Reject)' },
-        { id: 'otp.expired', label: 'otp.expired (Timeout Exceeded)' },
-        { id: 'otp.sent', label: 'otp.sent (Dispatched)' }
+        { id: 'otp.sent', label: 'otp.sent (accepted by WhatsApp)' },
+        { id: 'otp.delivered', label: 'otp.delivered (handset confirmed)' },
+        { id: 'otp.read', label: 'otp.read (opened by the recipient)' },
+        { id: 'otp.failed', label: 'otp.failed (rejected / unreachable)' },
+        { id: 'otp.expired', label: 'otp.expired (expired before delivery)' }
       ];
     }
     if (webhookSampleChannel === 'sms') {
       return [
-        { id: 'otp.delivered', label: 'otp.delivered (Delivered - Telco ACK)' },
-        { id: 'otp.undelivered', label: 'otp.undelivered (No Cellular Coverage)' },
-        { id: 'otp.failed', label: 'otp.failed (Invalid Number / Barred)' },
-        { id: 'otp.expired', label: 'otp.expired (Expired in SMSC Queue)' },
-        { id: 'otp.sent', label: 'otp.sent (Enroute / Dispatched)' }
+        { id: 'otp.sent', label: 'otp.sent (accepted by the carrier)' },
+        { id: 'otp.delivered', label: 'otp.delivered (handset confirmed)' },
+        { id: 'otp.failed', label: 'otp.failed (rejected / invalid number)' },
+        { id: 'otp.expired', label: 'otp.expired (expired before delivery)' }
       ];
     }
     return [
-      { id: 'otp.delivered', label: 'otp.delivered (Delivered)' },
-      { id: 'otp.read', label: 'otp.read (Read in Chat)' },
-      { id: 'otp.failed', label: 'otp.failed (Bot Blocked / Invalid User)' },
-      { id: 'otp.expired', label: 'otp.expired (Verification Timeout)' },
-      { id: 'otp.sent', label: 'otp.sent (Sent)' }
+      { id: 'otp.sent', label: 'otp.sent (accepted by the email provider)' }
     ];
   }, [webhookSampleChannel]);
 
   useEffect(() => {
     if (!availableEvents.some(ev => ev.id === webhookSampleEvent)) {
-      setWebhookSampleEvent('otp.delivered');
+      setWebhookSampleEvent(availableEvents[0]?.id || 'otp.sent');
     }
   }, [availableEvents, webhookSampleEvent]);
 
@@ -213,7 +100,7 @@ function WebhooksView({ t, session, setSession, jwtToken, copyToClipboard, showT
 
     setIsSavingWebhook(true);
     try {
-      const res = await fetch('/api/user/webhook', {
+      const res = await apiFetch('/api/user/webhook', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -251,7 +138,7 @@ function WebhooksView({ t, session, setSession, jwtToken, copyToClipboard, showT
 
     setIsTestingWebhook(true);
     try {
-      const res = await fetch('/api/user/webhook/test', {
+      const res = await apiFetch('/api/user/webhook/test', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -280,7 +167,7 @@ function WebhooksView({ t, session, setSession, jwtToken, copyToClipboard, showT
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
       {/* 1. Webhook URL Configuration Card */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '14px', background: '#FFFFFF' }}>
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '14px', background: 'var(--bg-card)' }}>
         <div style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '4px' }}>
           <span>Webhook URL Endpoint</span>
         </div>
@@ -318,7 +205,7 @@ function WebhooksView({ t, session, setSession, jwtToken, copyToClipboard, showT
       </div>
 
       {/* 2. Webhook Delivery Logs Navigation Action Card */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '12px 14px', background: '#FFFFFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '12px 14px', background: 'var(--bg-card)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <div>
           <div style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
             <span>Webhook Delivery History & Retry Telemetry</span>
@@ -351,11 +238,11 @@ function WebhooksView({ t, session, setSession, jwtToken, copyToClipboard, showT
       </div>
 
       {/* 3. Sample Webhook Payload & Event Schema Card (Collapsible) */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
         <div
           onClick={() => setIsWebhookSampleOpen(!isWebhookSampleOpen)}
           style={{
-            background: '#F8FAFC',
+            background: 'var(--bg-ribbon)',
             padding: '10px 14px',
             borderBottom: isWebhookSampleOpen ? '1px solid var(--border-subtle)' : 'none',
             display: 'flex',
@@ -382,7 +269,7 @@ function WebhooksView({ t, session, setSession, jwtToken, copyToClipboard, showT
         {isWebhookSampleOpen && (
           <>
             {/* Filters / Control Bar for Sample Payload & Receiver */}
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', background: '#F8FAFC', alignItems: 'center' }}>
+            <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', background: 'var(--bg-ribbon)', alignItems: 'center' }}>
               {/* Channel Selector */}
               <div>
                 <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '5px' }}>
@@ -570,8 +457,5 @@ function WebhooksView({ t, session, setSession, jwtToken, copyToClipboard, showT
   );
 }
 
-if (typeof window !== 'undefined') {
-  window.WebhooksView = WebhooksView;
-}
 
 export default WebhooksView;

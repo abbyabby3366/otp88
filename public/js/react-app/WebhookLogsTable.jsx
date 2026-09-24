@@ -1,20 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { TableLoader } from './TableLoader.jsx';
-
-// Format date-time helper (YYYY-MM-DD HH:mm:ss)
-function formatDateTime(val) {
-  if (!val) return '-';
-  if (typeof val === 'string') {
-    const trimmed = val.trim();
-    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(:\d{2})?$/.test(trimmed)) {
-      return trimmed;
-    }
-  }
-  const d = new Date(val);
-  if (isNaN(d.getTime())) return String(val);
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
+import { formatDateTime } from './utils/format.js';
 
 export function WebhookLogsTable({
   logs = [],
@@ -172,7 +158,7 @@ export function WebhookLogsTable({
       </div>
 
       {/* Compact Pagination Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', padding: '6px 12px', borderTop: '1px solid var(--border-subtle)', fontSize: '11px', flexWrap: 'wrap', gap: '8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-ribbon)', padding: '6px 12px', borderTop: '1px solid var(--border-subtle)', fontSize: '11px', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
           Showing {logs.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} to {Math.min(currentPage * pageSize, logs.length)} of {logs.length} entries
         </div>
@@ -235,7 +221,7 @@ export function WebhookLogsTable({
         >
           <div
             style={{
-              background: '#FFFFFF',
+              background: 'var(--bg-card)',
               borderRadius: '6px',
               maxWidth: '560px',
               width: '100%',
@@ -265,7 +251,7 @@ export function WebhookLogsTable({
                 {JSON.stringify(selectedPayload.payload || selectedPayload, null, 2)}
               </pre>
             </div>
-            <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'flex-end', gap: '8px', background: '#F8FAFC' }}>
+            <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'flex-end', gap: '8px', background: 'var(--bg-ribbon)' }}>
               {copyToClipboard && (
                 <button
                   type="button"

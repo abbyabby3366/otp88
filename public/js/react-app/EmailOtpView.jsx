@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import TableLoader from './TableLoader.jsx';
+import { apiFetch } from './api.js';
+import { splitDateTime } from './utils/format.js';
 
 export default function EmailOtpView({ t, jwtToken, showToast }) {
   const [config, setConfig] = useState({
@@ -15,6 +17,7 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
   });
 
   const [domainStatus, setDomainStatus] = useState(null);
+  const [domainError, setDomainError] = useState(null);
   const [logs, setLogs] = useState([]);
   const [loadingConfig, setLoadingConfig] = useState(true);
   const [savingConfig, setSavingConfig] = useState(false);
@@ -36,14 +39,15 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
   const fetchEmailData = () => {
     if (!jwtToken) return;
     setLoadingConfig(true);
-    fetch('/api/admin/email/config', {
+    apiFetch('/api/admin/email/config', {
       headers: { 'Authorization': `Bearer ${jwtToken}` }
     })
       .then(res => res.json())
       .then(data => {
         if (data.success) {
           if (data.config) setConfig(data.config);
-          if (data.domainStatus) setDomainStatus(data.domainStatus);
+          setDomainStatus(data.domainStatus || null);
+          setDomainError(data.domainError || null);
           if (data.logs) setLogs(data.logs);
         }
       })
@@ -62,7 +66,7 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
     if (e) e.preventDefault();
     setSavingConfig(true);
     try {
-      const res = await fetch('/api/admin/email/config', {
+      const res = await apiFetch('/api/admin/email/config', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -88,7 +92,7 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
   const handleTriggerVerifyDomain = async () => {
     setVerifyingDomain(true);
     try {
-      const res = await fetch('/api/admin/email/verify-domain', {
+      const res = await apiFetch('/api/admin/email/verify-domain', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${jwtToken}` }
       });
@@ -117,7 +121,7 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
     setTestResult(null);
 
     try {
-      const res = await fetch('/api/admin/email/test-send', {
+      const res = await apiFetch('/api/admin/email/test-send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -159,26 +163,6 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
     }
   };
 
-  // Stacked Date & Time helper (DD-MM-YY top, greyed out time bottom)
-  const renderStackedDateTime = (dateStr) => {
-    if (!dateStr) return { date: '—', time: '—' };
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return { date: String(dateStr), time: '' };
-    // Convert to GMT+8
-    const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
-    const gmt8 = new Date(utc + (3600000 * 8));
-    const yy = String(gmt8.getFullYear()).slice(-2);
-    const mm = String(gmt8.getMonth() + 1).padStart(2, '0');
-    const dd = String(gmt8.getDate()).padStart(2, '0');
-    const hh = String(gmt8.getHours()).padStart(2, '0');
-    const min = String(gmt8.getMinutes()).padStart(2, '0');
-    const ss = String(gmt8.getSeconds()).padStart(2, '0');
-    return {
-      date: `${dd}-${mm}-${yy}`,
-      time: `${hh}:${min}:${ss}`
-    };
-  };
-
   const isDomainVerified = domainStatus?.status === 'verified';
 
   return (
@@ -195,7 +179,7 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
               </h2>
             </div>
             <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'var(--text-secondary)' }}>
-              High-deliverability transactional email passcodes via Resend with custom domain sending, dark/light HTML templates, and real-time delivery reporting.
+              Transactional email passcodes sent through Resend from the platform domain, with per-customer branded senders.
             </p>
           </div>
 
@@ -210,14 +194,14 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
         </div>
 
         {/* Cloudflare Domain Status Indicator */}
-        <div style={{ marginTop: '14px', padding: '10px 14px', borderRadius: '8px', background: isDomainVerified ? 'rgba(16,185,129,0.08)' : 'rgba(245,158,11,0.08)', border: `1px solid ${isDomainVerified ? 'rgba(16,185,129,0.25)' : 'rgba(245,158,11,0.25)'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ marginTop: '14px', padding: '10px 14px', borderRadius: '8px', background: isDomainVerified ? 'rgba(16,185,129,0.08)' : (domainError ? 'var(--bg-ribbon)' : 'rgba(245,158,11,0.08)'), border: `1px solid ${isDomainVerified ? 'rgba(16,185,129,0.25)' : (domainError ? 'var(--border-subtle)' : 'rgba(245,158,11,0.25)')}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '14px' }}>{isDomainVerified ? '✅' : '⏳'}</span>
-            <span style={{ fontSize: '12px', fontWeight: '700', color: isDomainVerified ? 'var(--text-emerald)' : '#F59E0B' }}>
-              Domain {domainStatus?.name || 'otp88.top'}: {isDomainVerified ? 'Verified & Active' : 'DNS Propagation Pending'}
+            <span style={{ fontSize: '14px' }}>{isDomainVerified ? '✅' : (domainError ? 'ℹ️' : '⏳')}</span>
+            <span style={{ fontSize: '12px', fontWeight: '700', color: isDomainVerified ? 'var(--text-emerald)' : (domainError ? 'var(--text-secondary)' : '#F59E0B') }}>
+              Sending domain{domainStatus?.name ? ` ${domainStatus.name}` : ''}: {isDomainVerified ? 'Verified' : (domainError ? 'Status not available' : 'Not verified yet')}
             </span>
             <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-              ({isDomainVerified ? 'Sending from ' + (config.fromEmail || 'noreply@otp88.top') : 'Fallback: onboarding@resend.dev enabled while verifying'})
+              {isDomainVerified ? `Sending from ${config.fromEmail || 'the configured address'}` : (domainError || 'Until DNS is verified, Resend\'s onboarding sender is used as a fallback')}
             </span>
           </div>
           <button
@@ -268,11 +252,11 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
                 <div style={{ display: 'flex', gap: '6px' }}>
                   <input
                     type={showApiKey ? 'text' : 'password'}
-                    value={config.apiKey || ''}
+                    value={(config.apiKey || '').includes('…') ? '' : (config.apiKey || '')}
                     onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
                     className="sheets-input"
                     style={{ flex: 1, fontFamily: 'monospace', fontSize: '12px' }}
-                    placeholder="re_..."
+                    placeholder={config.hasApiKey ? 'Key saved. Paste a new key to replace it.' : 're_...'}
                   />
                   <button
                     type="button"
@@ -392,7 +376,7 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
                   required
                 />
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px', display: 'block' }}>
-                  Tip: Use <code>delivered@resend.dev</code> to simulate delivery without sending actual emails.
+                  Tip: <code>delivered@resend.dev</code> is accepted by Resend without delivering a real email.
                 </span>
               </div>
 
@@ -507,7 +491,7 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
             {/* Footer */}
             <div style={{ padding: '16px 24px', background: '#0F172A', borderTop: '1px solid #1E293B', textAlign: 'center' }}>
               <p style={{ margin: 0, fontSize: '11px', color: '#64748B' }}>
-                This is an automated security email sent to user@otp88.top.<br />
+                This is an automated security email.<br />
                 &copy; {new Date().getFullYear()} OTP88 CPaaS Platform. All rights reserved.
               </p>
             </div>
@@ -537,7 +521,7 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
                   <th style={{ textAlign: 'center' }}>Status</th>
                   <th style={{ textAlign: 'center' }}>Latency</th>
                   <th style={{ textAlign: 'center' }}>Cost</th>
-                  <th style={{ textAlign: 'right' }}>Date & Time (GMT+8)</th>
+                  <th style={{ textAlign: 'right' }}>Date & Time</th>
                 </tr>
               </thead>
               <tbody>
@@ -549,7 +533,7 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
                   </tr>
                 ) : (
                   logs.map((log, idx) => {
-                    const dt = renderStackedDateTime(log.createdAt || log.timestamp);
+                    const dt = splitDateTime(log.createdAt || log.timestamp);
                     return (
                       <tr key={log.id || idx}>
                         <td style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-secondary)' }}>
@@ -600,6 +584,3 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
   );
 }
 
-if (typeof window !== 'undefined') {
-  window.EmailOtpView = EmailOtpView;
-}

@@ -5,7 +5,7 @@ const TransactionSchema = new mongoose.Schema({
   userId: { type: String, required: true, index: true },
   userName: { type: String },
   userEmail: { type: String },
-  type: { type: String, default: 'USAGE_OTP' }, // 'USAGE_OTP' | 'TOPUP' | 'ADMIN_CREDIT'
+  type: { type: String, default: 'USAGE_OTP' }, // 'USAGE_OTP' | 'REFUND' | 'TOPUP' | 'ADMIN_CREDIT' | 'ADMIN_DEBIT'
   category: { type: String, default: 'WhatsApp OTP' },
   description: { type: String, required: true },
   referenceId: { type: String, index: true },

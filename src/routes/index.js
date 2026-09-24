@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 
+const { apiLimiter } = require('../middleware/rateLimit');
+
 const healthRoutes = require('./healthRoutes');
 const rateRoutes = require('./rateRoutes');
 const authRoutes = require('./authRoutes');
@@ -14,7 +16,10 @@ const userRoutes = require('./userRoutes');
 const contactRoutes = require('./contactRoutes');
 const staticRoutes = require('./staticRoutes');
 
-// Mount API routes
+// Global per-IP ceiling for every JSON endpoint
+router.use(['/api', '/v1'], apiLimiter);
+
+// API routes
 router.use(healthRoutes);
 router.use(rateRoutes);
 router.use(authRoutes);
@@ -27,7 +32,7 @@ router.use(billingRoutes);
 router.use(userRoutes);
 router.use(contactRoutes);
 
-// Mount SPA and Static Fallback routes last
+// SPA and static fallbacks last
 router.use(staticRoutes);
 
 module.exports = router;

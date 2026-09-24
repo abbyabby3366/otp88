@@ -1,50 +1,42 @@
-// Code snippet helpers for OTP88 Developer API & Webhooks
+// Code snippets for the console's "API & Keys" page. Field names here are the
+// canonical ones documented at /docs.html; the backend also accepts snake_case aliases.
 
-export function getCodeSnippet({ origin, apiKey, channel, lang, action, phone = '+60123456789' }) {
-  const isVerify = action === 'verify';
-  const url = isVerify ? `${origin}/v1/otp/verify` : `${origin}/v1/otp/send`;
-
-  let payloadObj = {};
-  if (isVerify) {
-    payloadObj = {
-      transaction_id: 'tx_live_8820a9bc4',
-      code: '882910'
-    };
-  } else {
-    if (channel === 'whatsapp') {
-      payloadObj = {
-        phoneNumber: phone,
-        channel: 'whatsapp',
-        otp: '882910'
-      };
-    } else if (channel === 'telegram') {
-      payloadObj = {
-        phoneNumber: phone,
-        channel: 'telegram',
-        senderName: 'Alibaba',
-        otp: '882910',
-        expiryMinutes: 5
-      };
-    } else if (channel === 'email') {
-      payloadObj = {
-        email: 'user@example.com',
-        channel: 'email',
-        brand_name: 'SuperApp',
-        brand_handle: 'superapp',
-        otp: '882910',
-        expiryMinutes: 5
-      };
-    } else {
-      payloadObj = {
-        phoneNumber: phone,
-        channel: 'sms',
-        senderName: 'Alibaba',
-        otp: '882910',
-        expiryMinutes: 5
-      };
-    }
+export const SAMPLE_PAYLOADS = {
+  whatsapp: {
+    to: '+60123456789',
+    channel: 'whatsapp',
+    otp: '882910',
+    remark: 'login-4028'
+  },
+  sms: {
+    to: '+60123456789',
+    channel: 'sms',
+    senderName: 'MyApp',
+    otp: '882910',
+    expiryMinutes: 5,
+    remark: 'login-4028'
+  },
+  email: {
+    to: 'user@example.com',
+    channel: 'email',
+    brandName: 'MyApp',
+    brandHandle: 'myapp',
+    replyTo: 'support@myapp.com',
+    otp: '882910',
+    expiryMinutes: 5,
+    remark: 'login-4028'
   }
+};
 
+export function getSendPayload(channel, phone) {
+  const base = SAMPLE_PAYLOADS[channel] || SAMPLE_PAYLOADS.whatsapp;
+  if (channel !== 'email' && phone) return { ...base, to: phone };
+  return { ...base };
+}
+
+export function getCodeSnippet({ origin, apiKey, channel, lang, phone = '+60123456789' }) {
+  const url = `${origin}/v1/otp/send`;
+  const payloadObj = getSendPayload(channel, phone);
   const jsonStr = JSON.stringify(payloadObj, null, 2);
 
   if (lang === 'curl') {
@@ -55,53 +47,49 @@ export function getCodeSnippet({ origin, apiKey, channel, lang, action, phone = 
   }
 
   if (lang === 'node') {
-    return `// Node.js (v18+ fetch / axios)
-async function sendOtp() {
-  const res = await fetch('${url}', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer ${apiKey}',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(${jsonStr})
-  });
+    return `// Node.js 18+ (built-in fetch)
+const response = await fetch('${url}', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer ${apiKey}',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify(${jsonStr.split('\n').join('\n  ')})
+});
 
-  const data = await res.json();
-  console.log('OTP Response:', data);
-}
+const data = await response.json();
+if (!data.success) throw new Error(data.error);
 
-sendOtp();`;
+// Store data.otpCode against the user's session, then compare it with what they type in.
+console.log(data.transactionId, data.otpCode, data.status);`;
   }
 
   if (lang === 'python') {
-    const pyPayload = JSON.stringify(payloadObj, null, 4)
-      .replace(/: true/g, ': True')
-      .replace(/: false/g, ': False');
+    const pyPayload = JSON.stringify(payloadObj, null, 4).replace(/: true/g, ': True').replace(/: false/g, ': False');
     return `# Python 3 (requests)
 import requests
 
-url = "${url}"
-headers = {
-    "Authorization": "Bearer ${apiKey}",
-    "Content-Type": "application/json"
-}
-payload = ${pyPayload}
+response = requests.post(
+    "${url}",
+    headers={"Authorization": "Bearer ${apiKey}"},
+    json=${pyPayload.split('\n').join('\n    ')},
+    timeout=15,
+)
+data = response.json()
+if not data["success"]:
+    raise RuntimeError(data["error"])
 
-response = requests.post(url, json=payload, headers=headers)
-print("Status:", response.status_code)
-print("Response:", response.json())`;
+# Store data["otpCode"] against the user's session, then compare it with what they type in.
+print(data["transactionId"], data["otpCode"], data["status"])`;
   }
 
   if (lang === 'php') {
     return `<?php
-// PHP cURL Example
+// PHP 8 (cURL)
 $ch = curl_init('${url}');
-
-$payload = json_encode(${JSON.stringify(payloadObj, null, 4)});
-
 curl_setopt_array($ch, [
     CURLOPT_POST => true,
-    CURLOPT_POSTFIELDS => $payload,
+    CURLOPT_POSTFIELDS => json_encode(${JSON.stringify(payloadObj, null, 4).split('\n').join('\n    ')}),
     CURLOPT_HTTPHEADER => [
         'Authorization: Bearer ${apiKey}',
         'Content-Type: application/json'
@@ -109,14 +97,20 @@ curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true
 ]);
 
-$response = curl_exec($ch);
+$data = json_decode(curl_exec($ch), true);
 curl_close($ch);
 
-echo $response;
-?>`;
+if (!$data['success']) {
+    throw new RuntimeException($data['error']);
+}
+// Store $data['otpCode'] against the user's session, then compare it with what they type in.
+echo $data['transactionId'], ' ', $data['status'];`;
   }
 
   if (lang === 'go') {
+    const fields = Object.entries(payloadObj)
+      .map(([k, v]) => `\t\t"${k}": ${typeof v === 'string' ? `"${v}"` : v},`)
+      .join('\n');
     return `// Go (net/http)
 package main
 
@@ -124,13 +118,12 @@ import (
 \t"bytes"
 \t"encoding/json"
 \t"fmt"
-\t"io"
 \t"net/http"
 )
 
 func main() {
 \tpayload := map[string]interface{}{
-${Object.entries(payloadObj).map(([k, v]) => `\t\t"${k}": ${Array.isArray(v) ? `[]string{${v.map(x => `"${x}"`).join(', ')}}` : typeof v === 'string' ? `"${v}"` : v},`).join('\n')}
+${fields}
 \t}
 \tbody, _ := json.Marshal(payload)
 
@@ -138,141 +131,105 @@ ${Object.entries(payloadObj).map(([k, v]) => `\t\t"${k}": ${Array.isArray(v) ? `
 \treq.Header.Set("Authorization", "Bearer ${apiKey}")
 \treq.Header.Set("Content-Type", "application/json")
 
-\tclient := &http.Client{}
-\tresp, err := client.Do(req)
+\tresp, err := http.DefaultClient.Do(req)
 \tif err != nil {
 \t\tpanic(err)
 \t}
 \tdefer resp.Body.Close()
 
-\trespBody, _ := io.ReadAll(resp.Body)
-\tfmt.Println("Response:", string(respBody))
+\tvar data map[string]interface{}
+\tjson.NewDecoder(resp.Body).Decode(&data)
+\tfmt.Println(data["transactionId"], data["otpCode"], data["status"])
 }`;
   }
 
   return '';
 }
 
-// Generate sample webhook payload object across all status events
+// Sample webhook payload, matching what the platform actually posts
 export function getWebhookSamplePayload({ channel = 'whatsapp', event = 'otp.delivered' }) {
-  const costMap = { sms: '0.0210', telegram: '0.0035', whatsapp: '0.0500', email: '0.0020' };
-
-  let status = 'DELIVERED';
-  let errorCode = '0';
-  let errorDescription = undefined;
-  let latency = '0.8s';
-
-  if (event === 'otp.delivered') {
-    status = 'DELIVERED';
-    errorCode = '0';
-    latency = '0.8s';
-  } else if (event === 'otp.read') {
-    status = 'READ';
-    errorCode = '0';
-    latency = '1.4s';
-  } else if (event === 'otp.undelivered') {
-    status = 'UNDELIVERED';
-    errorCode = '20';
-    errorDescription = 'Subscriber handset is unreachable, offline, or out of cellular network coverage.';
-    latency = '30.0s';
-  } else if (event === 'otp.failed') {
-    status = 'FAILED';
-    errorCode = '1';
-    errorDescription = 'Network rejection: destination recipient is invalid or unreachable.';
-    latency = '0.4s';
-  } else if (event === 'otp.expired') {
-    status = 'EXPIRED';
-    errorCode = '23';
-    errorDescription = 'OTP code validity period exceeded before recipient acknowledgment.';
-    latency = '300.0s';
-  } else if (event === 'otp.sent') {
-    status = 'SENT';
-    errorCode = '0';
-    latency = '0.2s';
-  }
+  const costMap = { sms: '0.0210', whatsapp: '0.0075', email: '0.0020' };
+  const statusMap = {
+    'otp.sent': ['SENT', '0'],
+    'otp.delivered': ['DELIVERED', '0'],
+    'otp.read': ['READ', '0'],
+    'otp.failed': ['FAILED', '1'],
+    'otp.expired': ['EXPIRED', '23']
+  };
+  const [status, errorCode] = statusMap[event] || statusMap['otp.delivered'];
+  const recipient = channel === 'email' ? 'user@example.com' : '+60123456789';
 
   return {
     event,
     msgId: 'msg_live_8820a9bc4',
     channel,
-    phoneNumber: channel === 'email' ? 'user@example.com' : '+60123456789',
+    recipient,
+    phoneNumber: recipient,
     status,
     errorCode,
-    remark: 'Login verification #1024',
-    errorDescription,
-    cost: costMap[channel] || '0.0020',
+    remark: 'login-4028',
+    cost: costMap[channel] || '0.0075',
     currency: 'USD',
-    latency,
     timestamp: new Date().toISOString()
   };
 }
 
-// Webhook listener code snippet generator
+// Webhook receiver examples
 export function getWebhookReceiverSnippet(lang = 'node') {
   if (lang === 'node') {
-    return `// Node.js (Express) Webhook Listener
+    return `// Node.js (Express) webhook receiver
 const express = require('express');
 const app = express();
 app.use(express.json());
 
-app.post('/api/webhooks/otp88', (req, res) => {
-  const { event, msgId, channel, phoneNumber, status, errorCode, remark } = req.body;
-  
-  console.log(\`Received [\${event}] for \${channel} to \${phoneNumber}: Status = \${status} (Remark: \${remark || 'N/A'})\`);
+app.post('/webhooks/otp88', (req, res) => {
+  const { event, msgId, channel, recipient, status, errorCode, remark } = req.body;
 
-  if (status === 'DELIVERED') {
-    // Handset received OTP successfully
-  } else if (status === 'READ') {
-    // Handset opened & read message (WhatsApp Blue Tick)
-  } else if (status === 'UNDELIVERED' || status === 'FAILED' || status === 'EXPIRED') {
-    // Delivery failed -> trigger multi-channel waterfall fallback
+  console.log(\`[\${event}] \${channel} to \${recipient}: \${status} (ref: \${remark || '-'})\`);
+
+  if (status === 'FAILED' || status === 'EXPIRED') {
+    // Offer the user another channel, e.g. resend over SMS or email
   }
 
-  // Acknowledge receipt with HTTP 200 OK immediately
+  // Always answer 200 quickly; OTP88 retries on non-2xx responses
   res.status(200).json({ received: true });
 });
 
-app.listen(3000, () => console.log('Webhook server listening on port 3000'));`;
+app.listen(3000);`;
   }
 
   if (lang === 'python') {
-    return `# Python (FastAPI) Webhook Listener
+    return `# Python (FastAPI) webhook receiver
 from fastapi import FastAPI, Request
 
 app = FastAPI()
 
-@app.post("/api/webhooks/otp88")
-async def handle_otp88_webhook(request: Request):
+@app.post("/webhooks/otp88")
+async def otp88_webhook(request: Request):
     payload = await request.json()
-    event = payload.get("event")
-    channel = payload.get("channel")
-    status = payload.get("status")
-    remark = payload.get("remark")
-    
-    print(f"Received [{event}] on {channel}: status={status}, remark={remark}")
-    
-    # Return 200 OK
+    print(f"[{payload['event']}] {payload['channel']} to {payload['recipient']}: {payload['status']}")
+
+    if payload["status"] in ("FAILED", "EXPIRED"):
+        pass  # offer the user another channel
+
     return {"received": True}`;
   }
 
   if (lang === 'php') {
     return `<?php
-// PHP Webhook Listener
-$rawBody = file_get_contents('php://input');
-$event = json_decode($rawBody, true);
+// PHP webhook receiver
+$payload = json_decode(file_get_contents('php://input'), true);
 
-if ($event) {
-    $channel = $event['channel'] ?? 'unknown';
-    $status = $event['status'] ?? 'unknown';
-    $remark = $event['remark'] ?? '';
-    error_log("OTP88 Webhook: channel={$channel}, status={$status}, remark={$remark}");
+if ($payload) {
+    error_log(sprintf('[%s] %s to %s: %s', $payload['event'], $payload['channel'], $payload['recipient'], $payload['status']));
+    if (in_array($payload['status'], ['FAILED', 'EXPIRED'], true)) {
+        // offer the user another channel
+    }
 }
 
-// Acknowledge receipt with HTTP 200
 http_response_code(200);
 header('Content-Type: application/json');
-echo json_encode(['received' => true]);
-?>`;
+echo json_encode(['received' => true]);`;
   }
 
   return '';

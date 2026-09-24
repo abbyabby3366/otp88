@@ -1,142 +1,122 @@
 import React from 'react';
+import { formatUsd } from './utils/format.js';
 
-// Services & Channels View - Channel Sections (WhatsApp, Telegram, SMS)
-function ServicesView({ t, ratesList, simPhone, setSimPhone, simChannel, setSimChannel, handleSimulateQuickOtp, loading }) {
-  const myRate = ratesList.find(r => r.code === 'MY') || { whatsapp: 0.0075, telegram: 0.0035, sms: 0.0210 };
-  const waPrice = myRate.whatsapp !== undefined && myRate.whatsapp !== null ? Number(myRate.whatsapp).toFixed(4) : '0.0075';
-  const tgPrice = myRate.telegram !== undefined && myRate.telegram !== null ? Number(myRate.telegram).toFixed(4) : '0.0035';
-  const smsPrice = myRate.sms !== undefined && myRate.sms !== null ? Number(myRate.sms).toFixed(4) : '0.0210';
+// Channels available on the platform, their coverage and unit price, plus a live test send.
+function ServicesView({ t, ratesList = [], emailRate, simPhone, setSimPhone, simChannel, setSimChannel, handleSendTestOtp, loading }) {
+  const myRate = ratesList.find(r => r.code === 'MY') || {};
+  const rateRange = (field) => {
+    const vals = ratesList.map(r => r[field]).filter(v => typeof v === 'number' && !isNaN(v));
+    if (vals.length === 0) return '—';
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    return min === max ? formatUsd(min) : `${formatUsd(min)} – ${formatUsd(max)}`;
+  };
+
+  const channels = [
+    {
+      id: 'whatsapp',
+      title: 'WhatsApp OTP',
+      provider: 'VerifyWay WhatsApp OTP API',
+      coverage: 'Global',
+      rate: rateRange('whatsapp'),
+      color: '#059669',
+      dot: '#10B981',
+      badge: 'sheets-badge-emerald'
+    },
+    {
+      id: 'sms',
+      title: 'SMS OTP',
+      provider: 'Bulk360 direct telco routes',
+      coverage: 'Malaysia (+60)',
+      rate: myRate.sms !== null && myRate.sms !== undefined ? formatUsd(myRate.sms) : '—',
+      color: '#D97706',
+      dot: '#F59E0B',
+      badge: 'sheets-badge-amber'
+    },
+    {
+      id: 'email',
+      title: 'Email OTP',
+      provider: 'Resend transactional email',
+      coverage: 'Global',
+      rate: formatUsd(emailRate),
+      color: '#0284C7',
+      dot: '#0284C7',
+      badge: 'sheets-badge-blue'
+    }
+  ];
+
+  const isEmail = simChannel === 'email';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      
-      {/* 1. WHATSAPP SECTION */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-        <div style={{ background: '#F8FAFC', padding: '7px 12px', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ color: '#059669', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981', display: 'inline-block' }}></span>
-            WHATSAPP OTP GATEWAY
-          </span>
-          <span className="sheets-badge sheets-badge-emerald">Active (Global)</span>
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+        <div style={{ background: 'var(--bg-ribbon)', padding: '7px 12px', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-subtle)' }}>
+          {t.servicesTitle || 'MESSAGING CHANNELS'}
         </div>
         <table className="sheets-table">
           <thead>
             <tr>
               <th>Channel</th>
-              <th>Destination Coverage</th>
-              <th>Avg Latency</th>
-              <th>Unit Rate</th>
+              <th>Provider</th>
+              <th>Coverage</th>
+              <th>Unit Rate (USD)</th>
               <th>Status</th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td><strong>WhatsApp Business Cloud API</strong></td>
-              <td><span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>Global (All Countries)</span></td>
-              <td style={{ fontFamily: 'var(--font-code)' }}>0.8s</td>
-              <td style={{ fontFamily: 'var(--font-code)', color: '#059669', fontWeight: '700' }}>${waPrice}</td>
-              <td><span style={{ color: '#059669', fontWeight: '700' }}>● Operational</span></td>
-            </tr>
+            {channels.map(ch => (
+              <tr key={ch.id}>
+                <td>
+                  <span style={{ color: ch.color, fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: ch.dot, display: 'inline-block' }}></span>
+                    {ch.title}
+                  </span>
+                </td>
+                <td style={{ color: 'var(--text-secondary)' }}>{ch.provider}</td>
+                <td style={{ fontWeight: '600' }}>{ch.coverage}</td>
+                <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700', color: ch.color }}>{ch.rate}</td>
+                <td><span className={`sheets-badge ${ch.badge}`}>Active</span></td>
+              </tr>
+            ))}
           </tbody>
         </table>
-      </div>
-
-      {/* 2. TELEGRAM SECTION */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-        <div style={{ background: '#F8FAFC', padding: '7px 12px', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ color: '#0284C7', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#0284C7', display: 'inline-block' }}></span>
-            TELEGRAM OTP GATEWAY
-          </span>
-          <span className="sheets-badge sheets-badge-blue">Active (Global)</span>
+        <div style={{ padding: '8px 12px', fontSize: '11px', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)' }}>
+          Rates are charged per OTP sent and deducted from your balance. Failed deliveries are refunded automatically.
         </div>
-        <table className="sheets-table">
-          <thead>
-            <tr>
-              <th>Channel</th>
-              <th>Destination Coverage</th>
-              <th>Avg Latency</th>
-              <th>Unit Rate</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Telegram Bot Gateway API</strong></td>
-              <td><span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>Global (All Countries)</span></td>
-              <td style={{ fontFamily: 'var(--font-code)' }}>0.6s</td>
-              <td style={{ fontFamily: 'var(--font-code)', color: '#0284C7', fontWeight: '700' }}>${tgPrice}</td>
-              <td><span style={{ color: '#059669', fontWeight: '700' }}>● Operational</span></td>
-            </tr>
-          </tbody>
-        </table>
       </div>
 
-      {/* 3. SMS SECTION */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-        <div style={{ background: '#F8FAFC', padding: '7px 12px', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ color: '#D97706', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#F59E0B', display: 'inline-block' }}></span>
-            DIRECT SMS GATEWAY
-          </span>
-          <span className="sheets-badge sheets-badge-amber">Active (Malaysia Only)</span>
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '12px', background: 'var(--bg-card)', maxWidth: '560px' }}>
+        <div style={{ fontSize: '12px', fontWeight: '700', marginBottom: '4px' }}>{t.sandboxTitle || 'Send a test OTP'}</div>
+        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+          Sends a real message through the selected channel and charges your balance at the rate above.
         </div>
-        <table className="sheets-table">
-          <thead>
-            <tr>
-              <th>Channel</th>
-              <th>Destination Coverage</th>
-              <th>Direct Telco Routes</th>
-              <th>Avg Latency</th>
-              <th>Unit Rate</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>SMS 360</strong></td>
-              <td>
-                <span style={{ marginRight: '6px' }}>🇲🇾</span>
-                <strong>Malaysia (+60) Only</strong>
-              </td>
-              <td style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Celcom, Digi, Maxis, U Mobile</td>
-              <td style={{ fontFamily: 'var(--font-code)' }}>1.4s</td>
-              <td style={{ fontFamily: 'var(--font-code)', fontWeight: '700', color: '#334155' }}>${smsPrice}</td>
-              <td><span style={{ color: '#059669', fontWeight: '700' }}>● Operational</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* Test OTP Dispatcher */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '12px', background: '#FFFFFF', maxWidth: '560px' }}>
-        <div style={{ fontSize: '12px', fontWeight: '700', marginBottom: '8px' }}>{t.sandboxTitle || 'Send Test OTP'}</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
           <div>
-            <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)' }}>{t.targetPhone || 'Phone Number'}</label>
-            <input type="text" className="sheets-input sheets-input-code" value={simPhone} onChange={(e) => setSimPhone(e.target.value)} placeholder="+60123456789" />
+            <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)' }}>{isEmail ? 'Email address' : (t.targetPhone || 'Phone number')}</label>
+            <input
+              type={isEmail ? 'email' : 'tel'}
+              className="sheets-input sheets-input-code"
+              value={simPhone}
+              onChange={(e) => setSimPhone(e.target.value)}
+              placeholder={isEmail ? 'user@example.com' : '+60123456789'}
+            />
           </div>
           <div>
             <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)' }}>{t.channelMode || 'Channel'}</label>
             <select className="sheets-input" value={simChannel} onChange={(e) => setSimChannel(e.target.value)}>
-              <option value="whatsapp">WhatsApp (Global)</option>
-              <option value="telegram">Telegram (Global)</option>
-              <option value="sms">SMS (Malaysia Only)</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="sms">SMS (Malaysia)</option>
+              <option value="email">Email</option>
             </select>
           </div>
         </div>
-        <button className="sheets-btn sheets-btn-primary" onClick={handleSimulateQuickOtp} disabled={loading} style={{ width: '100%', padding: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+        <button type="button" className="sheets-btn sheets-btn-primary" onClick={handleSendTestOtp} disabled={loading} style={{ width: '100%', padding: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
           {loading && <div className="sheets-spinner sheets-spinner-sm" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#FFFFFF' }} />}
-          <span>{loading ? 'Sending Test OTP...' : (t.execDispatch || 'Send Test OTP')}</span>
+          <span>{loading ? 'Sending…' : (t.execDispatch || 'Send test OTP')}</span>
         </button>
       </div>
-
     </div>
   );
-}
-
-if (typeof window !== 'undefined') {
-  window.ServicesView = ServicesView;
 }
 
 export default ServicesView;

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Products & Solutions | OTP88 Multi-Channel Platform</title>
-  <meta name="description" content="Explore OTP88 products: WhatsApp OTP, Telegram Gateway, Direct Telco SMS, Voice OTP, Smart Waterfall Failover, and Anti-AIT Toll Fraud Shield.">
+  <meta name="description" content="OTP88 products: WhatsApp OTP, SMS OTP and Email OTP through one API, with delivery webhooks and prepaid per-message pricing.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -56,7 +56,7 @@
       <div class="header-actions">
         <div class="status-badge">
           <span class="live-dot"></span>
-          <span>99.98% Operational</span>
+          <span>All channels operational</span>
         </div>
         <a href="/login.html" class="btn btn-secondary btn-sm" id="btn-header-login">Log In</a>
         <a href="#" class="btn btn-primary btn-sm" data-open-modal="contact">Start Free</a>
@@ -73,8 +73,7 @@
       <div class="container" style="text-align:center;">
         <span class="badge-pill">The Full CPaaS Verification Stack</span>
         <h1 class="hero-title" style="margin-top:16px;">
-          Built For High Deliverability & <br>
-          <span class="text-gradient">Maximum Cost Efficiency</span>
+          Verification codes over <span class="text-gradient">WhatsApp, SMS and Email</span>
         </h1>
         <p class="hero-desc" style="margin:16px auto 0 auto;max-width:700px;">
           From instant messaging gateways to direct carrier SS7 telecom pipes, OTP88 delivers verification codes everywhere your customers are — faster, cheaper, and safer.
@@ -140,11 +139,60 @@
           </div>
         </div>
 
+        <!-- Product: Email OTP -->
+        <div class="glass-card card-cyan" id="email" style="margin-bottom:32px;border-color:rgba(2,132,199,0.35);">
+          <div class="hero-grid" style="gap:36px;">
+            <div>
+              <span class="badge-pill badge-cyan">Branded sender, no DNS setup</span>
+              <h2 style="font-size:28px;margin-top:12px;">Email OTP</h2>
+              <p style="color:var(--text-secondary);margin-top:12px;">
+                Send verification codes by email from your own handle on the platform domain, for example <code>myapp@otp88.top</code>, with your brand name as the sender and your support address as Reply-To. Same request format as WhatsApp and SMS; just set <code>channel</code> to <code>email</code>.
+              </p>
+
+              <ul style="list-style:none;margin-top:16px;display:flex;flex-direction:column;gap:10px;font-size:14px;color:var(--text-secondary);">
+                <li style="display:flex;align-items:center;gap:8px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Responsive HTML template with a plain-text fallback</span>
+                </li>
+                <li style="display:flex;align-items:center;gap:8px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Per-request or saved brand name, handle and Reply-To</span>
+                </li>
+                <li style="display:flex;align-items:center;gap:8px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>$0.0020 per email, refunded if the provider rejects it</span>
+                </li>
+              </ul>
+
+              <div style="margin-top:24px;">
+                <a href="/docs.html#email-otp" class="btn btn-outline-emerald btn-sm">
+                  <span>Email OTP API guide</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                </a>
+              </div>
+            </div>
+
+            <div style="background:#020617;border:1px solid var(--border-subtle);border-radius:16px;padding:24px;display:flex;flex-direction:column;justify-content:center;">
+              <div style="background:#0B1120;border:1px solid #1E293B;border-radius:12px;overflow:hidden;">
+                <div style="padding:10px 14px;border-bottom:1px solid #1E293B;font-size:12px;color:#94A3B8;">
+                  <div><strong style="color:#E2E8F0;">From:</strong> MyApp &lt;myapp@otp88.top&gt;</div>
+                  <div><strong style="color:#E2E8F0;">Subject:</strong> MyApp verification code: 882910</div>
+                </div>
+                <div style="padding:18px 14px;text-align:center;">
+                  <div style="font-size:12px;color:#94A3B8;margin-bottom:10px;">Use the code below to complete your sign-in.</div>
+                  <div style="font-family:var(--font-code);font-size:30px;font-weight:800;letter-spacing:8px;color:#34D399;">882910</div>
+                  <div style="margin-top:10px;font-size:11px;color:#FBBF24;">Valid for 5 minutes</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Product 2: Telegram Gateway -->
         <div class="glass-card product-card-deferred card-cyan" id="telegram" style="margin-bottom:32px;border-color:rgba(6,182,212,0.3);">
           <div class="hero-grid" style="gap:36px;">
             <div>
-              <span class="badge-pill badge-cyan">Sub-Second Delivery</span>
+              <span class="badge-pill badge-cyan">Coming soon — not yet available via the API</span>
               <h2 style="font-size:28px;margin-top:12px;">Telegram Gateway API</h2>
               <p style="color:var(--text-secondary);margin-top:12px;">
                 The ultra-low-cost authentication gateway for tech-savvy communities, web3 platforms, and global consumers. Completely bypass telco international roaming tariffs.
@@ -162,8 +210,8 @@
               </div>
 
               <div style="margin-top:24px;">
-                <a href="/docs.html" class="btn btn-secondary btn-sm">
-                  <span>Read Telegram Setup Guide</span>
+                <a href="#" class="btn btn-secondary btn-sm" data-open-modal="contact">
+                  <span>Tell us if you need Telegram</span>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
                 </a>
               </div>
@@ -235,7 +283,7 @@
         <div class="glass-card product-card-deferred card-purple" id="voice" style="margin-bottom:32px;">
           <div class="hero-grid" style="gap:36px;">
             <div>
-              <span class="badge-pill badge-purple">High-Definition Voice Engine</span>
+              <span class="badge-pill badge-purple">Coming soon — not yet available via the API</span>
               <h2 style="font-size:28px;margin-top:12px;">Automated Voice OTP Call</h2>
               <p style="color:var(--text-secondary);margin-top:12px;">
                 When SMS or data networks are inaccessible, OTP88 triggers an instant high-definition automated phone call that recites the verification code in the user's local language.
@@ -286,7 +334,7 @@
             </div>
             <h3 class="card-title">Fintech & Banking</h3>
             <p class="card-desc">
-              High-security 2FA step-up authentication, money transfer authorisations, and cardholder transaction verification with PCI-DSS & ISO 27001 compliance.
+              High-security 2FA step-up authentication, money transfer authorisations, and cardholder transaction verification with an audit trail for every code sent.
             </p>
           </div>
 
@@ -333,7 +381,7 @@
             <span>OTP<span class="text-gradient">88</span></span>
           </div>
           <p style="font-size:14px;color:var(--text-secondary);line-height:1.6;margin-bottom:20px;">
-            The clear, transparent, and ultra-reliable Multi-Channel OTP platform. Empowering developers and enterprises with WhatsApp, Telegram, Direct SMS, and Voice verification worldwide.
+            The developer-first OTP platform. One REST endpoint for WhatsApp, SMS and Email, delivery webhooks, and transparent per-message pricing.
           </p>
         </div>
 
@@ -341,10 +389,9 @@
           <h4 class="footer-col-title">Products</h4>
           <ul class="footer-links">
             <li><a href="/products.html#whatsapp">WhatsApp OTP</a></li>
-            <li><a href="/products.html#telegram">Telegram Gateway</a></li>
-            <li><a href="/products.html#sms">Direct SMS Verify</a></li>
-            <li><a href="/products.html#voice">Voice OTP Calls</a></li>
-            <li><a href="/products.html#waterfall">Smart Waterfall Engine</a></li>
+            <li><a href="/products.html#sms">SMS OTP</a></li>
+            <li><a href="/products.html#email">Email OTP</a></li>
+            <li><a href="/docs.html#webhooks">Delivery Webhooks</a></li>
           </ul>
         </div>
 
@@ -352,7 +399,7 @@
           <h4 class="footer-col-title">Resources & Docs</h4>
           <ul class="footer-links">
             <li><a href="/docs.html">API Reference</a></li>
-            <li><a href="/docs.html#sdks">SDKs & Libraries</a></li>
+            <li><a href="/docs.html#email-otp">Email OTP Guide</a></li>
             <li><a href="/pricing.html">Global Rate Table</a></li>
             <li><a href="/pricing.html#calculator">ROI Cost Calculator</a></li>
           </ul>

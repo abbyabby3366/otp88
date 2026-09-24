@@ -1,44 +1,47 @@
 const express = require('express');
 const router = express.Router();
 const { getIsDbConnected } = require('../config/db');
+const { SUPPORTED_CHANNELS } = require('../config/constants');
 const { handleLiveReloadSse } = require('../services/liveReloadService');
+const { getSmsConfig } = require('../services/dispatchers/smsDispatcher');
+const { getWhatsAppConfig } = require('../services/dispatchers/whatsappDispatcher');
+const { getEmailConfig } = require('../services/dispatchers/emailDispatcher');
 
-// --- Backend Health Check & Online Status ---
+const startedAt = Date.now();
+
+// Liveness probe
 router.get('/api/health', (req, res) => {
   res.json({
     success: true,
     status: 'online',
     dbConnected: getIsDbConnected(),
+    uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000),
     timestamp: Date.now()
   });
 });
 
-// --- Browser Live-Reload SSE Stream for Development ---
+// Browser live-reload stream (development only)
 router.get('/api/live-reload', handleLiveReloadSse);
 
-// --- Platform Status ---
-router.get('/api/status', (req, res) => {
+// Platform status: which channels are configured and active right now
+router.get('/api/status', async (req, res) => {
+  const [sms, whatsapp, email] = await Promise.all([getSmsConfig(), getWhatsAppConfig(), getEmailConfig()]);
+  const describe = (cfg, configured) => {
+    if (!configured) return 'Not configured';
+    return cfg.status === 'ACTIVE' ? 'Operational' : 'Paused';
+  };
   res.json({
     success: true,
-    platform: 'OTP88 Next-Gen CPaaS Gateway',
-    status: 'All Systems Operational',
-    uptime: '99.99%',
+    platform: 'OTP88',
     dbConnected: getIsDbConnected(),
+    supportedChannels: SUPPORTED_CHANNELS,
     channels: {
-      whatsapp: 'Operational',
-      sms: 'Operational (SMS360 Integrated)',
-      telegram: 'Operational',
-      voice: 'Operational',
-      email: 'Operational',
-      rcs: 'Beta Testing'
+      whatsapp: describe(whatsapp, Boolean(whatsapp.apiKey)),
+      sms: describe(sms, Boolean(sms.appKey && sms.appSecret)),
+      email: describe(email, Boolean(email.apiKey))
     },
-    latency: {
-      whatsapp: '0.62s',
-      sms: '0.45s',
-      telegram: '0.64s',
-      voice: '2.1s'
-    },
-    directCarrierConnections: ['Maxis MY', 'CelcomDigi MY', 'Singtel SG', 'Telkomsel ID', 'AIS TH', 'Viettel VN']
+    uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000),
+    timestamp: new Date().toISOString()
   });
 });
 

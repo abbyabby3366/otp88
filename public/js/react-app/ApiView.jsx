@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { getCodeSnippet } from './apiSnippets';
+import { apiFetch } from './api.js';
 
 // API & Keys Integration Spreadsheet View
-function ApiView({ t, session, setSession, jwtToken, revealedApiKey, setRevealedApiKey, copyToClipboard, showToast }) {
+function ApiView({ t, session, setSession, jwtToken, copyToClipboard, showToast }) {
+  const [revealedApiKey, setRevealedApiKey] = useState(false);
   const currentOrigin = typeof window !== 'undefined' && window.location.origin
     ? window.location.origin
     : 'http://localhost:8884';
 
   const [selectedChannel, setSelectedChannel] = useState('whatsapp');
   const [selectedLang, setSelectedLang] = useState('curl');
-  const [selectedAction, setSelectedAction] = useState('send');
 
   // Collapsible sections state
   const [isApiCodeOpen, setIsApiCodeOpen] = useState(true);
@@ -48,7 +49,7 @@ function ApiView({ t, session, setSession, jwtToken, revealedApiKey, setRevealed
     setSenderStatusMsg(null);
     try {
       const token = jwtToken || localStorage.getItem('otp88_jwt');
-      const res = await fetch('/api/user/email-sender', {
+      const res = await apiFetch('/api/user/email-sender', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -86,7 +87,7 @@ function ApiView({ t, session, setSession, jwtToken, revealedApiKey, setRevealed
     }
   };
 
-  const rawKey = session?.apiKeyLive || 'otp88_api_88a90184bcedf41';
+  const rawKey = session?.apiKeyLive || '';
   const apiKey = useMemo(() => {
     if (rawKey.startsWith('otp_live_')) {
       return 'otp88_api_' + rawKey.slice(9);
@@ -99,6 +100,7 @@ function ApiView({ t, session, setSession, jwtToken, revealedApiKey, setRevealed
 
   // Display value: show 'otp88_api_' prefix followed by masked dots before reveal
   const displayKeyValue = useMemo(() => {
+    if (!rawKey) return 'No API key on this account yet';
     if (revealedApiKey) {
       return apiKey;
     }
@@ -111,15 +113,14 @@ function ApiView({ t, session, setSession, jwtToken, revealedApiKey, setRevealed
       origin: currentOrigin,
       apiKey,
       channel: selectedChannel,
-      lang: selectedLang,
-      action: selectedAction
+      lang: selectedLang
     });
-  }, [currentOrigin, apiKey, selectedChannel, selectedLang, selectedAction]);
+  }, [currentOrigin, apiKey, selectedChannel, selectedLang]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
       {/* 1. API Key Card */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '10px', background: '#FFFFFF' }}>
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '10px', background: 'var(--bg-card)' }}>
         <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>
           {t.prodApiKey || 'API Key'}
         </div>
@@ -153,14 +154,14 @@ function ApiView({ t, session, setSession, jwtToken, revealedApiKey, setRevealed
       </div>
 
       {/* 2. Custom Tenant Sub-Alias Card */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '12px', background: '#FFFFFF' }}>
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '12px', background: 'var(--bg-card)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
           <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span>📧</span>
             <span>Custom Email Brand Sender (Sub-Alias)</span>
           </div>
           <span style={{ fontSize: '10px', background: '#ECFDF5', color: '#065F46', border: '1px solid #A7F3D0', borderRadius: '12px', padding: '2px 8px', fontWeight: '600' }}>
-            Domain @otp88.top Verified • Zero DNS Setup Needed
+            Sends from the platform domain, no DNS setup needed
           </span>
         </div>
 
@@ -213,7 +214,7 @@ function ApiView({ t, session, setSession, jwtToken, revealedApiKey, setRevealed
         </div>
 
         {/* Live Delivered Email Preview */}
-        <div style={{ background: '#F8FAFC', border: '1px dashed var(--border-subtle)', borderRadius: '4px', padding: '8px 12px', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ background: 'var(--bg-ribbon)', border: '1px dashed var(--border-subtle)', borderRadius: '4px', padding: '8px 12px', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
           <div>
             <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', marginRight: '6px' }}>
               Delivered Email Header:
@@ -228,7 +229,7 @@ function ApiView({ t, session, setSession, jwtToken, revealedApiKey, setRevealed
             )}
           </div>
           <div style={{ fontSize: '10px', color: '#059669', fontWeight: '600' }}>
-            ✓ Ready for production dispatch ($0.0020 / OTP)
+            Applies to every email OTP sent with your API key
           </div>
         </div>
 
@@ -261,11 +262,11 @@ function ApiView({ t, session, setSession, jwtToken, revealedApiKey, setRevealed
       </div>
 
       {/* 3. API Code Examples & Channel Selectors Card (Collapsible) */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
         <div
           onClick={() => setIsApiCodeOpen(!isApiCodeOpen)}
           style={{
-            background: '#F8FAFC',
+            background: 'var(--bg-ribbon)',
             padding: '8px 12px',
             borderBottom: isApiCodeOpen ? '1px solid var(--border-subtle)' : 'none',
             display: 'flex',
@@ -283,45 +284,26 @@ function ApiView({ t, session, setSession, jwtToken, revealedApiKey, setRevealed
             </span>
             <span>{t.quickstartCode || 'API Code Examples'}</span>
             <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'normal' }}>
-              ({selectedAction === 'send' ? `POST ${currentOrigin}/v1/otp/send` : `POST ${currentOrigin}/v1/otp/verify`})
+              (POST {currentOrigin}/v1/otp/send)
             </span>
           </div>
-
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-              <button
-                type="button"
-                className={`sheets-btn ${selectedAction === 'send' ? 'sheets-btn-primary' : ''}`}
-                style={{ fontSize: '10px', padding: '2px 8px' }}
-                onClick={() => setSelectedAction('send')}
-              >
-                Send OTP
-              </button>
-              <button
-                type="button"
-                className={`sheets-btn ${selectedAction === 'verify' ? 'sheets-btn-primary' : ''}`}
-                style={{ fontSize: '10px', padding: '2px 8px' }}
-                onClick={() => setSelectedAction('verify')}
-              >
-                Verify OTP
-              </button>
-            </div>
-          </div>
+          <a href="/docs.html" target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-cyan)', textDecoration: 'none' }}>
+            Full API reference ↗
+          </a>
         </div>
 
         {/* Collapsible Content */}
         {isApiCodeOpen && (
           <>
             {/* Channel & Language Controls */}
-            <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '8px', background: '#FAFAFA' }}>
-              {selectedAction === 'send' && (
+            <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '8px', background: 'var(--bg-ribbon)' }}>
+              {(
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', width: '65px' }}>Channel:</span>
                   {[
                     { id: 'whatsapp', label: 'WhatsApp OTP' },
                     { id: 'sms', label: 'SMS OTP' },
-                    { id: 'telegram', label: 'Telegram OTP' },
-                    { id: 'email', label: 'Email OTP ($0.0020)' }
+                    { id: 'email', label: 'Email OTP' }
                   ].map(ch => (
                     <button
                       key={ch.id}
@@ -370,6 +352,9 @@ function ApiView({ t, session, setSession, jwtToken, revealedApiKey, setRevealed
             </div>
 
             {/* Code View */}
+            <div style={{ padding: '8px 12px', fontSize: '11px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+              The response includes <code>otpCode</code>. Store it with the user's session and compare it with the code they enter; there is no separate verify call.
+            </div>
             <div style={{ padding: '12px', background: '#0F172A' }}>
               <pre style={{ margin: 0, color: '#38BDF8', fontFamily: 'var(--font-code)', fontSize: '11px', lineHeight: 1.5, overflowX: 'auto' }}>
                 {activeSnippet}
@@ -382,8 +367,5 @@ function ApiView({ t, session, setSession, jwtToken, revealedApiKey, setRevealed
   );
 }
 
-if (typeof window !== 'undefined') {
-  window.ApiView = ApiView;
-}
 
 export default ApiView;

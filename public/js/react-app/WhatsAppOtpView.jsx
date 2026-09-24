@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import WhatsAppWebhookTab from './WhatsAppWebhookTab.jsx';
 import { TableLoader } from './TableLoader.jsx';
+import { apiFetch } from './api.js';
 
 // Admin VerifyWay WhatsApp OTP API Complete Management & Interactive Explorer
 function WhatsAppOtpView({ t, jwtToken, showToast }) {
@@ -8,12 +9,12 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
     try {
       const saved = localStorage.getItem('whatsapp_active_subtab');
       if (saved && ['send', 'verify', 'webhook', 'keys', 'docs'].includes(saved)) return saved;
-    } catch (e) {}
+    } catch (e) { /* ignored: non-critical UI state */ }
     return 'send';
   });
 
   useEffect(() => {
-    try { if (activeSubTab) localStorage.setItem('whatsapp_active_subtab', activeSubTab); } catch (e) {}
+    try { if (activeSubTab) localStorage.setItem('whatsapp_active_subtab', activeSubTab); } catch (e) { /* ignored: non-critical UI state */ }
   }, [activeSubTab]);
 
   // Credentials & Config (Stored in MongoDB Atlas)
@@ -26,7 +27,7 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
     template: 'default_otp',
     webhookUrl: (typeof window !== 'undefined' && window.location && window.location.origin) ? `${window.location.origin}/api/webhooks/whatsapp/dlr` : '/api/webhooks/whatsapp/dlr',
     ratePerOtp: '0.0075',
-    currency: 'MYR',
+    currency: 'USD',
     status: 'ACTIVE'
   });
   const [savingConfig, setSavingConfig] = useState(false);
@@ -38,7 +39,7 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
   const editModalBackdropRef = useRef(false);
 
   // Send WhatsApp OTP state
-  const [recipient, setRecipient] = useState('+60122273341');
+  const [recipient, setRecipient] = useState('');
   const [otpCode, setOtpCode] = useState('882049');
   const [channel, setChannel] = useState('whatsapp');
   const [lang, setLang] = useState('en');
@@ -48,11 +49,12 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
   const [apiResponse, setApiResponse] = useState(null);
 
   // Verify OTP state
-  const [verifyPhone, setVerifyPhone] = useState('+60122273341');
+  const [verifyPhone, setVerifyPhone] = useState('');
   const [verifyInputCode, setVerifyInputCode] = useState('882049');
   const [verifyResult, setVerifyResult] = useState(null);
 
   const [logs, setLogs] = useState([]);
+  const [configured, setConfigured] = useState(null);
 
   // Generate random 6-digit OTP code
   const generateRandomOtp = () => {
@@ -65,15 +67,16 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
   const loadData = () => {
     if (jwtToken) {
       setLoadingData(true);
-      fetch('/api/admin/whatsapp/config', { headers: { 'Authorization': `Bearer ${jwtToken}` } })
+      apiFetch('/api/admin/whatsapp/config', { headers: { 'Authorization': `Bearer ${jwtToken}` } })
         .then(res => res.json())
         .then(data => {
           if (data.success) {
             if (data.config) setConfig(prev => ({ ...prev, ...data.config }));
             if (data.logs) setLogs(data.logs);
+            if (typeof data.configured === 'boolean') setConfigured(data.configured);
           }
         })
-        .catch(() => {})
+        .catch(() => { /* keep the previous data; the status bar shows connectivity */ })
         .finally(() => setLoadingData(false));
     }
   };
@@ -102,7 +105,7 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
     const updated = { ...config, apiKey: modalApiKey.trim() };
     try {
       if (jwtToken) {
-        const res = await fetch('/api/admin/whatsapp/config', {
+        const res = await apiFetch('/api/admin/whatsapp/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
           body: JSON.stringify(updated)
@@ -127,7 +130,7 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
     setSavingConfig(true);
     try {
       if (jwtToken) {
-        const res = await fetch('/api/admin/whatsapp/config', {
+        const res = await apiFetch('/api/admin/whatsapp/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
           body: JSON.stringify(config)
@@ -157,7 +160,7 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
     setSendingOtp(true);
     try {
       if (jwtToken) {
-        const res = await fetch('/api/admin/whatsapp/test-send', {
+        const res = await apiFetch('/api/admin/whatsapp/test-send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwtToken}` },
           body: JSON.stringify({
@@ -172,7 +175,10 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
         });
         const data = await res.json();
         setApiResponse(data.response || data);
-        if (showToast) showToast(`WhatsApp OTP dispatched to ${normalizedRecipient}!`);
+        if (showToast) {
+          if (data.success) showToast(`WhatsApp OTP accepted for ${normalizedRecipient}`);
+          else showToast(data.error || 'VerifyWay rejected the request', 'error');
+        }
         loadData();
       }
     } catch (err) {
@@ -209,7 +215,11 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <h2 style={{ fontSize: '14px', fontWeight: '800', margin: 0, color: 'var(--text-primary)' }}>VerifyWay WhatsApp OTP API</h2>
-              <span className="sheets-badge sheets-badge-emerald" style={{ fontSize: '10px', padding: '2px 6px' }}>● Active</span>
+              {configured === false ? (
+                <span className="sheets-badge sheets-badge-amber" style={{ fontSize: '10px', padding: '2px 6px' }}>● API key required</span>
+              ) : (
+                <span className="sheets-badge sheets-badge-emerald" style={{ fontSize: '10px', padding: '2px 6px' }}>● {config.status === 'PAUSED' ? 'Paused' : 'Active'}</span>
+              )}
             </div>
             <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>https://verifyway.com/whatsapp-otp-api/</p>
           </div>
@@ -240,8 +250,8 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
       {/* SUB-TAB 1: SEND WHATSAPP OTP */}
       {activeSubTab === 'send' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '12px' }}>
-          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-            <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+            <div style={{ background: 'var(--bg-ribbon)', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '11px', fontWeight: '700' }}>DISPATCH LIVE OTP PAYLOAD</span>
               <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>POST /api/v1/</span>
             </div>
@@ -265,7 +275,6 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
                   <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>Channel (`channel`)</label>
                   <select className="sheets-input" value={channel} onChange={(e) => setChannel(e.target.value)} style={{ width: '100%', fontSize: '11px' }}>
                     <option value="whatsapp">WhatsApp</option>
-                    <option value="telegram">Telegram</option>
                   </select>
                 </div>
                 <div>
@@ -302,8 +311,8 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
             </form>
           </div>
 
-          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-            <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700' }}>
+          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+            <div style={{ background: 'var(--bg-ribbon)', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700' }}>
               REAL-TIME HTTP JSON RESPONSE INSPECTOR
             </div>
             <div style={{ padding: '12px' }}>
@@ -324,8 +333,8 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
       {/* SUB-TAB 2: VERIFY & VALIDATE OTP */}
       {activeSubTab === 'verify' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '12px' }}>
-          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-            <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700' }}>
+          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+            <div style={{ background: 'var(--bg-ribbon)', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700' }}>
               LOCAL VERIFICATION & VALIDATION EXPLORER
             </div>
             <form onSubmit={handleVerifyOtp} style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -343,8 +352,8 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
             </form>
           </div>
 
-          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-            <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700' }}>
+          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+            <div style={{ background: 'var(--bg-ribbon)', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700' }}>
               VERIFICATION RESULT
             </div>
             <div style={{ padding: '12px' }}>
@@ -383,8 +392,8 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
 
       {/* SUB-TAB 4: API CREDENTIALS & SETTINGS */}
       {activeSubTab === 'keys' && (
-        <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-          <div style={{ background: '#F8FAFC', padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+          <div style={{ background: 'var(--bg-ribbon)', padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '12px', fontWeight: '800' }}>VERIFYWAY API CREDENTIALS & SETTINGS</span>
             <span className="sheets-badge sheets-badge-emerald" style={{ fontSize: '9px', padding: '1px 5px' }}>● Saved</span>
           </div>
@@ -392,7 +401,8 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
           <form onSubmit={handleSaveConfig} style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>API_KEY (Bearer Token)</label>
-              <input type="text" className="sheets-input" value={config.apiKey} onChange={(e) => setConfig({ ...config, apiKey: e.target.value })} placeholder="VerifyWay API Key" style={{ width: '100%', fontSize: '12px', fontFamily: 'var(--font-code)', fontWeight: '700' }} />
+              <input type="text" className="sheets-input" value={config.apiKey} onChange={(e) => setConfig({ ...config, apiKey: e.target.value })} placeholder="VerifyWay API key" autoComplete="off" style={{ width: '100%', fontSize: '12px', fontFamily: 'var(--font-code)', fontWeight: '700' }} />
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>The saved key is shown masked. Paste a new key to replace it.</div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
@@ -404,7 +414,7 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
                 <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>
                   Supplier Rate <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(Fixed by VerifyWay)</span>
                 </label>
-                <input type="text" className="sheets-input" readOnly value={`${config.ratePerOtp || '0.0075'} USD / OTP`} style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-code)', background: '#F8FAFC', color: 'var(--text-secondary)', cursor: 'not-allowed' }} />
+                <input type="text" className="sheets-input" readOnly value={`${config.ratePerOtp || '0.0075'} USD / OTP`} style={{ width: '100%', fontSize: '11px', fontFamily: 'var(--font-code)', background: 'var(--bg-ribbon)', color: 'var(--text-secondary)', cursor: 'not-allowed' }} />
               </div>
             </div>
 
@@ -452,8 +462,8 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
 
       {/* SUB-TAB 5: API REFERENCE & ERROR CODES */}
       {activeSubTab === 'docs' && (
-        <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-          <div style={{ background: '#F8FAFC', padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', fontSize: '12px', fontWeight: '800' }}>
+        <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+          <div style={{ background: 'var(--bg-ribbon)', padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', fontSize: '12px', fontWeight: '800' }}>
             VERIFYWAY WHATSAPP OTP API SPECIFICATION & CODES
           </div>
           <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -489,8 +499,8 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
       )}
 
       {/* Transmission & Delivery Logs Table */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: '#FFFFFF' }}>
-        <div style={{ background: '#F8FAFC', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '4px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+        <div style={{ background: 'var(--bg-ribbon)', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>VERIFYWAY DISPATCH & OTP LOGS</span>
           <span style={{ color: 'var(--text-muted)' }}>{logs.length} entries</span>
         </div>
@@ -588,8 +598,5 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
   );
 }
 
-if (typeof window !== 'undefined') {
-  window.WhatsAppOtpView = WhatsAppOtpView;
-}
 
 export default WhatsAppOtpView;

@@ -1,7 +1,7 @@
 {
   "name": "otp88-platform",
-  "version": "1.0.0",
-  "description": "OTP88 - Next-Gen Multi-Channel OTP & Authentication CPaaS Platform",
+  "version": "1.6.0",
+  "description": "OTP88 - Multi-channel OTP platform (WhatsApp, SMS, Email) with developer API and admin console",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -9,23 +9,27 @@
     "dev:frontend": "vite build --watch",
     "dev": "concurrently -n \"SERVER,VITE\" -c \"cyan,magenta\" \"npm run dev:server\" \"npm run dev:frontend\"",
     "build": "vite build",
-    "build:watch": "vite build --watch"
+    "build:watch": "vite build --watch",
+    "test": "node --test \"test/**/*.test.js\"",
+    "normalize-phones": "node scripts/normalize-phone-numbers.js"
   },
   "keywords": [
     "otp",
     "sms",
     "whatsapp",
-    "telegram",
-    "cpaas",
+    "email",
     "authentication",
     "api"
   ],
   "author": "OTP88",
   "license": "MIT",
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^4.19.2",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.9.2",
     "react": "^19.2.8",
@@ -34,6 +38,7 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.5",
     "concurrently": "^10.0.5",
+    "jsdom": "^26.1.0",
     "nodemon": "^3.1.14",
     "vite": "^8.2.1"
   }

@@ -1,77 +1,47 @@
 /* ==========================================================================
-   OTP88 Developer Docs & Live API Sandbox Controller
+   OTP88 API documentation: dynamic URLs, code samples and the live sandbox.
+   The sandbox calls the real endpoint with the signed-in user's API key.
    ========================================================================== */
 
 function getApiOrigin() {
-  if (typeof window !== 'undefined' && window.location && window.location.origin) {
-    return window.location.origin;
-  }
-  return '';
+  return (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
 }
 
 function getApiBaseUrl() {
   return `${getApiOrigin()}/v1`;
 }
 
-function getApiKey() {
+// The console stores the signed-in session under this key
+function getSession() {
   try {
-    const rawSession = localStorage.getItem('otp_user_session') || localStorage.getItem('session');
-    if (rawSession) {
-      const parsed = JSON.parse(rawSession);
-      const key = parsed?.apiKeyLive || parsed?.user?.apiKeyLive || parsed?.apiKey;
-      if (key) {
-        return key.startsWith('otp88_api_') ? key : ('otp88_api_' + key.replace(/^otp_live_|^api_/, ''));
-      }
-    }
-  } catch (e) {}
-  return 'otp88_api_99882200aabbcc';
+    const raw = localStorage.getItem('otp88_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
 }
 
-// Generate code snippet for POST /v1/otp/send
-function generateSendSnippet(lang = 'curl', channel = 'waterfall') {
+function getApiKey() {
+  const session = getSession();
+  return session && session.apiKeyLive ? session.apiKeyLive : 'otp88_api_YOUR_API_KEY';
+}
+
+function hasRealApiKey() {
+  const session = getSession();
+  return Boolean(session && session.apiKeyLive);
+}
+
+// --- Sample payloads (canonical camelCase field names) ---
+const SAMPLE_PAYLOADS = {
+  whatsapp: { to: '+60123456789', channel: 'whatsapp', otp: '882910', remark: 'login-4028' },
+  sms: { to: '+60123456789', channel: 'sms', senderName: 'MyApp', otp: '882910', expiryMinutes: 5, remark: 'login-4028' },
+  email: { to: 'user@example.com', channel: 'email', brandName: 'MyApp', brandHandle: 'myapp', replyTo: 'support@myapp.com', otp: '882910', expiryMinutes: 5, remark: 'login-4028' }
+};
+
+function generateSendSnippet(lang = 'curl', channel = 'whatsapp') {
   const url = `${getApiBaseUrl()}/otp/send`;
   const apiKey = getApiKey();
-
-  let payload = {};
-  if (channel === 'whatsapp') {
-    payload = {
-      to: '+60123456789',
-      channel_strategy: 'whatsapp',
-      sender_name: 'WhatsApp Business',
-      otp: '882910'
-    };
-  } else if (channel === 'telegram') {
-    payload = {
-      to: '+60123456789',
-      channel_strategy: 'telegram',
-      sender_name: 'Alibaba',
-      otp: '882910'
-    };
-  } else if (channel === 'sms') {
-    payload = {
-      to: '+60123456789',
-      channel_strategy: 'sms',
-      sender_name: 'Alibaba',
-      otp: '882910'
-    };
-  } else if (channel === 'email') {
-    payload = {
-      to: 'user@example.com',
-      channel_strategy: 'email',
-      sender_name: 'OTP88',
-      otp: '882910'
-    };
-  } else {
-    // waterfall
-    payload = {
-      to: '+60123456789',
-      channel_strategy: 'waterfall',
-      channels: ['whatsapp', 'email', 'sms'],
-      sender_name: 'OTP88',
-      otp: '882910'
-    };
-  }
-
+  const payload = SAMPLE_PAYLOADS[channel] || SAMPLE_PAYLOADS.whatsapp;
   const jsonStr = JSON.stringify(payload, null, 2);
 
   if (lang === 'curl') {
@@ -82,42 +52,45 @@ function generateSendSnippet(lang = 'curl', channel = 'waterfall') {
   }
 
   if (lang === 'node') {
-    return `const axios = require('axios');
+    return `// Node.js 18+ (built-in fetch)
+const response = await fetch('${url}', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer ${apiKey}',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify(${jsonStr.split('\n').join('\n  ')})
+});
 
-async function sendOTP() {
-  const response = await axios.post('${url}', ${jsonStr}, {
-    headers: {
-      'Authorization': 'Bearer ${apiKey}',
-      'Content-Type': 'application/json'
-    }
-  });
+const data = await response.json();
+if (!data.success) throw new Error(data.error);
 
-  console.log('OTP Dispatched:', response.data);
-}
-
-sendOTP();`;
+// Keep data.otpCode with the user's session and compare it when they submit the code
+console.log(data.transactionId, data.status);`;
   }
 
   if (lang === 'python') {
-    const pyPayload = JSON.stringify(payload, null, 4)
-      .replace(/: true/g, ': True')
-      .replace(/: false/g, ': False');
-
+    const pyPayload = JSON.stringify(payload, null, 4).replace(/: true/g, ': True').replace(/: false/g, ': False');
     return `import requests
 
-url = "${url}"
-headers = {
-    "Authorization": "Bearer ${apiKey}",
-    "Content-Type": "application/json"
-}
-payload = ${pyPayload}
+response = requests.post(
+    "${url}",
+    headers={"Authorization": "Bearer ${apiKey}"},
+    json=${pyPayload.split('\n').join('\n    ')},
+    timeout=15,
+)
+data = response.json()
+if not data["success"]:
+    raise RuntimeError(data["error"])
 
-response = requests.post(url, json=payload, headers=headers)
-print("Status:", response.status_code)
-print("Response:", response.json())`;
+# Keep data["otpCode"] with the user's session and compare it when they submit the code
+print(data["transactionId"], data["status"])`;
   }
 
   if (lang === 'go') {
+    const fields = Object.entries(payload)
+      .map(([k, v]) => `\t\t"${k}": ${typeof v === 'string' ? `"${v}"` : v},`)
+      .join('\n');
     return `package main
 
 import (
@@ -128,33 +101,33 @@ import (
 )
 
 func main() {
-\tpayload := ${jsonStr}
+\tpayload := map[string]interface{}{
+${fields}
+\t}
 \tbody, _ := json.Marshal(payload)
 
 \treq, _ := http.NewRequest("POST", "${url}", bytes.NewBuffer(body))
 \treq.Header.Set("Authorization", "Bearer ${apiKey}")
 \treq.Header.Set("Content-Type", "application/json")
 
-\tclient := &http.Client{}
-\tresp, err := client.Do(req)
+\tresp, err := http.DefaultClient.Do(req)
 \tif err != nil {
 \t\tpanic(err)
 \t}
 \tdefer resp.Body.Close()
 
-\tfmt.Println("Status:", resp.Status)
+\tvar data map[string]interface{}
+\tjson.NewDecoder(resp.Body).Decode(&data)
+\tfmt.Println(data["transactionId"], data["status"])
 }`;
   }
 
   if (lang === 'php') {
     return `<?php
 $ch = curl_init('${url}');
-
-$payload = json_encode(${jsonStr});
-
 curl_setopt_array($ch, [
     CURLOPT_POST => true,
-    CURLOPT_POSTFIELDS => $payload,
+    CURLOPT_POSTFIELDS => json_encode(${JSON.stringify(payload, null, 4).split('\n').join('\n    ')}),
     CURLOPT_HTTPHEADER => [
         'Authorization: Bearer ${apiKey}',
         'Content-Type: application/json'
@@ -162,234 +135,146 @@ curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true
 ]);
 
-$response = curl_exec($ch);
+$data = json_decode(curl_exec($ch), true);
 curl_close($ch);
 
-echo $response;
-?>`;
+if (!$data['success']) {
+    throw new RuntimeException($data['error']);
+}
+// Keep $data['otpCode'] with the user's session and compare it when they submit the code
+echo $data['transactionId'], ' ', $data['status'];`;
   }
 
   return '';
-}
-
-// Generate code snippet for POST /v1/otp/verify
-function generateVerifySnippet(lang = 'curl') {
-  const url = `${getApiBaseUrl()}/otp/verify`;
-  const apiKey = getApiKey();
-  const payload = {
-    transaction_id: 'tx_live_8820a9bc4',
-    code: '882049'
-  };
-  const jsonStr = JSON.stringify(payload, null, 2);
-
-  if (lang === 'curl') {
-    return `curl -X POST ${url} \\
-  -H "Authorization: Bearer ${apiKey}" \\
-  -H "Content-Type: application/json" \\
-  -d '${JSON.stringify(payload)}'`;
-  }
-
-  if (lang === 'node') {
-    return `const axios = require('axios');
-
-async function verifyOTP() {
-  const res = await axios.post('${url}', ${jsonStr}, {
-    headers: {
-      'Authorization': 'Bearer ${apiKey}',
-      'Content-Type': 'application/json'
-    }
-  });
-  console.log('Verification Result:', res.data);
-}
-
-verifyOTP();`;
-  }
-
-  if (lang === 'python') {
-    return `import requests
-
-url = "${url}"
-headers = {
-    "Authorization": "Bearer ${apiKey}",
-    "Content-Type": "application/json"
-}
-payload = {
-    "transaction_id": "tx_live_8820a9bc4",
-    "code": "882049"
-}
-
-res = requests.post(url, json=payload, headers=headers)
-print(res.json())`;
-  }
-
-  return '';
-}
-
-// Generate status query snippet
-function generateStatusSnippet() {
-  const url = `${getApiBaseUrl()}/otp/status?transaction_id=tx_live_8820a9bc4`;
-  const apiKey = getApiKey();
-  return `curl -X GET "${url}" \\
-  -H "Authorization: Bearer ${apiKey}"`;
 }
 
 let currentSendLang = 'curl';
-let currentSendChannel = 'waterfall';
-let currentVerifyLang = 'curl';
+let currentSendChannel = 'whatsapp';
 
 document.addEventListener('DOMContentLoaded', () => {
   updateDynamicUrls();
   initCodeSwitcher();
-  initApiTester();
+  initSandbox();
 });
 
-// Update all dynamically derived URL elements on the page
 function updateDynamicUrls() {
   const baseUrl = getApiBaseUrl();
   const origin = getApiOrigin();
 
+  document.querySelectorAll('.dynamic-base-url').forEach(el => { el.innerText = baseUrl; });
+  document.querySelectorAll('.dynamic-origin').forEach(el => { el.innerText = origin; });
+
   const baseDisplay = document.getElementById('base-url-display');
-  if (baseDisplay) {
-    baseDisplay.innerText = baseUrl;
+  if (baseDisplay) baseDisplay.innerText = baseUrl;
+
+  const authDisplay = document.getElementById('auth-header-display');
+  if (authDisplay) authDisplay.innerText = `Authorization: Bearer ${getApiKey()}`;
+
+  const keyNote = document.getElementById('api-key-note');
+  if (keyNote) {
+    keyNote.innerText = hasRealApiKey()
+      ? 'Examples on this page use the API key of the account you are signed in with.'
+      : 'Sign in to the console to see your own API key in these examples.';
   }
 
-  const sandboxUrlDisplay = document.getElementById('sandbox-url-display');
-  if (sandboxUrlDisplay) {
-    sandboxUrlDisplay.innerText = `${origin}/api/simulate-otp`;
-  }
-
-  document.querySelectorAll('.dynamic-base-url').forEach(el => {
-    el.innerText = baseUrl;
-  });
-
-  document.querySelectorAll('.dynamic-origin').forEach(el => {
-    el.innerText = origin;
-  });
-
-  const sendCodePre = document.getElementById('send-sample-code') || document.getElementById('api-sample-code');
-  if (sendCodePre) {
-    sendCodePre.innerText = generateSendSnippet(currentSendLang, currentSendChannel);
-  }
-
-  const verifyCodePre = document.getElementById('verify-sample-code');
-  if (verifyCodePre) {
-    verifyCodePre.innerText = generateVerifySnippet(currentVerifyLang);
-  }
-
-  const statusCodePre = document.getElementById('status-sample-code');
-  if (statusCodePre) {
-    statusCodePre.innerText = generateStatusSnippet();
-  }
+  const sendCodePre = document.getElementById('send-sample-code');
+  if (sendCodePre) sendCodePre.innerText = generateSendSnippet(currentSendLang, currentSendChannel);
 }
 
 function initCodeSwitcher() {
-  // Send OTP language tabs
-  const sendLangTabs = document.querySelectorAll('[data-code-lang]');
-  const sendCodePre = document.getElementById('send-sample-code') || document.getElementById('api-sample-code');
+  const sendCodePre = document.getElementById('send-sample-code');
+  if (!sendCodePre) return;
 
-  if (sendLangTabs && sendCodePre) {
-    sendLangTabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        sendLangTabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        currentSendLang = tab.getAttribute('data-code-lang') || 'curl';
-        sendCodePre.innerText = generateSendSnippet(currentSendLang, currentSendChannel);
-      });
+  document.querySelectorAll('[data-code-lang]').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('[data-code-lang]').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentSendLang = tab.getAttribute('data-code-lang') || 'curl';
+      sendCodePre.innerText = generateSendSnippet(currentSendLang, currentSendChannel);
     });
-  }
+  });
 
-  // Send OTP channel strategy buttons/selectors
-  const channelTabs = document.querySelectorAll('[data-channel-tab]');
-  if (channelTabs && sendCodePre) {
-    channelTabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        channelTabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        currentSendChannel = tab.getAttribute('data-channel-tab') || 'waterfall';
-        sendCodePre.innerText = generateSendSnippet(currentSendLang, currentSendChannel);
-      });
+  document.querySelectorAll('[data-channel-tab]').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('[data-channel-tab]').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentSendChannel = tab.getAttribute('data-channel-tab') || 'whatsapp';
+      sendCodePre.innerText = generateSendSnippet(currentSendLang, currentSendChannel);
     });
-  }
-
-  // Verify OTP language tabs
-  const verifyLangTabs = document.querySelectorAll('[data-verify-lang]');
-  const verifyCodePre = document.getElementById('verify-sample-code');
-  if (verifyLangTabs && verifyCodePre) {
-    verifyLangTabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        verifyLangTabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        currentVerifyLang = tab.getAttribute('data-verify-lang') || 'curl';
-        verifyCodePre.innerText = generateVerifySnippet(currentVerifyLang);
-      });
-    });
-  }
+  });
 }
 
-function initApiTester() {
+// --- Live sandbox: sends a real OTP with the signed-in user's key ---
+function initSandbox() {
   const sendBtn = document.getElementById('sandbox-send-btn');
   const responseBox = document.getElementById('sandbox-response-box');
   const statusBadge = document.getElementById('sandbox-status-badge');
-
+  const channelSelect = document.getElementById('sandbox-channel');
+  const targetInput = document.getElementById('sandbox-to');
+  const targetLabel = document.getElementById('sandbox-to-label');
+  const signInNote = document.getElementById('sandbox-signin-note');
   if (!sendBtn || !responseBox) return;
 
-  sendBtn.addEventListener('click', async () => {
+  const syncTargetField = () => {
+    const isEmail = channelSelect && channelSelect.value === 'email';
+    if (targetLabel) targetLabel.innerText = isEmail ? 'Recipient email address' : 'Recipient phone number';
+    if (targetInput) {
+      targetInput.placeholder = isEmail ? 'user@example.com' : '+60123456789';
+      if (isEmail && targetInput.value.startsWith('+')) targetInput.value = '';
+      if (!isEmail && targetInput.value.includes('@')) targetInput.value = '+60123456789';
+    }
+  };
+  if (channelSelect) channelSelect.addEventListener('change', syncTargetField);
+  syncTargetField();
+
+  if (!hasRealApiKey()) {
     sendBtn.disabled = true;
-    sendBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg><span>Executing API Call...</span>';
-    responseBox.innerText = 'Sending payload to OTP88 Gateway...';
-    if (statusBadge) {
-      statusBadge.innerText = 'Connecting...';
-      statusBadge.style.color = 'var(--text-muted)';
+    if (signInNote) signInNote.style.display = 'block';
+  }
+
+  sendBtn.addEventListener('click', async () => {
+    const to = targetInput ? targetInput.value.trim() : '';
+    const channel = channelSelect ? channelSelect.value : 'whatsapp';
+    if (!to) {
+      if (window.showToast) window.showToast('Enter a recipient first', 'error');
+      return;
     }
 
-    const testPhone = document.getElementById('sandbox-phone')?.value || '+60123456789';
-    const testChannel = document.getElementById('sandbox-channel')?.value || 'waterfall';
+    const idleHtml = sendBtn.innerHTML;
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<span>Sending…</span>';
+    responseBox.innerText = 'Sending request…';
+    if (statusBadge) { statusBadge.innerText = 'Connecting…'; statusBadge.style.color = 'var(--text-muted)'; }
 
     try {
-      const res = await fetch('/api/simulate-otp', {
+      const res = await fetch('/v1/otp/send', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phoneNumber: testPhone,
-          channel: testChannel,
-          channel_strategy: testChannel,
-          codeLength: 6
-        })
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getApiKey()}`
+        },
+        body: JSON.stringify({ to, channel })
       });
-
       const data = await res.json();
       responseBox.innerText = JSON.stringify(data, null, 2);
 
       if (res.ok && data.success) {
-        if (statusBadge) {
-          statusBadge.innerText = `Status: ${res.status} OK`;
-          statusBadge.style.color = 'var(--text-emerald)';
-        }
-        if (window.showToast) {
-          window.showToast('200 OK — OTP Dispatched Successfully!');
-        }
+        if (statusBadge) { statusBadge.innerText = `HTTP ${res.status} OK`; statusBadge.style.color = 'var(--text-emerald)'; }
+        if (window.showToast) window.showToast(`Sent via ${data.channelUsed}. Cost ${data.cost}.`);
       } else {
-        if (statusBadge) {
-          statusBadge.innerText = `Status: ${res.status} ${res.statusText || 'Error'}`;
-          statusBadge.style.color = '#EF4444';
-        }
-        const errMsg = data.error || data.message || 'OTP Dispatch failed';
-        if (window.showToast) {
-          window.showToast(`Error: ${errMsg}`, 'error');
-        }
+        if (statusBadge) { statusBadge.innerText = `HTTP ${res.status}`; statusBadge.style.color = '#EF4444'; }
+        if (window.showToast) window.showToast(data.error || 'Request failed', 'error');
       }
     } catch (e) {
-      const errPayload = { error: 'Failed to connect to gateway', detail: e.message };
-      responseBox.innerText = JSON.stringify(errPayload, null, 2);
-      if (statusBadge) {
-        statusBadge.innerText = 'Status: Network Error';
-        statusBadge.style.color = '#EF4444';
-      }
-      if (window.showToast) {
-        window.showToast('Network error: Failed to reach gateway', 'error');
-      }
+      responseBox.innerText = JSON.stringify({ error: 'Could not reach the server', detail: e.message }, null, 2);
+      if (statusBadge) { statusBadge.innerText = 'Network error'; statusBadge.style.color = '#EF4444'; }
+    } finally {
       sendBtn.disabled = false;
-      sendBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg><span>Run Sandbox Request</span>';
+      sendBtn.innerHTML = idleHtml;
     }
   });
 }
+
+window.getApiOrigin = getApiOrigin;
+window.getApiBaseUrl = getApiBaseUrl;
+window.getApiKey = getApiKey;

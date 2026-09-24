@@ -18,7 +18,7 @@ export function PaginationBar({
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        background: '#F8FAFC',
+        background: 'var(--bg-ribbon)',
         padding: '6px 12px',
         borderTop: '1px solid var(--border-subtle)',
         fontSize: '11px',

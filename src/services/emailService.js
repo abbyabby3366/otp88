@@ -1,4 +1,8 @@
-const { RESEND_API_KEY, DEFAULT_EMAIL_FROM } = require('../config/constants');
+const { RESEND_API_KEY, RESEND_DOMAIN_ID, DEFAULT_EMAIL_FROM, EMAIL_SENDER_DOMAIN } = require('../config/constants');
+const { escapeRegex } = require('../utils/format');
+
+// Matches a trailing "@otp88.top" or ".otp88.top" so handles can be pasted in either form
+const DOMAIN_SUFFIX_RE = new RegExp('(@|\\.)' + escapeRegex(EMAIL_SENDER_DOMAIN) + '$', 'i');
 
 /**
  * Generates modern, responsive HTML email template for OTP delivery
@@ -97,7 +101,7 @@ function renderOtpEmailText({ otpCode, brandName = 'OTP88', expiryMinutes = 5 })
 
 /**
  * Resolves and formats a custom tenant sub-alias sender
- * e.g. brandName = 'SuperApp', brandHandle = 'superapp' -> 'SuperApp <superapp@otp88.top>'
+ * e.g. brandName = 'SuperApp', brandHandle = 'superapp' -> 'SuperApp <superapp@<EMAIL_SENDER_DOMAIN>>'
  */
 function formatTenantSender({ brandName, brandHandle, explicitFrom, defaultFrom = DEFAULT_EMAIL_FROM }) {
   if (explicitFrom && explicitFrom.includes('@')) {
@@ -105,32 +109,32 @@ function formatTenantSender({ brandName, brandHandle, explicitFrom, defaultFrom 
     if (match) {
       const namePart = (match[1] || brandName || 'OTP88').trim();
       const addrPart = match[2].trim();
-      if (addrPart.endsWith('@otp88.top')) {
+      if (addrPart.endsWith('@' + EMAIL_SENDER_DOMAIN)) {
         return `${namePart} <${addrPart}>`;
       }
       let cleanHandle = addrPart.split('@')[0].toLowerCase();
-      cleanHandle = cleanHandle.replace(/\.otp88\.top$/i, '').replace(/[^a-z0-9_-]/g, '');
+      cleanHandle = cleanHandle.replace(DOMAIN_SUFFIX_RE, '').replace(/[^a-z0-9_-]/g, '');
       if (cleanHandle) {
-        return `${namePart} <${cleanHandle}@otp88.top>`;
+        return `${namePart} <${cleanHandle}@${EMAIL_SENDER_DOMAIN}>`;
       }
     }
   }
 
   if (brandHandle) {
     let cleanHandle = brandHandle.trim().toLowerCase();
-    cleanHandle = cleanHandle.replace(/@otp88\.top$/i, '').replace(/\.otp88\.top$/i, '');
+    cleanHandle = cleanHandle.replace(DOMAIN_SUFFIX_RE, '');
     cleanHandle = cleanHandle.replace(/[^a-z0-9_-]/g, '');
     const name = brandName ? brandName.trim() : 'OTP88';
     if (cleanHandle) {
-      return `${name} <${cleanHandle}@otp88.top>`;
+      return `${name} <${cleanHandle}@${EMAIL_SENDER_DOMAIN}>`;
     }
   }
 
   if (brandName && brandName.trim()) {
-    return `${brandName.trim()} <noreply@otp88.top>`;
+    return `${brandName.trim()} <noreply@${EMAIL_SENDER_DOMAIN}>`;
   }
 
-  return defaultFrom || 'OTP88 <noreply@otp88.top>';
+  return defaultFrom || DEFAULT_EMAIL_FROM;
 }
 
 /**
@@ -274,24 +278,59 @@ async function sendOtpEmail({
   }
 }
 
+const RESEND_API = 'https://api.resend.com';
+
+async function resendGet(apiKey, path) {
+  const res = await fetch(`${RESEND_API}${path}`, { headers: { 'Authorization': `Bearer ${apiKey}` } });
+  if (!res.ok) throw new Error(`Resend returned HTTP ${res.status} for ${path}`);
+  return res.json();
+}
+
 /**
- * Checks live domain status on Resend
+ * Finds the Resend domain record for our sending domain. Uses RESEND_DOMAIN_ID when set,
+ * otherwise lists the account's domains and matches EMAIL_SENDER_DOMAIN by name.
  */
-async function getResendDomainStatus(apiKey = RESEND_API_KEY, domainId = '110c5fe9-6024-4406-81fb-d7fb1061ca27') {
+async function resolveResendDomain(apiKey, domainId = RESEND_DOMAIN_ID) {
+  if (!apiKey) return { success: false, error: 'Resend API key is not configured' };
   try {
-    const res = await fetch(`https://api.resend.com/domains/${domainId}`, {
-      headers: {
-        'Authorization': `Bearer ${apiKey || RESEND_API_KEY}`
-      }
-    });
-    if (!res.ok) {
-      return { success: false, error: `Resend domains query failed with status ${res.status}` };
+    if (domainId) {
+      return { success: true, domain: await resendGet(apiKey, `/domains/${domainId}`) };
     }
-    const data = await res.json();
-    return { success: true, domain: data };
+    const list = await resendGet(apiKey, '/domains');
+    const domains = Array.isArray(list?.data) ? list.data : [];
+    const match = domains.find(d => String(d.name || '').toLowerCase() === EMAIL_SENDER_DOMAIN.toLowerCase());
+    if (!match) {
+      return { success: false, error: `${EMAIL_SENDER_DOMAIN} is not added to this Resend account yet` };
+    }
+    return { success: true, domain: await resendGet(apiKey, `/domains/${match.id}`) };
   } catch (e) {
     return { success: false, error: e.message };
   }
+}
+
+/**
+ * Reads the sending domain's verification status from Resend.
+ */
+async function getResendDomainStatus(apiKey = RESEND_API_KEY, domainId = RESEND_DOMAIN_ID) {
+  return resolveResendDomain(apiKey, domainId);
+}
+
+/**
+ * Asks Resend to re-scan the domain's DNS records, then returns the fresh status.
+ */
+async function triggerResendDomainVerification(apiKey = RESEND_API_KEY, domainId = RESEND_DOMAIN_ID) {
+  const resolved = await resolveResendDomain(apiKey, domainId);
+  if (!resolved.success) return resolved;
+  try {
+    const res = await fetch(`${RESEND_API}/domains/${resolved.domain.id}/verify`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}` }
+    });
+    if (!res.ok) return { success: false, error: `Resend verification request failed with status ${res.status}` };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+  return resolveResendDomain(apiKey, resolved.domain.id);
 }
 
 module.exports = {
@@ -299,5 +338,6 @@ module.exports = {
   renderOtpEmailText,
   formatTenantSender,
   sendOtpEmail,
-  getResendDomainStatus
+  getResendDomainStatus,
+  triggerResendDomainVerification
 };

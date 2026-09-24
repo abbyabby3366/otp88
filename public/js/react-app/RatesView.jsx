@@ -33,7 +33,7 @@ function RatesView({
 
   const activeRatesList = (ratesList && ratesList.length > 0) ? ratesList : DEFAULT_GLOBAL_RATES;
 
-  const commonWhatsappRate = activeRatesList[0]?.whatsapp ?? 0.0500;
+  const commonWhatsappRate = activeRatesList[0]?.whatsapp ?? 0.0075;
   const commonTelegramRate = activeRatesList[0]?.telegram ?? 0.0035;
 
   // Open edit modal for entire table
@@ -109,8 +109,8 @@ function RatesView({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
       
       {/* RATES TABLE */}
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden', background: '#FFFFFF' }}>
-        <div style={{ background: '#F8FAFC', padding: '8px 12px', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+        <div style={{ background: 'var(--bg-ribbon)', padding: '8px 12px', fontSize: '11px', fontWeight: '700', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
           <div>
             <span>{t.ratesTitle || 'CARRIER RATES (USD / OTP)'}</span>
             <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginLeft: '8px' }}>
@@ -268,7 +268,7 @@ function RatesView({
               <div className="sheets-modal-body" style={{ gap: '14px', maxHeight: '70vh', overflowY: 'auto' }}>
                 
                 {/* GLOBAL OMNICHANNEL SECTION */}
-                <div style={{ background: '#F8FAFC', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '10px 12px' }}>
+                <div style={{ background: 'var(--bg-ribbon)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '10px 12px' }}>
                   <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     🌐 Global Channel Pricing (All Destinations)
                   </div>
@@ -328,7 +328,7 @@ function RatesView({
                             border: '1px solid var(--border-subtle)',
                             borderRadius: '6px',
                             padding: '8px 10px',
-                            background: '#FFFFFF',
+                            background: 'var(--bg-card)',
                             display: 'flex',
                             flexDirection: 'column',
                             gap: '4px'
@@ -398,8 +398,5 @@ function RatesView({
   );
 }
 
-if (typeof window !== 'undefined') {
-  window.RatesView = RatesView;
-}
 
 export default RatesView;

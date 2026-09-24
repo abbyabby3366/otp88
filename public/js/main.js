@@ -219,11 +219,13 @@ async function initSystemStatus() {
   try {
     const res = await fetch('/api/status');
     const data = await res.json();
-    if (data && data.uptime) {
-      statusElem.innerText = `${data.uptime} Operational`;
+    if (data && data.channels) {
+      const values = Object.values(data.channels);
+      const operational = values.filter(v => v === 'Operational').length;
+      statusElem.innerText = operational === values.length ? 'All channels operational' : `${operational} of ${values.length} channels operational`;
     }
   } catch (e) {
-    // Keep fallback 99.98%
+    statusElem.innerText = 'Status unavailable';
   }
 }
 
