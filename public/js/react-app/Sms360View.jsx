@@ -25,6 +25,7 @@ function Sms360View({ t, jwtToken, showToast }) {
   });
   const [savingConfig, setSavingConfig] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
+  const [showAppSecret, setShowAppSecret] = useState(true);
 
   // Edit Key Modal State
   const [showEditModal, setShowEditModal] = useState(false);
@@ -683,7 +684,25 @@ function Sms360View({ t, jwtToken, showToast }) {
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>APP_SECRET (Password / `pass`)</label>
-                <input type="password" className="sheets-input" value={config.appSecret} onChange={(e) => setConfig({ ...config, appSecret: e.target.value })} placeholder={config.hasAppSecret ? 'Secret saved. Enter a new one to replace it.' : 'Enter the Bulk360 app secret'} autoComplete="new-password" style={{ width: '100%', fontSize: '12px', fontFamily: 'var(--font-code)' }} />
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input
+                    type={showAppSecret ? 'text' : 'password'}
+                    className="sheets-input"
+                    value={config.appSecret || ''}
+                    onChange={(e) => setConfig({ ...config, appSecret: e.target.value })}
+                    placeholder="Enter the Bulk360 app secret"
+                    autoComplete="new-password"
+                    style={{ flex: 1, fontSize: '12px', fontFamily: 'var(--font-code)' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAppSecret(!showAppSecret)}
+                    className="sheets-btn"
+                    style={{ fontSize: '11px', padding: '0 10px' }}
+                  >
+                    {showAppSecret ? 'Hide' : 'Show'}
+                  </button>
+                </div>
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>

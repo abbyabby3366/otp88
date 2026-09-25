@@ -10,6 +10,7 @@ const EmailConfigSchema = new mongoose.Schema({
   currency: { type: String, default: 'USD' },
   status: { type: String, default: 'ACTIVE' },
   brandName: { type: String, default: 'OTP88' },
+  logoUrl: { type: String, default: '' },
   supportEmail: { type: String, default: 'support@otp88.top' }
 }, { timestamps: true });
 

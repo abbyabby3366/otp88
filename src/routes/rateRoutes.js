@@ -39,10 +39,14 @@ router.get('/api/rates', async (req, res) => {
     if (getIsDbConnected()) {
       const results = await RateModel.find(query).lean();
       if (results && results.length > 0) {
+        const mappedResults = results.map(r => ({
+          ...r,
+          email: (r.email !== undefined && r.email !== null) ? r.email : emailRate
+        }));
         return res.json({
           success: true,
-          total: results.length,
-          data: results,
+          total: mappedResults.length,
+          data: mappedResults,
           emailRate,
           source: 'database'
         });

@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { TableLoader } from './TableLoader.jsx';
 
 const DEFAULT_GLOBAL_RATES = [
-  { country: 'Malaysia', code: 'MY', dialCode: '+60', flag: '🇲🇾', whatsapp: 0.0075, telegram: 0.0035, sms: 0.0210 },
-  { country: 'Singapore', code: 'SG', dialCode: '+65', flag: '🇸🇬', whatsapp: 0.0075, telegram: 0.0035, sms: null },
-  { country: 'Indonesia', code: 'ID', dialCode: '+62', flag: '🇮🇩', whatsapp: 0.0075, telegram: 0.0035, sms: null },
-  { country: 'Thailand', code: 'TH', dialCode: '+66', flag: '🇹🇭', whatsapp: 0.0075, telegram: 0.0035, sms: null },
-  { country: 'Vietnam', code: 'VN', dialCode: '+84', flag: '🇻🇳', whatsapp: 0.0075, telegram: 0.0035, sms: null },
-  { country: 'Philippines', code: 'PH', dialCode: '+63', flag: '🇵🇭', whatsapp: 0.0075, telegram: 0.0035, sms: null }
+  { country: 'Malaysia', code: 'MY', dialCode: '+60', flag: '🇲🇾', whatsapp: 0.0075, telegram: 0.0035, email: 0.0020, sms: 0.0210 },
+  { country: 'Singapore', code: 'SG', dialCode: '+65', flag: '🇸🇬', whatsapp: 0.0075, telegram: 0.0035, email: 0.0020, sms: null },
+  { country: 'Indonesia', code: 'ID', dialCode: '+62', flag: '🇮🇩', whatsapp: 0.0075, telegram: 0.0035, email: 0.0020, sms: null },
+  { country: 'Thailand', code: 'TH', dialCode: '+66', flag: '🇹🇭', whatsapp: 0.0075, telegram: 0.0035, email: 0.0020, sms: null },
+  { country: 'Vietnam', code: 'VN', dialCode: '+84', flag: '🇻🇳', whatsapp: 0.0075, telegram: 0.0035, email: 0.0020, sms: null },
+  { country: 'Philippines', code: 'PH', dialCode: '+63', flag: '🇵🇭', whatsapp: 0.0075, telegram: 0.0035, email: 0.0020, sms: null }
 ];
 
 // Carrier Rates & OTP Pricing Management View
@@ -28,6 +28,7 @@ function RatesView({
   const [showEditModal, setShowEditModal] = useState(false);
   const [modalWhatsapp, setModalWhatsapp] = useState('');
   const [modalTelegram, setModalTelegram] = useState('');
+  const [modalEmail, setModalEmail] = useState('');
   const [modalSmsRates, setModalSmsRates] = useState({});
   const backdropMouseDownRef = useRef(false);
 
@@ -35,14 +36,17 @@ function RatesView({
 
   const commonWhatsappRate = activeRatesList[0]?.whatsapp ?? 0.0075;
   const commonTelegramRate = activeRatesList[0]?.telegram ?? 0.0035;
+  const commonEmailRate = activeRatesList[0]?.email ?? 0.0020;
 
   // Open edit modal for entire table
   const openEditModal = () => {
     if (setEditCountryCode) setEditCountryCode('ALL');
     const wVal = (editRateWhatsapp !== undefined && editRateWhatsapp !== '') ? editRateWhatsapp : commonWhatsappRate.toString();
     const tVal = (editRateTelegram !== undefined && editRateTelegram !== '') ? editRateTelegram : commonTelegramRate.toString();
+    const eVal = commonEmailRate.toString();
     setModalWhatsapp(wVal);
     setModalTelegram(tVal);
+    setModalEmail(eVal);
 
     const initialSmsRates = {};
     activeRatesList.forEach(r => {
@@ -97,6 +101,7 @@ function RatesView({
         isGlobal: true,
         whatsapp: modalWhatsapp,
         telegram: modalTelegram,
+        email: modalEmail,
         smsRates: modalSmsRates
       });
       closeEditModal();
@@ -153,16 +158,17 @@ function RatesView({
               <th>Dial Code</th>
               <th style={{ textAlign: 'center', minWidth: '130px' }}>WhatsApp ($)</th>
               <th style={{ textAlign: 'center', minWidth: '130px' }}>Telegram ($)</th>
+              <th style={{ textAlign: 'center', minWidth: '130px' }}>Email ($)</th>
               <th>SMS ($)</th>
               <th>Status</th>
             </tr>
           </thead>
           <tbody>
             {loading && ratesList.length === 0 ? (
-              <TableLoader colSpan={7} message="Loading carrier rate cards..." />
+              <TableLoader colSpan={8} message="Loading carrier rate cards..." />
             ) : filteredRates.length === 0 ? (
               <tr>
-                <td colSpan="7" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
                   No rates match search criteria.
                 </td>
               </tr>
@@ -224,6 +230,28 @@ function RatesView({
                       </td>
                     )}
 
+                    {/* Merged Email Cell Across All Rows */}
+                    {idx === 0 && (
+                      <td
+                        rowSpan={filteredRates.length}
+                        style={{
+                          textAlign: 'center',
+                          verticalAlign: 'middle',
+                          background: 'rgba(16, 185, 129, 0.04)',
+                          borderRight: '1px solid var(--border-subtle)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                          <span style={{ fontFamily: 'var(--font-code)', color: '#059669', fontWeight: '800', fontSize: '13px' }}>
+                            ${Number(commonEmailRate).toFixed(4)}
+                          </span>
+                          <span style={{ fontSize: '9px', fontWeight: '700', padding: '1px 5px', borderRadius: '3px', background: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0' }}>
+                            ALL COUNTRIES
+                          </span>
+                        </div>
+                      </td>
+                    )}
+
                     <td style={{ fontFamily: 'var(--font-code)' }}>
                       {rate.sms !== null && rate.sms !== undefined && rate.sms !== '' ? (
                         <span style={{ fontWeight: '800', color: '#D97706' }}>${Number(rate.sms).toFixed(4)}</span>
@@ -270,9 +298,9 @@ function RatesView({
                 {/* GLOBAL OMNICHANNEL SECTION */}
                 <div style={{ background: 'var(--bg-ribbon)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '10px 12px' }}>
                   <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    🌐 Global Channel Pricing (All Destinations)
+                    Global Channel Pricing (All Destinations)
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
                     <div>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: '#059669', display: 'block', marginBottom: '4px' }}>
                         WhatsApp ($ / OTP)
@@ -302,6 +330,22 @@ function RatesView({
                         onChange={(e) => setModalTelegram(e.target.value)}
                         required
                         style={{ width: '100%', fontWeight: '700', color: '#0284C7' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11px', fontWeight: '700', color: '#10B981', display: 'block', marginBottom: '4px' }}>
+                        Email ($ / OTP)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.0001"
+                        min="0.0001"
+                        className="sheets-input sheets-input-code"
+                        value={modalEmail}
+                        onChange={(e) => setModalEmail(e.target.value)}
+                        required
+                        style={{ width: '100%', fontWeight: '700', color: '#10B981' }}
                       />
                     </div>
                   </div>

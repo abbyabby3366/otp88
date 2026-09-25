@@ -14,11 +14,9 @@ function clientIpOf(req) {
   return String(raw).split(',')[0].trim().replace(/^::ffff:/, '');
 }
 
-// Never return the app secret to the browser; the console only needs to know whether it is set.
 function maskConfig(cfg) {
   if (!cfg) return {};
-  const { appSecret, ...rest } = cfg;
-  return { ...rest, appSecret: '', hasAppSecret: Boolean(appSecret) };
+  return { ...cfg, hasAppSecret: Boolean(cfg.appSecret) };
 }
 
 router.get('/api/admin/sms360/my-ip', ...adminOnly, async (req, res) => {

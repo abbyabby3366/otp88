@@ -7,74 +7,166 @@ const DOMAIN_SUFFIX_RE = new RegExp('(@|\\.)' + escapeRegex(EMAIL_SENDER_DOMAIN)
 /**
  * Generates modern, responsive HTML email template for OTP delivery
  */
-function renderOtpEmailHtml({ otpCode, brandName = 'OTP88', expiryMinutes = 5, recipient = '' }) {
+function renderOtpEmailHtml({ otpCode, brandName = 'OTP88', expiryMinutes = 5, recipient = '', logoUrl = '' }) {
   const currentYear = new Date().getFullYear();
+
+  let resolvedLogoUrl = logoUrl ? logoUrl.trim() : '';
+  if (resolvedLogoUrl) {
+    if (resolvedLogoUrl.includes('/uploads/logos/')) {
+      const filename = resolvedLogoUrl.split('/uploads/logos/').pop().split('?')[0];
+      resolvedLogoUrl = `https://ap-south-1.linodeobjects.com/x.neuronwww.com/otp88/logos/${filename}`;
+    } else if (resolvedLogoUrl.startsWith('/')) {
+      const baseUrl = (process.env.APP_BASE_URL || 'https://otp88.top').replace(/\/$/, '');
+      resolvedLogoUrl = `${baseUrl}${resolvedLogoUrl}`;
+    }
+  }
+
+  let brandHeaderHtml = '';
+  if (resolvedLogoUrl) {
+    brandHeaderHtml = `
+      <table role="presentation" align="center" cellspacing="0" cellpadding="0" style="margin: 0 auto;">
+        <tr>
+          <td align="center" style="vertical-align: middle;">
+            <img src="${resolvedLogoUrl}" alt="${brandName}" style="max-height: 48px; max-width: 220px; height: auto; display: block; margin: 0 auto; object-fit: contain; border: 0;" />
+          </td>
+        </tr>
+      </table>
+    `;
+  } else if (brandName && brandName.trim().toUpperCase() !== 'OTP88') {
+    brandHeaderHtml = `
+      <div style="font-size: 24px; font-weight: 800; letter-spacing: -0.5px; color: #0F172A;" class="email-text-title">
+        ${brandName.trim()}
+      </div>
+    `;
+  } else {
+    brandHeaderHtml = `
+      <table role="presentation" align="center" cellspacing="0" cellpadding="0">
+        <tr>
+          <td style="padding-right: 10px; vertical-align: middle;">
+            <svg width="36" height="36" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block; width: 36px; height: 36px;">
+              <defs>
+                <linearGradient id="emailShieldGrad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#10B981"/>
+                  <stop offset="50%" stop-color="#06B6D4"/>
+                  <stop offset="100%" stop-color="#3B82F6"/>
+                </linearGradient>
+                <linearGradient id="emailShieldBg" x1="20" y1="2" x2="20" y2="38" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#0F172A"/>
+                  <stop offset="100%" stop-color="#020617"/>
+                </linearGradient>
+                <linearGradient id="emailBoltGrad" x1="12" y1="8" x2="28" y2="32" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#34D399"/>
+                  <stop offset="100%" stop-color="#38BDF8"/>
+                </linearGradient>
+              </defs>
+              <path d="M20 3L34 8V18C34 26.5 28 34 20 37C12 34 6 26.5 6 18V8L20 3Z" fill="url(#emailShieldBg)" stroke="url(#emailShieldGrad)" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M22 8L12 21H19L17 32L28 19H21L22 8Z" fill="url(#emailBoltGrad)" stroke="#060913" stroke-width="0.8" stroke-linejoin="round"/>
+            </svg>
+          </td>
+          <td style="vertical-align: middle;">
+            <span style="font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #0F172A;" class="email-text-title">
+              OTP<span style="color: #10B981;">88</span>
+            </span>
+          </td>
+        </tr>
+      </table>
+    `;
+  }
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${brandName} Verification Code</title>
+  <style>
+    @media (prefers-color-scheme: dark) {
+      .email-bg { background-color: #0B0F19 !important; }
+      .email-card { background-color: #131B2E !important; border-color: #1E293B !important; }
+      .email-text-title { color: #FFFFFF !important; }
+      .email-text-body { color: #94A3B8 !important; }
+      .email-code-box { background-color: #0B1120 !important; border-color: #334155 !important; }
+      .email-code-text { color: #34D399 !important; }
+      .email-tip-box { background-color: #0F172A !important; border-color: #1E293B !important; }
+      .email-tip-title { color: #E2E8F0 !important; }
+      .email-tip-text { color: #94A3B8 !important; }
+      .email-footer-text { color: #64748B !important; }
+    }
+  </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #0B0F19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #E2E8F0;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #0B0F19; padding: 40px 16px;">
+<body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0F172A;" class="email-bg">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #F8FAFC; padding: 40px 16px;" class="email-bg">
     <tr>
       <td align="center">
         <!-- Main Container Card -->
-        <table role="presentation" width="100%" style="max-width: 520px; background: #131B2E; border: 1px solid #1E293B; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);">
+        <table role="presentation" width="100%" style="max-width: 480px; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);" class="email-card">
           <!-- Header Bar -->
           <tr>
-            <td style="padding: 32px 32px 20px 32px; text-align: center; border-bottom: 1px solid #1E293B;">
-              <table role="presentation" align="center" cellspacing="0" cellpadding="0">
-                <tr>
-                  <td style="padding-right: 10px; vertical-align: middle;">
-                    <div style="width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, #10B981, #06B6D4); display: inline-flex; align-items: center; justify-content: center; text-align: center; line-height: 36px; color: #060913; font-weight: 900; font-size: 18px;">
-                      ⚡
-                    </div>
-                  </td>
-                  <td style="vertical-align: middle;">
-                    <span style="font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #FFFFFF;">
-                      OTP<span style="color: #10B981;">88</span>
-                    </span>
-                  </td>
-                </tr>
-              </table>
-              <div style="margin-top: 14px; font-size: 13px; color: #94A3B8; letter-spacing: 0.5px; text-transform: uppercase; font-weight: 600;">
-                One-Time Authentication Passcode
-              </div>
+            <td style="padding: 28px 32px 24px 32px; text-align: center; border-bottom: 1px solid #F1F5F9;">
+              ${brandHeaderHtml}
             </td>
           </tr>
 
           <!-- Content Body -->
           <tr>
             <td style="padding: 32px 32px 24px 32px; text-align: center;">
-              <p style="margin: 0 0 16px 0; font-size: 15px; color: #CBD5E1; line-height: 1.6;">
+              <h1 style="margin: 0 0 10px 0; font-size: 20px; font-weight: 700; color: #0F172A; letter-spacing: -0.3px;" class="email-text-title">
+                Your Verification Code
+              </h1>
+              <p style="margin: 0 0 20px 0; font-size: 14px; color: #475569; line-height: 1.6;" class="email-text-body">
                 Use the verification code below to complete your authentication request. This code is confidential.
               </p>
 
               <!-- OTP Code Display Box -->
-              <div style="margin: 28px 0; padding: 22px 16px; background: #0B1120; border: 1px solid #334155; border-radius: 12px; text-align: center;">
-                <div style="font-family: 'Courier New', Courier, monospace; font-size: 38px; font-weight: 800; letter-spacing: 10px; color: #34D399; text-shadow: 0 0 12px rgba(52, 211, 153, 0.35); padding-left: 10px;">
+              <div style="margin: 22px 0 18px 0; padding: 20px 16px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; text-align: center;" class="email-code-box">
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 38px; font-weight: 800; letter-spacing: 10px; color: #0F172A; padding-left: 10px;" class="email-code-text">
                   ${otpCode}
                 </div>
               </div>
 
-              <!-- Expiry Badge -->
-              <div style="display: inline-block; padding: 6px 14px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 20px; font-size: 12px; font-weight: 600; color: #FBBF24; margin-bottom: 24px;">
-                ⏱ Valid for ${expiryMinutes} minutes
+              <!-- Expiry Badge with SVG Clock Icon -->
+              <div style="display: inline-block; padding: 6px 14px; background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 20px; font-size: 12px; font-weight: 600; color: #92400E; margin-bottom: 22px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="display: inline-table; vertical-align: middle;">
+                  <tr>
+                    <td style="vertical-align: middle; padding-right: 5px;">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#92400E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: block;">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                      </svg>
+                    </td>
+                    <td style="vertical-align: middle; font-size: 12px; font-weight: 600; color: #92400E;">
+                      Valid for ${expiryMinutes} minutes
+                    </td>
+                  </tr>
+                </table>
               </div>
 
-              <!-- Security Warning -->
-              <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid #1E293B; border-radius: 8px; padding: 14px 16px; text-align: left; font-size: 12px; color: #94A3B8; line-height: 1.5;">
-                <strong style="color: #E2E8F0;">Security Tip:</strong> Never share this code with anyone. OTP88 or its representatives will never ask for your verification code.
+              <!-- Security Warning with SVG Lock Icon -->
+              <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px 16px; text-align: left; font-size: 12px; color: #64748B; line-height: 1.5;" class="email-tip-box">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+                  <tr>
+                    <td style="width: 18px; vertical-align: top; padding-top: 1px; padding-right: 8px;">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0F172A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: block;">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                      </svg>
+                    </td>
+                    <td style="vertical-align: top;">
+                      <strong style="color: #0F172A;" class="email-tip-title">Security Tip:</strong> <span class="email-tip-text">Never share this code with anyone. ${brandName} or its representatives will never ask for your verification code.</span>
+                      <div style="margin-top: 6px; font-size: 11px; color: #94A3B8;">
+                        If you did not request this verification, please safely ignore this email.
+                      </div>
+                    </td>
+                  </tr>
+                </table>
               </div>
             </td>
           </tr>
 
           <!-- Footer -->
           <tr>
-            <td style="padding: 20px 32px 28px 32px; background: #0F172A; border-top: 1px solid #1E293B; text-align: center;">
-              <p style="margin: 0; font-size: 11px; color: #64748B; line-height: 1.5;">
+            <td style="padding: 18px 32px 24px 32px; background: #F8FAFC; border-top: 1px solid #F1F5F9; text-align: center;" class="email-tip-box">
+              <p style="margin: 0; font-size: 11px; color: #94A3B8; line-height: 1.6;" class="email-footer-text">
                 This is an automated security email sent to ${recipient || 'your registered address'}.<br>
                 &copy; ${currentYear} OTP88 CPaaS Platform. All rights reserved.
               </p>
@@ -149,7 +241,8 @@ async function sendOtpEmail({
   expiryMinutes = 5,
   apiKey,
   fromEmail,
-  replyTo
+  replyTo,
+  logoUrl
 }) {
   const startT = Date.now();
   const cleanRecipient = (to || '').trim();
@@ -184,7 +277,8 @@ async function sendOtpEmail({
     otpCode,
     brandName: senderName,
     expiryMinutes,
-    recipient: cleanRecipient
+    recipient: cleanRecipient,
+    logoUrl
   });
 
   const textContent = renderOtpEmailText({

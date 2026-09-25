@@ -4,7 +4,7 @@ import { apiFetch } from './api.js';
 
 // API & Keys Integration Spreadsheet View
 function ApiView({ t, session, setSession, jwtToken, copyToClipboard, showToast }) {
-  const [revealedApiKey, setRevealedApiKey] = useState(false);
+  const [revealedApiKey, setRevealedApiKey] = useState(true);
   const currentOrigin = typeof window !== 'undefined' && window.location.origin
     ? window.location.origin
     : 'http://localhost:8884';

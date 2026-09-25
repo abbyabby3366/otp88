@@ -7,6 +7,7 @@ const RateSchema = new mongoose.Schema({
   flag: { type: String, default: '🌐' },
   whatsapp: { type: Number, default: 0.0075 },
   telegram: { type: Number, default: 0.0035 },
+  email: { type: Number, default: 0.0020 },
   sms: { type: Number, default: null }, // SMS supported only for Malaysia initially
   avgLatency: { type: String, default: '0.8s' },
   successRate: { type: String, default: '99.98%' },

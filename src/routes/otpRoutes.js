@@ -54,6 +54,7 @@ function parseSendRequest(body = {}) {
     replyTo: pick(body, 'replyTo', 'reply_to'),
     from: pick(body, 'from'),
     subject: pick(body, 'subject'),
+    logoUrl: pick(body, 'logoUrl', 'logo_url', 'brandLogoUrl', 'brand_logo_url'),
     remark: pick(body, 'remark', 'reference'),
     expiryMinutes
   };
@@ -172,7 +173,8 @@ router.post('/v1/otp/send', verifyJwtMiddleware, sendLimiter, async (req, res) =
     brandName: input.brandName || (isEmail ? input.senderName : undefined) || account.emailBrandName || undefined,
     brandHandle: input.brandHandle || account.emailBrandHandle || undefined,
     replyTo: input.replyTo || account.emailReplyTo || undefined,
-    explicitFrom: input.from
+    explicitFrom: input.from,
+    logoUrl: input.logoUrl || account.emailLogoUrl || undefined
   });
 
   const transactionId = dispatch.ref || reservationRef;

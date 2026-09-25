@@ -2,6 +2,20 @@ import React, { useState, useEffect } from 'react';
 import TableLoader from './TableLoader.jsx';
 import { apiFetch } from './api.js';
 import { splitDateTime } from './utils/format.js';
+import EmailTemplatePreview from './EmailTemplatePreview.jsx';
+import EmailTestDispatchForm from './EmailTestDispatchForm.jsx';
+import EmailLogoUploader from './EmailLogoUploader.jsx';
+import {
+  MailIcon,
+  SettingsIcon,
+  EyeIcon,
+  VerifiedCheckIcon,
+  PendingClockIcon,
+  InfoCircleIcon,
+  LockIcon,
+  RocketIcon,
+  ListLogsIcon
+} from './EmailOtpIcons.jsx';
 
 export default function EmailOtpView({ t, jwtToken, showToast }) {
   const [config, setConfig] = useState({
@@ -13,6 +27,7 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
     currency: 'USD',
     status: 'ACTIVE',
     brandName: 'OTP88',
+    logoUrl: '',
     supportEmail: 'support@otp88.top'
   });
 
@@ -21,16 +36,9 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
   const [logs, setLogs] = useState([]);
   const [loadingConfig, setLoadingConfig] = useState(true);
   const [savingConfig, setSavingConfig] = useState(false);
-  const [showApiKey, setShowApiKey] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState('config'); // 'config' | 'preview'
 
-  // Test send form state
-  const [testTo, setTestTo] = useState('delivered@resend.dev');
-  const [testCode, setTestCode] = useState(() => Math.floor(100000 + Math.random() * 900000).toString());
-  const [testBrand, setTestBrand] = useState('OTP88');
-  const [testExpiry, setTestExpiry] = useState('5');
-  const [sendingTest, setSendingTest] = useState(false);
-  const [testResult, setTestResult] = useState(null);
 
   // Re-verify domain state
   const [verifyingDomain, setVerifyingDomain] = useState(false);
@@ -110,58 +118,6 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
     }
   };
 
-  // Dispatch live test email OTP
-  const handleSendTest = async (e) => {
-    e.preventDefault();
-    if (!testTo.trim() || !testTo.includes('@')) {
-      showToast('Please enter a valid recipient email address', 'error');
-      return;
-    }
-    setSendingTest(true);
-    setTestResult(null);
-
-    try {
-      const res = await apiFetch('/api/admin/email/test-send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${jwtToken}`
-        },
-        body: JSON.stringify({
-          to: testTo.trim(),
-          code: testCode.trim(),
-          brandName: testBrand.trim() || 'OTP88',
-          expiryMinutes: parseInt(testExpiry, 10) || 5
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        showToast(`Email OTP sent successfully in ${data.latency}!`);
-        setTestResult({
-          success: true,
-          messageId: data.messageId,
-          latency: data.latency,
-          fromUsed: data.fromUsed,
-          otpCode: data.otpCode
-        });
-        fetchEmailData();
-        setTestCode(Math.floor(100000 + Math.random() * 900000).toString());
-      } else {
-        setTestResult({
-          success: false,
-          error: data.error,
-          latency: data.latency,
-          fromUsed: data.fromUsed
-        });
-        showToast(`Dispatch failed: ${data.error}`, 'error');
-      }
-    } catch (err) {
-      setTestResult({ success: false, error: err.message });
-      showToast('Network error during test send', 'error');
-    } finally {
-      setSendingTest(false);
-    }
-  };
 
   const isDomainVerified = domainStatus?.status === 'verified';
 
@@ -173,7 +129,9 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '20px' }}>📧</span>
+              <div style={{ width: '32px', height: '32px', borderRadius: '6px', background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#06B6D4', flexShrink: 0 }}>
+                <MailIcon size={18} />
+              </div>
               <h2 style={{ fontSize: '18px', fontWeight: '800', margin: 0, color: 'var(--text-primary)' }}>
                 Email OTP <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-emerald)', background: 'rgba(16,185,129,0.1)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(16,185,129,0.25)' }}>Resend API</span>
               </h2>
@@ -196,7 +154,15 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
         {/* Cloudflare Domain Status Indicator */}
         <div style={{ marginTop: '14px', padding: '10px 14px', borderRadius: '8px', background: isDomainVerified ? 'rgba(16,185,129,0.08)' : (domainError ? 'var(--bg-ribbon)' : 'rgba(245,158,11,0.08)'), border: `1px solid ${isDomainVerified ? 'rgba(16,185,129,0.25)' : (domainError ? 'var(--border-subtle)' : 'rgba(245,158,11,0.25)')}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '14px' }}>{isDomainVerified ? '✅' : (domainError ? 'ℹ️' : '⏳')}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+              {isDomainVerified ? (
+                <VerifiedCheckIcon size={15} color="#10B981" />
+              ) : domainError ? (
+                <InfoCircleIcon size={15} color="var(--text-secondary)" />
+              ) : (
+                <PendingClockIcon size={15} color="#F59E0B" />
+              )}
+            </span>
             <span style={{ fontSize: '12px', fontWeight: '700', color: isDomainVerified ? 'var(--text-emerald)' : (domainError ? 'var(--text-secondary)' : '#F59E0B') }}>
               Sending domain{domainStatus?.name ? ` ${domainStatus.name}` : ''}: {isDomainVerified ? 'Verified' : (domainError ? 'Status not available' : 'Not verified yet')}
             </span>
@@ -221,16 +187,18 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
         <button
           className={`sheets-tab-pill ${activeSubTab === 'config' ? 'active' : ''}`}
           onClick={() => setActiveSubTab('config')}
-          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: '700', borderRadius: '6px', cursor: 'pointer', background: activeSubTab === 'config' ? 'var(--primary-emerald)' : 'rgba(255,255,255,0.05)', color: activeSubTab === 'config' ? '#000' : 'var(--text-secondary)', border: 'none' }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', fontSize: '12px', fontWeight: '700', borderRadius: '6px', cursor: 'pointer', background: activeSubTab === 'config' ? 'var(--primary-emerald)' : 'rgba(255,255,255,0.05)', color: activeSubTab === 'config' ? '#000' : 'var(--text-secondary)', border: 'none' }}
         >
-          ⚙️ Gateway Settings & Live Dispatch
+          <SettingsIcon size={13} color="currentColor" />
+          Gateway Settings & Live Dispatch
         </button>
         <button
           className={`sheets-tab-pill ${activeSubTab === 'preview' ? 'active' : ''}`}
           onClick={() => setActiveSubTab('preview')}
-          style={{ padding: '6px 14px', fontSize: '12px', fontWeight: '700', borderRadius: '6px', cursor: 'pointer', background: activeSubTab === 'preview' ? 'var(--primary-emerald)' : 'rgba(255,255,255,0.05)', color: activeSubTab === 'preview' ? '#000' : 'var(--text-secondary)', border: 'none' }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', fontSize: '12px', fontWeight: '700', borderRadius: '6px', cursor: 'pointer', background: activeSubTab === 'preview' ? 'var(--primary-emerald)' : 'rgba(255,255,255,0.05)', color: activeSubTab === 'preview' ? '#000' : 'var(--text-secondary)', border: 'none' }}
         >
-          👁️ Responsive HTML Email Preview
+          <EyeIcon size={13} color="currentColor" />
+          Responsive HTML Email Preview
         </button>
       </div>
 
@@ -241,7 +209,7 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
           {/* Card 1: Resend Credentials & Gateway Parameters */}
           <div className="sheets-card" style={{ padding: '18px 20px', background: 'var(--card-bg)' }}>
             <h3 style={{ fontSize: '14px', fontWeight: '800', margin: '0 0 14px 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>🔐</span> Resend Credentials & Parameters
+              <LockIcon size={15} style={{ color: 'var(--text-emerald)' }} /> Resend Credentials & Parameters
             </h3>
 
             <form onSubmit={handleSaveConfig} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -252,11 +220,11 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
                 <div style={{ display: 'flex', gap: '6px' }}>
                   <input
                     type={showApiKey ? 'text' : 'password'}
-                    value={(config.apiKey || '').includes('…') ? '' : (config.apiKey || '')}
+                    value={config.apiKey || ''}
                     onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
                     className="sheets-input"
                     style={{ flex: 1, fontFamily: 'monospace', fontSize: '12px' }}
-                    placeholder={config.hasApiKey ? 'Key saved. Paste a new key to replace it.' : 're_...'}
+                    placeholder="re_..."
                   />
                   <button
                     type="button"
@@ -342,6 +310,15 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
                 </div>
               </div>
 
+              {/* Email Header Brand Logo */}
+              <EmailLogoUploader
+                logoUrl={config.logoUrl || ''}
+                onChange={(url) => setConfig({ ...config, logoUrl: url })}
+                jwtToken={jwtToken}
+                showToast={showToast}
+                label="Brand Logo (Email Header)"
+              />
+
               <div style={{ marginTop: '6px' }}>
                 <button
                   type="submit"
@@ -355,156 +332,35 @@ export default function EmailOtpView({ t, jwtToken, showToast }) {
             </form>
           </div>
 
-          {/* Card 2: Live Test Dispatch Form */}
-          <div className="sheets-card" style={{ padding: '18px 20px', background: 'var(--card-bg)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '800', margin: '0 0 14px 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>🚀</span> Dispatch Live Test Email OTP
-            </h3>
-
-            <form onSubmit={handleSendTest} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                  Recipient Email Address
-                </label>
-                <input
-                  type="email"
-                  value={testTo}
-                  onChange={(e) => setTestTo(e.target.value)}
-                  className="sheets-input"
-                  style={{ width: '100%', fontSize: '12px' }}
-                  placeholder="recipient@example.com"
-                  required
-                />
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px', display: 'block' }}>
-                  Tip: <code>delivered@resend.dev</code> is accepted by Resend without delivering a real email.
-                </span>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                    Passcode (OTP)
-                  </label>
-                  <input
-                    type="text"
-                    value={testCode}
-                    onChange={(e) => setTestCode(e.target.value)}
-                    className="sheets-input"
-                    style={{ width: '100%', fontFamily: 'monospace', fontWeight: '700', fontSize: '13px' }}
-                    maxLength={8}
-                    required
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                    Expiry Duration
-                  </label>
-                  <select
-                    value={testExpiry}
-                    onChange={(e) => setTestExpiry(e.target.value)}
-                    className="sheets-select"
-                    style={{ width: '100%', fontSize: '12px' }}
-                  >
-                    <option value="5">5 minutes</option>
-                    <option value="10">10 minutes</option>
-                    <option value="15">15 minutes</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ marginTop: '6px' }}>
-                <button
-                  type="submit"
-                  disabled={sendingTest}
-                  className="sheets-btn sheets-btn-primary"
-                  style={{ width: '100%', padding: '9px', fontSize: '12px', fontWeight: '700' }}
-                >
-                  {sendingTest ? 'Dispatching via Resend...' : 'Send Live Test Email OTP'}
-                </button>
-              </div>
-
-              {testResult && (
-                <div style={{
-                  padding: '10px 12px',
-                  borderRadius: '6px',
-                  fontSize: '11px',
-                  background: testResult.success ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                  border: `1px solid ${testResult.success ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
-                  color: testResult.success ? 'var(--text-emerald)' : '#EF4444'
-                }}>
-                  {testResult.success ? (
-                    <div>
-                      <strong>✅ Delivered via Resend!</strong><br />
-                      Message ID: <code>{testResult.messageId}</code><br />
-                      Latency: <code>{testResult.latency}</code> • From: <code>{testResult.fromUsed}</code>
-                    </div>
-                  ) : (
-                    <div>
-                      <strong>❌ Dispatch Failed:</strong><br />
-                      {testResult.error}
-                    </div>
-                  )}
-                </div>
-              )}
-            </form>
-          </div>
+          {/* Card 2: Live Test Dispatch Form with all editable API fields */}
+          <EmailTestDispatchForm
+            jwtToken={jwtToken}
+            showToast={showToast}
+            onSuccess={fetchEmailData}
+            defaultBrandName={config.brandName || 'OTP88'}
+            defaultFromEmail={config.fromEmail || 'OTP88 <noreply@otp88.top>'}
+            defaultReplyTo={config.replyTo || ''}
+            defaultLogoUrl={config.logoUrl || ''}
+          />
         </div>
       )}
 
       {/* SUB-TAB 2: Responsive HTML Email Preview */}
       {activeSubTab === 'preview' && (
-        <div className="sheets-card" style={{ padding: '24px', background: 'var(--card-bg)', marginBottom: '16px', textAlign: 'center' }}>
-          <div style={{ maxWidth: '520px', margin: '0 auto', background: '#131B2E', border: '1px solid #1E293B', borderRadius: '16px', overflow: 'hidden', textAlign: 'left', color: '#E2E8F0', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}>
-            
-            {/* Header */}
-            <div style={{ padding: '28px 24px 18px 24px', textAlign: 'center', borderBottom: '1px solid #1E293B' }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '6px', background: 'linear-gradient(135deg, #10B981, #06B6D4)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#060913', fontWeight: '900', fontSize: '16px' }}>⚡</div>
-                <span style={{ fontSize: '20px', fontWeight: '800', color: '#FFFFFF' }}>OTP<span style={{ color: '#10B981' }}>88</span></span>
-              </div>
-              <div style={{ marginTop: '8px', fontSize: '11px', color: '#94A3B8', letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: '700' }}>
-                One-Time Authentication Passcode
-              </div>
-            </div>
-
-            {/* Content */}
-            <div style={{ padding: '28px 24px', textAlign: 'center' }}>
-              <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#CBD5E1', lineHeight: 1.5 }}>
-                Use the verification code below to complete your authentication request. This code is confidential.
-              </p>
-
-              <div style={{ margin: '20px 0', padding: '18px 12px', background: '#0B1120', border: '1px solid #334155', borderRadius: '10px' }}>
-                <div style={{ fontFamily: 'monospace', fontSize: '34px', fontWeight: '800', letterSpacing: '8px', color: '#34D399', textShadow: '0 0 10px rgba(52,211,153,0.3)' }}>
-                  {testCode || '882049'}
-                </div>
-              </div>
-
-              <div style={{ display: 'inline-block', padding: '4px 12px', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '20px', fontSize: '11px', fontWeight: '600', color: '#FBBF24', marginBottom: '18px' }}>
-                ⏱ Valid for {testExpiry || '5'} minutes
-              </div>
-
-              <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid #1E293B', borderRadius: '6px', padding: '10px 14px', textAlign: 'left', fontSize: '11px', color: '#94A3B8' }}>
-                <strong style={{ color: '#E2E8F0' }}>Security Tip:</strong> Never share this code with anyone. OTP88 will never ask for your verification code.
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div style={{ padding: '16px 24px', background: '#0F172A', borderTop: '1px solid #1E293B', textAlign: 'center' }}>
-              <p style={{ margin: 0, fontSize: '11px', color: '#64748B' }}>
-                This is an automated security email.<br />
-                &copy; {new Date().getFullYear()} OTP88 CPaaS Platform. All rights reserved.
-              </p>
-            </div>
-
-          </div>
-        </div>
+        <EmailTemplatePreview
+          testCode="532459"
+          brandName={config.brandName || 'OTP88'}
+          logoUrl={config.logoUrl || ''}
+          testExpiry="5"
+          recipient="recipient@example.com"
+        />
       )}
 
       {/* Card 3: Recent Email OTP Dispatch Logs */}
       <div className="sheets-card" style={{ padding: '16px 20px', background: 'var(--card-bg)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <h3 style={{ fontSize: '14px', fontWeight: '800', margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>📜</span> Recent Email OTP Dispatches ({logs.length})
+            <ListLogsIcon size={15} style={{ color: 'var(--text-secondary)' }} /> Recent Email OTP Dispatches ({logs.length})
           </h3>
         </div>
 

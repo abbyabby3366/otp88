@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import WhatsAppWebhookTab from './WhatsAppWebhookTab.jsx';
 import { TableLoader } from './TableLoader.jsx';
 import { apiFetch } from './api.js';
+import WhatsAppEditKeyModal from './WhatsAppEditKeyModal.jsx';
 
 // Admin VerifyWay WhatsApp OTP API Complete Management & Interactive Explorer
 function WhatsAppOtpView({ t, jwtToken, showToast }) {
@@ -35,8 +36,8 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
 
   // Edit Key Modal State
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(true);
   const [modalApiKey, setModalApiKey] = useState('');
-  const editModalBackdropRef = useRef(false);
 
   // Send WhatsApp OTP state
   const [recipient, setRecipient] = useState('');
@@ -85,14 +86,6 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
     loadData();
   }, [jwtToken]);
 
-  useEffect(() => {
-    if (!showEditModal) return;
-    const handleKeyDown = (e) => {
-      if ((e.key === 'Escape' || e.key === 'Esc') && !savingConfig) setShowEditModal(false);
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showEditModal, savingConfig]);
 
   const handleOpenEditModal = () => {
     setModalApiKey(config.apiKey);
@@ -401,8 +394,26 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
           <form onSubmit={handleSaveConfig} style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '4px' }}>API_KEY (Bearer Token)</label>
-              <input type="text" className="sheets-input" value={config.apiKey} onChange={(e) => setConfig({ ...config, apiKey: e.target.value })} placeholder="VerifyWay API key" autoComplete="off" style={{ width: '100%', fontSize: '12px', fontFamily: 'var(--font-code)', fontWeight: '700' }} />
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>The saved key is shown masked. Paste a new key to replace it.</div>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  className="sheets-input"
+                  value={config.apiKey || ''}
+                  onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
+                  placeholder="VerifyWay API key"
+                  autoComplete="off"
+                  style={{ flex: 1, fontSize: '12px', fontFamily: 'var(--font-code)', fontWeight: '700' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="sheets-btn"
+                  style={{ fontSize: '11px', padding: '0 10px' }}
+                >
+                  {showApiKey ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>VerifyWay Bearer token for authenticating WhatsApp dispatches.</div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
@@ -553,50 +564,16 @@ function WhatsAppOtpView({ t, jwtToken, showToast }) {
       </div>
 
       {/* EDIT KEY MODAL DIALOG (Plain Text Input) */}
-      {showEditModal && (
-        <div
-          className="sheets-modal-backdrop"
-          onMouseDown={(e) => { e.target === e.currentTarget ? editModalBackdropRef.current = true : editModalBackdropRef.current = false; }}
-          onMouseUp={(e) => { if (editModalBackdropRef.current && e.target === e.currentTarget && !savingConfig) setShowEditModal(false); editModalBackdropRef.current = false; }}
-        >
-          <div className="sheets-modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
-            <div className="sheets-modal-header">
-              <span>Edit VerifyWay API Key</span>
-              <button type="button" onClick={() => !savingConfig && setShowEditModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '16px', color: 'var(--text-muted)' }}>✕</button>
-            </div>
-            <form onSubmit={handleSaveModal}>
-              <div className="sheets-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-                    API_KEY (Bearer Token)
-                  </label>
-                  <input
-                    type="text"
-                    className="sheets-input"
-                    value={modalApiKey}
-                    onChange={(e) => setModalApiKey(e.target.value)}
-                    placeholder="Enter VerifyWay API Key"
-                    autoFocus
-                    required
-                    style={{ width: '100%', fontFamily: 'var(--font-code)', fontWeight: '700', fontSize: '12px' }}
-                  />
-                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '3px', display: 'block' }}>
-                    Plain text visible for quick editing and copy-pasting.
-                  </span>
-                </div>
-              </div>
-              <div className="sheets-modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                <button type="button" className="sheets-btn" onClick={() => setShowEditModal(false)} disabled={savingConfig}>Cancel</button>
-                <button type="submit" className="sheets-btn sheets-btn-primary" disabled={savingConfig} style={{ background: '#059669' }}>{savingConfig ? 'Saving...' : 'Save Keys'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
+      <WhatsAppEditKeyModal
+        show={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onSave={handleSaveModal}
+        apiKey={modalApiKey}
+        setApiKey={setModalApiKey}
+        saving={savingConfig}
+      />
     </div>
   );
 }
-
 
 export default WhatsAppOtpView;

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { ADMIN_USERNAME, getGlobalRates, setGlobalRates } = require('../../config/constants');
 const { getIsDbConnected } = require('../../config/db');
-const { UserModel, RateModel, WhatsAppConfigModel } = require('../../models');
+const { UserModel, RateModel, WhatsAppConfigModel, EmailConfigModel } = require('../../models');
 const { verifyJwtMiddleware, requireAdmin } = require('../../middleware/auth');
 const { validateBody, PATTERNS } = require('../../middleware/validate');
 const { hashPassword } = require('../../services/passwordService');
@@ -29,14 +29,16 @@ router.post(
     countryCode: { maxLength: 5 },
     whatsapp: { type: 'number', min: 0, max: 10 },
     telegram: { type: 'number', min: 0, max: 10 },
+    email: { type: 'number', min: 0, max: 10 },
     sms: { type: 'number', min: 0, max: 10 },
     smsRates: { type: 'object' },
     isGlobal: { type: 'boolean' }
   }),
   async (req, res) => {
-    const { countryCode, whatsapp, telegram, sms, smsRates, isGlobal } = req.body;
+    const { countryCode, whatsapp, telegram, email, sms, smsRates, isGlobal } = req.body;
     const wNum = toNumberOrUndefined(whatsapp);
     const tNum = toNumberOrUndefined(telegram);
+    const eNum = toNumberOrUndefined(email);
     const sNum = toNumberOrUndefined(sms);
     const clearSms = sms === null || req.body.sms === '';
     const isAll = Boolean(isGlobal) || !countryCode || String(countryCode).toUpperCase() === 'ALL';
@@ -47,6 +49,7 @@ router.post(
         const updateData = {};
         if (wNum !== undefined) updateData.whatsapp = wNum;
         if (tNum !== undefined) updateData.telegram = tNum;
+        if (eNum !== undefined) updateData.email = eNum;
 
         if (isAll) {
           if (Object.keys(updateData).length > 0) await RateModel.updateMany({}, { $set: updateData });
@@ -70,6 +73,12 @@ router.post(
             .catch(e => console.warn('Could not sync WhatsApp gateway rate:', e.message));
         }
 
+        // Keep the Email gateway's displayed rate in step with the carrier table
+        if (eNum !== undefined) {
+          await EmailConfigModel.updateMany({}, { $set: { ratePerOtp: eNum.toFixed(4) } })
+            .catch(e => console.warn('Could not sync Email gateway rate:', e.message));
+        }
+
         const updatedRates = await RateModel.find().lean();
         if (updatedRates.length > 0) setGlobalRates(updatedRates);
         return res.json({ success: true, message: 'Carrier rates saved.', rates: getGlobalRates() });
@@ -82,6 +91,7 @@ router.post(
         if (applies) {
           if (wNum !== undefined) item.whatsapp = wNum;
           if (tNum !== undefined) item.telegram = tNum;
+          if (eNum !== undefined) item.email = eNum;
         }
         if (isAll && smsRates && typeof smsRates === 'object' && r.code in smsRates) {
           const parsed = toNumberOrUndefined(smsRates[r.code]);

@@ -17,6 +17,7 @@ async function getEmailConfig() {
     fromEmail: dbConfig?.fromEmail || DEFAULT_EMAIL_FROM,
     replyTo: dbConfig?.replyTo || '',
     brandName: dbConfig?.brandName || 'OTP88',
+    logoUrl: dbConfig?.logoUrl || '',
     status: dbConfig?.status || 'ACTIVE',
     ratePerOtp: dbConfig?.ratePerOtp,
     raw: dbConfig
@@ -27,7 +28,7 @@ async function getEmailConfig() {
  * Sends an OTP email through Resend using the tenant's branded sender.
  * Returns { success, ref, raw, error, latencyMs, fromUsed, subject }.
  */
-async function sendEmail({ to, otpCode, subject, brandName, brandHandle, replyTo, explicitFrom, expiryMinutes }) {
+async function sendEmail({ to, otpCode, subject, brandName, brandHandle, replyTo, explicitFrom, expiryMinutes, logoUrl }) {
   const cfg = await getEmailConfig();
 
   if (cfg.status !== 'ACTIVE') {
@@ -51,7 +52,8 @@ async function sendEmail({ to, otpCode, subject, brandName, brandHandle, replyTo
     expiryMinutes,
     apiKey: cfg.apiKey,
     fromEmail: from,
-    replyTo: replyTo || cfg.replyTo || undefined
+    replyTo: replyTo || cfg.replyTo || undefined,
+    logoUrl: logoUrl || cfg.logoUrl || undefined
   });
 
   return {

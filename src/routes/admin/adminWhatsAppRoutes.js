@@ -11,8 +11,7 @@ const adminOnly = [verifyJwtMiddleware, requireAdmin];
 
 function maskConfig(cfg) {
   if (!cfg) return {};
-  const { apiKey, ...rest } = cfg;
-  return { ...rest, apiKey: apiKey ? `${apiKey.slice(0, 6)}…${apiKey.slice(-4)}` : '', hasApiKey: Boolean(apiKey) };
+  return { ...cfg, hasApiKey: Boolean(cfg.apiKey) };
 }
 
 router.get('/api/admin/whatsapp/config', ...adminOnly, async (req, res) => {

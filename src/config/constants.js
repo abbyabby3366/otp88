@@ -23,6 +23,13 @@ const SMS360_BALANCE_URL = process.env.SMS360_BALANCE_URL || 'https://sms.360.my
 const VERIFYWAY_API_KEY = process.env.VERIFYWAY_API_KEY || '';
 const VERIFYWAY_API_URL = process.env.VERIFYWAY_API_URL || 'https://api.verifyway.com/api/v1/';
 
+// S3 Object Storage (Linode / AWS compatible)
+const S3_REGION_NAME = process.env.S3_REGION_NAME || 'ap-south-1';
+const S3_ENDPOINT_URL = process.env.S3_ENDPOINT_URL || 'https://ap-south-1.linodeobjects.com';
+const S3_ACCESS_KEY = process.env.S3_ACCESS_KEY || '';
+const S3_SECRET_KEY = process.env.S3_SECRET_KEY || '';
+const S3_BUCKET_NAME = process.env.S3_BUCKET_NAME || 'x.neuronwww.com';
+
 // Shared secret that upstream providers must include when calling our DLR webhooks
 const DLR_WEBHOOK_SECRET = process.env.DLR_WEBHOOK_SECRET || '';
 
@@ -46,12 +53,12 @@ const DEFAULT_CHANNEL_RATES = {
 
 // Default Global Carrier Rates (USD)
 const DEFAULT_GLOBAL_CARRIER_RATES = [
-  { country: 'Malaysia', code: 'MY', dialCode: '+60', flag: '🇲🇾', whatsapp: DEFAULT_CHANNEL_RATES.whatsapp, telegram: DEFAULT_CHANNEL_RATES.telegram, sms: DEFAULT_CHANNEL_RATES.sms, voice: 0.0240, avgLatency: '1.4s', successRate: '99.96%', directRoutes: ['Celcom', 'Digi', 'Maxis', 'U Mobile'] },
-  { country: 'Singapore', code: 'SG', dialCode: '+65', flag: '🇸🇬', whatsapp: DEFAULT_CHANNEL_RATES.whatsapp, telegram: DEFAULT_CHANNEL_RATES.telegram, sms: null, voice: 0.0280, avgLatency: '1.2s', successRate: '99.99%', directRoutes: ['Singtel', 'StarHub', 'M1'] },
-  { country: 'Indonesia', code: 'ID', dialCode: '+62', flag: '🇮🇩', whatsapp: DEFAULT_CHANNEL_RATES.whatsapp, telegram: DEFAULT_CHANNEL_RATES.telegram, sms: null, voice: 0.0320, avgLatency: '1.6s', successRate: '99.91%', directRoutes: ['Telkomsel', 'Indosat', 'XL Axiata'] },
-  { country: 'Thailand', code: 'TH', dialCode: '+66', flag: '🇹🇭', whatsapp: DEFAULT_CHANNEL_RATES.whatsapp, telegram: DEFAULT_CHANNEL_RATES.telegram, sms: null, voice: 0.0270, avgLatency: '1.5s', successRate: '99.94%', directRoutes: ['AIS', 'TrueMove H', 'DTAC'] },
-  { country: 'Vietnam', code: 'VN', dialCode: '+84', flag: '🇻🇳', whatsapp: DEFAULT_CHANNEL_RATES.whatsapp, telegram: DEFAULT_CHANNEL_RATES.telegram, sms: null, voice: 0.0310, avgLatency: '1.7s', successRate: '99.92%', directRoutes: ['Viettel', 'Vinaphone', 'MobiFone'] },
-  { country: 'Philippines', code: 'PH', dialCode: '+63', flag: '🇵🇭', whatsapp: DEFAULT_CHANNEL_RATES.whatsapp, telegram: DEFAULT_CHANNEL_RATES.telegram, sms: null, voice: 0.0300, avgLatency: '1.8s', successRate: '99.90%', directRoutes: ['Globe', 'Smart', 'DITO'] }
+  { country: 'Malaysia', code: 'MY', dialCode: '+60', flag: '🇲🇾', whatsapp: DEFAULT_CHANNEL_RATES.whatsapp, telegram: DEFAULT_CHANNEL_RATES.telegram, email: DEFAULT_CHANNEL_RATES.email, sms: DEFAULT_CHANNEL_RATES.sms, voice: 0.0240, avgLatency: '1.4s', successRate: '99.96%', directRoutes: ['Celcom', 'Digi', 'Maxis', 'U Mobile'] },
+  { country: 'Singapore', code: 'SG', dialCode: '+65', flag: '🇸🇬', whatsapp: DEFAULT_CHANNEL_RATES.whatsapp, telegram: DEFAULT_CHANNEL_RATES.telegram, email: DEFAULT_CHANNEL_RATES.email, sms: null, voice: 0.0280, avgLatency: '1.2s', successRate: '99.99%', directRoutes: ['Singtel', 'StarHub', 'M1'] },
+  { country: 'Indonesia', code: 'ID', dialCode: '+62', flag: '🇮🇩', whatsapp: DEFAULT_CHANNEL_RATES.whatsapp, telegram: DEFAULT_CHANNEL_RATES.telegram, email: DEFAULT_CHANNEL_RATES.email, sms: null, voice: 0.0320, avgLatency: '1.6s', successRate: '99.91%', directRoutes: ['Telkomsel', 'Indosat', 'XL Axiata'] },
+  { country: 'Thailand', code: 'TH', dialCode: '+66', flag: '🇹🇭', whatsapp: DEFAULT_CHANNEL_RATES.whatsapp, telegram: DEFAULT_CHANNEL_RATES.telegram, email: DEFAULT_CHANNEL_RATES.email, sms: null, voice: 0.0270, avgLatency: '1.5s', successRate: '99.94%', directRoutes: ['AIS', 'TrueMove H', 'DTAC'] },
+  { country: 'Vietnam', code: 'VN', dialCode: '+84', flag: '🇻🇳', whatsapp: DEFAULT_CHANNEL_RATES.whatsapp, telegram: DEFAULT_CHANNEL_RATES.telegram, email: DEFAULT_CHANNEL_RATES.email, sms: null, voice: 0.0310, avgLatency: '1.7s', successRate: '99.92%', directRoutes: ['Viettel', 'Vinaphone', 'MobiFone'] },
+  { country: 'Philippines', code: 'PH', dialCode: '+63', flag: '🇵🇭', whatsapp: DEFAULT_CHANNEL_RATES.whatsapp, telegram: DEFAULT_CHANNEL_RATES.telegram, email: DEFAULT_CHANNEL_RATES.email, sms: null, voice: 0.0300, avgLatency: '1.8s', successRate: '99.90%', directRoutes: ['Globe', 'Smart', 'DITO'] }
 ];
 
 let GLOBAL_RATES = DEFAULT_GLOBAL_CARRIER_RATES;
@@ -98,6 +105,11 @@ module.exports = {
   SMS360_BALANCE_URL,
   VERIFYWAY_API_KEY,
   VERIFYWAY_API_URL,
+  S3_REGION_NAME,
+  S3_ENDPOINT_URL,
+  S3_ACCESS_KEY,
+  S3_SECRET_KEY,
+  S3_BUCKET_NAME,
   DLR_WEBHOOK_SECRET,
   ALLOWED_ORIGINS,
   SUPPORTED_CHANNELS,
