@@ -258,6 +258,9 @@
                   </table>
                 </div>
                 <p style="font-size:12px;color:var(--text-muted);margin-top:10px;">
+                  For email-specific branding parameters (<code>brandName</code>, <code>brandHandle</code>, <code>logoUrl</code>, <code>replyTo</code>, <code>subject</code>), see the <a href="#email-otp" style="color:var(--text-cyan);text-decoration:underline;">Email OTP section</a> below.
+                </p>
+                <p style="font-size:12px;color:var(--text-muted);margin-top:6px;">
                   Older integrations may still send <code>phoneNumber</code>, <code>email</code>, <code>code</code>, <code>sender_name</code> or <code>expiry_minutes</code>; these aliases keep working but the names above are preferred.
                 </p>
               </div>
@@ -303,6 +306,7 @@
                   <tbody>
                     <tr><td><code>brandName</code></td><td>string</td><td>No</td><td>Display name of the sender, e.g. <code>MyApp</code>. Also used in the default subject and the email body. Falls back to the brand saved in the console.</td></tr>
                     <tr><td><code>brandHandle</code></td><td>string</td><td>No</td><td>Mailbox on the platform domain. <code>myapp</code> sends as <code>MyApp &lt;myapp@otp88.top&gt;</code>. Letters, numbers, hyphens and underscores, 2 to 32 characters. Falls back to the handle saved in the console, then <code>noreply</code>.</td></tr>
+                    <tr><td><code>logoUrl</code></td><td>string</td><td>No</td><td>Direct image URL for your brand logo (PNG/JPEG/SVG). Displays in the email header. Can also be uploaded globally in the console.</td></tr>
                     <tr><td><code>replyTo</code></td><td>string</td><td>No</td><td>Address that receives replies, e.g. your support mailbox.</td></tr>
                     <tr><td><code>subject</code></td><td>string</td><td>No</td><td>Custom subject line. Default: <code>&lt;brandName&gt; verification code: &lt;otp&gt;</code>.</td></tr>
                   </tbody>
@@ -322,6 +326,8 @@
   "channel": "email",
   "brandName": "MyApp",
   "brandHandle": "myapp",
+  "logoUrl": "https://example.com/logo.png",
+  "subject": "MyApp Verification Code: 882910",
   "replyTo": "support@myapp.com",
   "otp": "882910",
   "expiryMinutes": 5,
@@ -341,10 +347,13 @@
   "otpCode": "882910",
   "expiryMinutes": 5,
   "from": "MyApp &lt;myapp@otp88.top&gt;",
-  "subject": "MyApp verification code: 882910",
+  "subject": "MyApp Verification Code: 882910",
+  "messageText": "Your MyApp verification code is 882910. Valid for 5 minutes.",
+  "remark": "login-4028",
   "status": "SENT",
   "latency": "0.61s",
   "cost": "$0.0020",
+  "deducted": 0.002,
   "newBalance": 49.998
 }</pre></div>
               </div>

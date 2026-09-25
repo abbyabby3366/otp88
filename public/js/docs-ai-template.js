@@ -34,10 +34,11 @@ Sends one OTP. The balance is charged only when the provider accepts the message
 | \`remark\` | string | no | Free-text reference (order id, session id). Stored with the log and echoed in webhooks. |
 | \`brandName\` | string | email | Display name of the email sender. Falls back to the brand saved in the console. |
 | \`brandHandle\` | string | email | Mailbox on the platform domain, e.g. \`myapp\` becomes \`myapp@otp88.top\`. Falls back to the handle saved in the console, then \`noreply\`. |
+| \`logoUrl\` | string | email | Direct image URL for your brand logo (PNG/JPEG/SVG). Rendered at the top of the email template. |
 | \`replyTo\` | string | email | Reply-To address for the email. |
-| \`subject\` | string | email | Custom subject. Default: \`<brandName> verification code: <otp>\`. |
+| \`subject\` | string | email | Custom subject line. Default: \`<brandName> verification code: <otp>\`. |
 
-Aliases still accepted for older integrations: \`phoneNumber\`, \`phone\`, \`email\`, \`recipient\` (for \`to\`); \`otpCode\`, \`code\` (for \`otp\`); \`sender_name\`, \`senderId\` (for \`senderName\`); \`expiry_minutes\`, \`expirySeconds\` (for \`expiryMinutes\`); \`brand_name\`, \`brand_handle\`, \`reply_to\`.
+Aliases still accepted for older integrations: \`phoneNumber\`, \`phone\`, \`email\`, \`recipient\` (for \`to\`); \`otpCode\`, \`code\` (for \`otp\`); \`sender_name\`, \`senderId\` (for \`senderName\`); \`expiry_minutes\`, \`expirySeconds\` (for \`expiryMinutes\`); \`brand_name\`, \`brand_handle\`, \`reply_to\`; \`logo_url\`, \`brandLogoUrl\`, \`brand_logo_url\` (for \`logoUrl\`).
 
 ### Example request (SMS)
 \`\`\`json
@@ -58,9 +59,12 @@ Aliases still accepted for older integrations: \`phoneNumber\`, \`phone\`, \`ema
   "channel": "email",
   "brandName": "MyApp",
   "brandHandle": "myapp",
+  "logoUrl": "https://example.com/logo.png",
+  "subject": "MyApp Verification Code: 882910",
   "replyTo": "support@myapp.com",
   "otp": "882910",
-  "expiryMinutes": 5
+  "expiryMinutes": 5,
+  "remark": "login-4028"
 }
 \`\`\`
 

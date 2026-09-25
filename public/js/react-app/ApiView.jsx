@@ -113,9 +113,14 @@ function ApiView({ t, session, setSession, jwtToken, copyToClipboard, showToast 
       origin: currentOrigin,
       apiKey,
       channel: selectedChannel,
-      lang: selectedLang
+      lang: selectedLang,
+      customSender: {
+        brandName: (brandName || '').trim() || undefined,
+        brandHandle: cleanHandle || undefined,
+        replyTo: (replyTo || '').trim() || undefined
+      }
     });
-  }, [currentOrigin, apiKey, selectedChannel, selectedLang]);
+  }, [currentOrigin, apiKey, selectedChannel, selectedLang, brandName, cleanHandle, replyTo]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -352,8 +357,15 @@ function ApiView({ t, session, setSession, jwtToken, copyToClipboard, showToast 
             </div>
 
             {/* Code View */}
-            <div style={{ padding: '8px 12px', fontSize: '11px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-              The response includes <code>otpCode</code>. Store it with the user's session and compare it with the code they enter; there is no separate verify call.
+            <div style={{ padding: '8px 12px', fontSize: '11px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div>
+                The response includes <code>otpCode</code>. Store it with the user's session and compare it with the code they enter; there is no separate verify call.
+              </div>
+              {selectedChannel === 'email' && (
+                <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)' }}>
+                  Email parameters: <code>logoUrl</code> (brand header image), <code>subject</code> (custom email title), <code>brandName</code>, <code>brandHandle</code> (sub-alias), <code>replyTo</code>.
+                </div>
+              )}
             </div>
             <div style={{ padding: '12px', background: '#0F172A' }}>
               <pre style={{ margin: 0, color: '#38BDF8', fontFamily: 'var(--font-code)', fontSize: '11px', lineHeight: 1.5, overflowX: 'auto' }}>

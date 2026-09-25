@@ -6,6 +6,7 @@ export const SAMPLE_PAYLOADS = {
     to: '+60123456789',
     channel: 'whatsapp',
     otp: '882910',
+    expiryMinutes: 5,
     remark: 'login-4028'
   },
   sms: {
@@ -21,6 +22,8 @@ export const SAMPLE_PAYLOADS = {
     channel: 'email',
     brandName: 'MyApp',
     brandHandle: 'myapp',
+    logoUrl: 'https://example.com/logo.png',
+    subject: 'MyApp Verification Code: 882910',
     replyTo: 'support@myapp.com',
     otp: '882910',
     expiryMinutes: 5,
@@ -28,15 +31,35 @@ export const SAMPLE_PAYLOADS = {
   }
 };
 
-export function getSendPayload(channel, phone) {
+export function getSendPayload(channel, phone, customSender = {}) {
   const base = SAMPLE_PAYLOADS[channel] || SAMPLE_PAYLOADS.whatsapp;
-  if (channel !== 'email' && phone) return { ...base, to: phone };
-  return { ...base };
+  const payload = { ...base };
+  if (channel !== 'email' && phone) {
+    payload.to = phone;
+  }
+  if (channel === 'email' && customSender) {
+    if (customSender.brandName) {
+      payload.brandName = customSender.brandName;
+      if (!payload.subject || payload.subject.startsWith('MyApp')) {
+        payload.subject = `${customSender.brandName} Verification Code: ${payload.otp || '882910'}`;
+      }
+    }
+    if (customSender.brandHandle) {
+      payload.brandHandle = customSender.brandHandle;
+    }
+    if (customSender.replyTo) {
+      payload.replyTo = customSender.replyTo;
+    }
+    if (customSender.logoUrl) {
+      payload.logoUrl = customSender.logoUrl;
+    }
+  }
+  return payload;
 }
 
-export function getCodeSnippet({ origin, apiKey, channel, lang, phone = '+60123456789' }) {
+export function getCodeSnippet({ origin, apiKey, channel, lang, phone = '+60123456789', customSender = {} }) {
   const url = `${origin}/v1/otp/send`;
-  const payloadObj = getSendPayload(channel, phone);
+  const payloadObj = getSendPayload(channel, phone, customSender);
   const jsonStr = JSON.stringify(payloadObj, null, 2);
 
   if (lang === 'curl') {
@@ -84,12 +107,19 @@ print(data["transactionId"], data["otpCode"], data["status"])`;
   }
 
   if (lang === 'php') {
+    const phpFields = Object.entries(payloadObj)
+      .map(([k, v]) => `    '${k}' => ${typeof v === 'string' ? `'${v}'` : v}`)
+      .join(',\n');
     return `<?php
 // PHP 8 (cURL)
+$payload = [
+${phpFields}
+];
+
 $ch = curl_init('${url}');
 curl_setopt_array($ch, [
     CURLOPT_POST => true,
-    CURLOPT_POSTFIELDS => json_encode(${JSON.stringify(payloadObj, null, 4).split('\n').join('\n    ')}),
+    CURLOPT_POSTFIELDS => json_encode($payload),
     CURLOPT_HTTPHEADER => [
         'Authorization: Bearer ${apiKey}',
         'Content-Type: application/json'
@@ -104,7 +134,7 @@ if (!$data['success']) {
     throw new RuntimeException($data['error']);
 }
 // Store $data['otpCode'] against the user's session, then compare it with what they type in.
-echo $data['transactionId'], ' ', $data['status'];`;
+echo $data['transactionId'], ' ', $data['otpCode'], ' ', $data['status'];`;
   }
 
   if (lang === 'go') {

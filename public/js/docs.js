@@ -33,9 +33,20 @@ function hasRealApiKey() {
 
 // --- Sample payloads (canonical camelCase field names) ---
 const SAMPLE_PAYLOADS = {
-  whatsapp: { to: '+60123456789', channel: 'whatsapp', otp: '882910', remark: 'login-4028' },
+  whatsapp: { to: '+60123456789', channel: 'whatsapp', otp: '882910', expiryMinutes: 5, remark: 'login-4028' },
   sms: { to: '+60123456789', channel: 'sms', senderName: 'MyApp', otp: '882910', expiryMinutes: 5, remark: 'login-4028' },
-  email: { to: 'user@example.com', channel: 'email', brandName: 'MyApp', brandHandle: 'myapp', replyTo: 'support@myapp.com', otp: '882910', expiryMinutes: 5, remark: 'login-4028' }
+  email: {
+    to: 'user@example.com',
+    channel: 'email',
+    brandName: 'MyApp',
+    brandHandle: 'myapp',
+    logoUrl: 'https://example.com/logo.png',
+    subject: 'MyApp Verification Code: 882910',
+    replyTo: 'support@myapp.com',
+    otp: '882910',
+    expiryMinutes: 5,
+    remark: 'login-4028'
+  }
 };
 
 function generateSendSnippet(lang = 'curl', channel = 'whatsapp') {
@@ -123,11 +134,18 @@ ${fields}
   }
 
   if (lang === 'php') {
+    const phpEntries = Object.entries(payload)
+      .map(([k, v]) => `    '${k}' => ${typeof v === 'string' ? `'${v}'` : v}`)
+      .join(',\n');
     return `<?php
+$payload = [
+${phpEntries}
+];
+
 $ch = curl_init('${url}');
 curl_setopt_array($ch, [
     CURLOPT_POST => true,
-    CURLOPT_POSTFIELDS => json_encode(${JSON.stringify(payload, null, 4).split('\n').join('\n    ')}),
+    CURLOPT_POSTFIELDS => json_encode($payload),
     CURLOPT_HTTPHEADER => [
         'Authorization: Bearer ${apiKey}',
         'Content-Type: application/json'
